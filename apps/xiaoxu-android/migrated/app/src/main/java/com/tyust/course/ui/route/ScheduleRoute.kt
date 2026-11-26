@@ -795,26 +795,30 @@ fun ScheduleRoute(isActive: Boolean = true) {
             onEdit = { editingId = course.customId },
             onConfigureTime = { settingsTermOverride = detailTerm; showSettingsDialog = true },
             onDelete = {
-                deletedCourseJson = ReminderJson.course(course.record()).toString()
-                deletedRemindersJson = reminderScheduler.encodeUndo(reminderScheduler.removeCourse(routeAccountKey, course.id))
-                undoDeadline = System.currentTimeMillis() + 5000L
-                if (isXiaoxuLocalMode && course.customId.isNotBlank()) {
-                    runCatching {
+                val deleteResult = runCatching {
+                    if (isXiaoxuLocalMode && course.customId.isNotBlank()) {
                         val current = LocalScheduleStore.load(context)
                         val updated = LocalScheduleEditor.delete(current, course.customId)
                         LocalScheduleStore.saveEdited(context, updated)
                         localScheduleRevision++
                         courses = reloadCustomCourses(courses)
                         hasLocalSchedule = updated.isNotEmpty()
-                        reminderScheduler.updateSnapshot(routeAccountKey, resolvedTermId, courses.map { it.record() })
-                    }.onFailure { GlassToaster.show(it.message ?: "删除课程失败") }
-                } else {
-                    settingsManager.removeCustomCourse(course.customId, routeAccountKey)
+                    } else {
+                        settingsManager.removeCustomCourse(course.customId, routeAccountKey)
+                    }
+                    val undoJson = reminderScheduler.encodeUndo(reminderScheduler.removeCourse(routeAccountKey, course.id))
+                    reminderScheduler.updateSnapshot(routeAccountKey, resolvedTermId, courses.map { it.record() })
+                    undoJson
                 }
-                detailId = null
-                detailSourceBounds = null
-                notificationCourseJson = null
-                focusRegistry.restore(course.id)
+                deleteResult.onSuccess { undoJson ->
+                    deletedCourseJson = ReminderJson.course(course.record()).toString()
+                    deletedRemindersJson = undoJson
+                    undoDeadline = System.currentTimeMillis() + 5000L
+                    detailId = null
+                    detailSourceBounds = null
+                    notificationCourseJson = null
+                    focusRegistry.restore(course.id)
+                }.onFailure { GlassToaster.show(it.message ?: "删除课程失败") }
             })
     }
     // 课表里点自习那条，就地打开同一个编辑面板。
@@ -841,8 +845,8 @@ fun ScheduleRoute(isActive: Boolean = true) {
         com.tyust.course.ui.system.GlassSubpage(onDismiss = { editingId = null }) { close ->
             com.tyust.course.ui.screen.ScheduleCourseEditor(initial, courses, periodCount,
                 isNew = customCourses.none { it.id == id }, onClose = close, onSave = { saved ->
-                    if (isXiaoxuLocalMode) {
-                        val saveResult = runCatching {
+                    val saveResult = runCatching {
+                        if (isXiaoxuLocalMode) {
                             val current = LocalScheduleStore.load(context)
                             val existing = current.singleOrNull { it.id == id }
                             val replacement = XiaoxuLocalScheduleAdapter.fromEditor(saved, existing, resolvedTermId)
@@ -852,20 +856,18 @@ fun ScheduleRoute(isActive: Boolean = true) {
                             courses = reloadCustomCourses(courses)
                             hasLocalSchedule = updated.isNotEmpty()
                             reminderScheduler.updateSnapshot(routeAccountKey, resolvedTermId, courses.map { it.record() })
+                        } else {
+                            settingsManager.updateCustomCourse(saved, routeAccountKey)
+                            reminderScheduler.updateCustomCourse(routeAccountKey, ScheduleCourseRecord("custom:${saved.id}", saved.name,
+                                saved.teacher, saved.location, saved.day, saved.startPeriod, saved.endPeriod, saved.weeks, true))
                         }
-                        if (saveResult.isFailure) {
-                            GlassToaster.show(saveResult.exceptionOrNull()?.message ?: "保存课程失败")
-                            return@ScheduleCourseEditor
+                    }
+                    saveResult.onSuccess {
+                        notificationCourse?.key?.storageId?.let { reminderScheduler.findById(it) }?.let {
+                            notificationCourseJson = ReminderJson.reminder(it).toString()
                         }
-                    } else {
-                        settingsManager.updateCustomCourse(saved, routeAccountKey)
-                        reminderScheduler.updateCustomCourse(routeAccountKey, ScheduleCourseRecord("custom:${saved.id}", saved.name,
-                            saved.teacher, saved.location, saved.day, saved.startPeriod, saved.endPeriod, saved.weeks, true))
-                    }
-                    notificationCourse?.key?.storageId?.let { reminderScheduler.findById(it) }?.let {
-                        notificationCourseJson = ReminderJson.reminder(it).toString()
-                    }
-                    close()
+                        close()
+                    }.onFailure { GlassToaster.show(it.message ?: "保存课程失败") }
                 })
         }
     }
