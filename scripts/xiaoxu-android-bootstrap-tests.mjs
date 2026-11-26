@@ -1768,3 +1768,10 @@ assert.match(rebuildShell, /if \(consumed\.y != 0f\) lensFreshness\?\.onScroll\(
 assert.match(rebuildShell, /lensFreshness = lensFreshness/);
 assert.match(windowHost, /freshness = LocalPageGlassFreshness\.current/);
 assert.match(navDock, /modifier = modifier, lensFreshness = lensFreshness/);
+
+// Upstream MainActivity chrome must be drawn outside of the page capture.
+assert.match(windowHost, /layerBackdrop\(page\)[\s\S]*?\{ content\(\) \}[\s\S]*?\{ chrome\(\) \}[\s\S]*?DialogHost\(dialogs\)/);
+assert.match(rebuildShell, /GlassWindowHost\(\s*chrome = \{[\s\S]*?if \(phoneDock\) RebuildCapsuleDock\(/);
+assert.match(rebuildShell, /val navBarBackdrop = com\.tyust\.course\.ui\.system\.LocalModalBackdrop\.current/);
+assert.match(rebuildShell, /backdrop = navBarBackdrop/);
+assert.doesNotMatch(rebuildShell, /backdrop = wallpaperBackdrop/);

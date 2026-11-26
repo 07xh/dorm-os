@@ -169,92 +169,94 @@ internal fun NativeShell(
     val accountKey = if (data.cloud.authenticated) "cloud:" + data.cloud.ownerId.orEmpty() else "local"
     val pageData = remember(accountKey) { PageDataState() }
     DisposableEffect(pageData) { onDispose { pageData.close() } }
-    // Upstream MainActivity: API 31/32 reuses one throttled page-lens freshness state.
+    // MainActivity.kt upstream: one scroll state, one capture, chrome outside that capture.
     val lensFreshness = remember { if (isGlassLensApplicable()) GlassLensFreshness() else null }
+    val density = LocalDensity.current
+    val autoCollapse = com.tyust.course.manager.AppearanceSettingsManager.navBarAutoCollapseEnabled &&
+        !reducedMotion
+    var minimized by remember { mutableStateOf(false) }
+    val intent = remember { NavScrollIntent() }
+    LaunchedEffect(route, autoCollapse) { minimized = false; intent.reset() }
     CompositionLocalProvider(LocalPageGlassFreshness provides lensFreshness) {
-    GlassWindowHost {
-        CompositionLocalProvider(LocalPageDataState provides pageData) {
-            val dialogs = LocalDialogHost.current
-            val density = LocalDensity.current
-            val autoCollapse = com.tyust.course.manager.AppearanceSettingsManager.navBarAutoCollapseEnabled &&
-                !reducedMotion
-            var minimized by remember { mutableStateOf(false) }
-            val intent = remember { NavScrollIntent() }
-            val scroll = remember(density, dialogs, autoCollapse, lensFreshness) {
-                object : NestedScrollConnection {
-                    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                        if (autoCollapse && source == NestedScrollSource.UserInput && dialogs?.hasBlockingSurface != true) {
-                            if (consumed.y == 0f && available.y > 0f) {
-                                minimized = false
-                                intent.reset()
-                            } else if (kotlin.math.abs(consumed.y) > kotlin.math.abs(consumed.x)) {
-                                intent.scroll(consumed.y / density.density)?.let { minimized = it }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = maxWidth >= 700.dp
+            val showPrimary = route.parent == null
+            val phoneDock = !wide && showPrimary
+            val navBarContentInset = if (phoneDock) NavBarMetrics.contentInset() else 0.dp
+            CompositionLocalProvider(LocalAppOverlayBottomInset provides navBarContentInset,
+                LocalPageDataState provides pageData) {
+                GlassWindowHost(
+                    chrome = {
+                        val tier = rememberNavigationMaterialTier()
+                        val navBarBackdrop = com.tyust.course.ui.system.LocalModalBackdrop.current
+                        if (phoneDock) RebuildCapsuleDock(
+                            selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
+                            tier = if (navBarBackdrop != null) tier else NavigationMaterialTier.Opaque,
+                            backdrop = navBarBackdrop,
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                                .imePadding(),
+                            minimized = autoCollapse && minimized,
+                            onExpandRequest = { minimized = false; intent.reset() },
+                            lensFreshness = lensFreshness
+                        )
+                    }
+                ) {
+                    val dialogs = LocalDialogHost.current
+                    val scroll = remember(density, dialogs, autoCollapse, lensFreshness) {
+                        object : NestedScrollConnection {
+                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                                if (autoCollapse && source == NestedScrollSource.UserInput && dialogs?.hasBlockingSurface != true) {
+                                    if (consumed.y == 0f && available.y > 0f) {
+                                        minimized = false
+                                        intent.reset()
+                                    } else if (kotlin.math.abs(consumed.y) > kotlin.math.abs(consumed.x)) {
+                                        intent.scroll(consumed.y / density.density)?.let { minimized = it }
+                                    }
+                                }
+                                // Upstream: refresh during inertial scrolling too.
+                                if (consumed.y != 0f) lensFreshness?.onScroll()
+                                return Offset.Zero
                             }
                         }
-                        // Same as upstream MainActivity: include inertial scrolling.
-                        if (consumed.y != 0f) lensFreshness?.onScroll()
-                        return Offset.Zero
                     }
-                }
-            }
-            LaunchedEffect(route, autoCollapse) { minimized = false; intent.reset() }
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                val wide = maxWidth >= 700.dp
-                val showPrimary = route.parent == null
-                val phoneDock = !wide && showPrimary
-                // Upstream MainActivity supplies this value to the individual pages.
-                val navBarContentInset = if (phoneDock) NavBarMetrics.contentInset() else 0.dp
-                CompositionLocalProvider(LocalAppOverlayBottomInset provides navBarContentInset) {
-                Row(Modifier.fillMaxSize().then(
-                    if (phoneDock) Modifier.windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                    ).imePadding()
-                    else Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
-                )) {
-                    if (wide) NavigationRail {
-                        MainDestination.entries.forEach { dest ->
-                            NavigationRailItem(selected = route.primary == dest,
-                                onClick = { goTo(AppRoute.root(dest)) },
-                                icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
+                    // Wide-screen rail is the existing business layout adaptation.
+                    Row(Modifier.fillMaxSize().then(
+                        if (phoneDock) Modifier.windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                        ).imePadding()
+                        else Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                    )) {
+                        if (wide) NavigationRail {
+                            MainDestination.entries.forEach { dest ->
+                                NavigationRailItem(selected = route.primary == dest,
+                                    onClick = { goTo(AppRoute.root(dest)) },
+                                    icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
+                            }
                         }
-                    }
-                    Box(Modifier.weight(1f).fillMaxHeight()) {
-                        val tier = rememberNavigationMaterialTier()
-                        val wallpaperBackdrop = com.tyust.course.ui.system.LocalAppBackdrop.current
-                        key(accountKey) {
-                            val savedPages = rememberSaveableStateHolder()
-                            NavigationPages(navigationMotion,
-                                modifier = Modifier.fillMaxSize()
-                                    .nestedScroll(scroll)) { index ->
-                                val pageRoute = AppRoute.entries[index]
-                                val routeKey = "app." + pageRoute.name.lowercase()
-                                savedPages.SaveableStateProvider(pageRoute.name) {
-                                    // The workspace already owns the data. Mount immediately rather than
-                                    // gating a cached page on a second asynchronous preparation/animation.
-                                    val active = pageRoute == route
-                                    CompositionLocalProvider(LocalLoadingRoute provides routeKey, LocalLoadingActive provides active) {
-                                        AppFeaturePage(pageRoute, data, actions,
-                                            if (active) inboxTaskId ?: reminderTaskId else null,
-                                            { if (active) { inboxTaskId = null; onReminderTaskConsumed() } },
-                                            if (active) inboxLessonId ?: reminderLessonId else null,
-                                            { if (active) { inboxLessonId = null; onReminderCourseConsumed() } },
-                                            back = if (active && (pageRoute.parent != null || routeTrail.isNotEmpty())) ::goBack else null)
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            key(accountKey) {
+                                val savedPages = rememberSaveableStateHolder()
+                                NavigationPages(navigationMotion, modifier = Modifier.fillMaxSize().nestedScroll(scroll)) { index ->
+                                    val pageRoute = AppRoute.entries[index]
+                                    val routeKey = "app." + pageRoute.name.lowercase()
+                                    savedPages.SaveableStateProvider(pageRoute.name) {
+                                        val active = pageRoute == route
+                                        CompositionLocalProvider(LocalLoadingRoute provides routeKey, LocalLoadingActive provides active) {
+                                            AppFeaturePage(pageRoute, data, actions,
+                                                if (active) inboxTaskId ?: reminderTaskId else null,
+                                                { if (active) { inboxTaskId = null; onReminderTaskConsumed() } },
+                                                if (active) inboxLessonId ?: reminderLessonId else null,
+                                                { if (active) { inboxLessonId = null; onReminderCourseConsumed() } },
+                                                back = if (active && (pageRoute.parent != null || routeTrail.isNotEmpty())) ::goBack else null)
+                                        }
                                     }
                                 }
                             }
                         }
-                        if (phoneDock) RebuildCapsuleDock(
-                            selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
-                            tier = if (wallpaperBackdrop != null) tier else NavigationMaterialTier.Opaque,
-                            backdrop = wallpaperBackdrop, modifier = Modifier.align(Alignment.BottomCenter),
-                            minimized = autoCollapse && minimized, onExpandRequest = { minimized = false; intent.reset() },
-                            lensFreshness = lensFreshness
-                        )
                     }
-                }
                 }
             }
         }
-    }
     }
 }

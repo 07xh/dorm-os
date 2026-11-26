@@ -30,11 +30,15 @@ private val LocalGlassWindowOwner = staticCompositionLocalOf<android.view.View?>
 
 /** Each actual window owns its sources; pages inside that window reuse the provided locals. */
 @Composable
-fun GlassWindowHost(modifier: Modifier = Modifier, capturePage: Boolean = true, isolatePage: Boolean = false, content: @Composable BoxScope.() -> Unit) {
+fun GlassWindowHost(
+    modifier: Modifier = Modifier, capturePage: Boolean = true, isolatePage: Boolean = false,
+    chrome: @Composable BoxScope.() -> Unit = {},
+    content: @Composable BoxScope.() -> Unit
+) {
     val view = LocalView.current
     val appWallpaper = com.tyust.course.ui.theme.rememberAppWallpaperStyle()
     if (LocalGlassWindowOwner.current === view && !isolatePage) {
-        Box(modifier.fillMaxSize()) { content() }
+        Box(modifier.fillMaxSize()) { content(); chrome() }
         return
     }
     val wallpaper = if (isBackdropSupported()) rememberLayerBackdrop() else null
@@ -66,6 +70,9 @@ fun GlassWindowHost(modifier: Modifier = Modifier, capturePage: Boolean = true, 
             Box(Modifier.fillMaxSize().glassLensAnchor(controlAnchor).glassLensAnchor(modalAnchor)
                 .then(if (page != null) Modifier.layerBackdrop(page) else Modifier)
                 .then(if (dialogs.hasBlockingSurface) Modifier.semantics { hideFromAccessibility() } else Modifier)) { content() }
+            // MainActivity.kt upstream: the dock is outside the page capture and below dialogs.
+            Box(Modifier.matchParentSize()
+                .then(if (dialogs.hasBlockingSurface) Modifier.semantics { hideFromAccessibility() } else Modifier)) { chrome() }
             DialogHost(dialogs)
         }
     }
