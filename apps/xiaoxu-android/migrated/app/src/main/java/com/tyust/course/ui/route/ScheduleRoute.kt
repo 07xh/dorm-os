@@ -223,24 +223,26 @@ fun ScheduleRoute(isActive: Boolean = true) {
     var editingStudyKind by remember { mutableStateOf<ScheduleStudyKind?>(null) }
     val remindersRevision = reminderScheduler.revision
     val settingsTerm = settingsTermOverride ?: resolvedTermId
-    LaunchedEffect(isXiaoxuLocalMode, localCalendar) {
-        if (isXiaoxuLocalMode && localCalendar != null) {
-            val calendar = localCalendar ?: return@LaunchedEffect
-            if (settingsManager.semesterStartDate <= 0L) {
+    LaunchedEffect(isXiaoxuLocalMode, localCalendar, localScheduleRevision) {
+        if (isXiaoxuLocalMode) {
+            val calendar = localCalendar
+            // Import the old local calendar exactly once. Afterwards the upstream
+            // ScheduleSettingsManager owns edits and persists them in its own store.
+            if (calendar != null && settingsManager.semesterStartDate <= 0L) {
                 settingsManager.semesterStartDate = calendar.firstMonday.atStartOfDay(ZoneId.systemDefault())
                     .toInstant().toEpochMilli()
-            }
-            val configuredTimes = settingsManager.getPeriodTimes(routeAccountKey)
-            if (configuredTimes.none { it.startTime.isNotBlank() || it.endTime.isNotBlank() } && calendar.sectionTimes.isNotEmpty()) {
-                settingsManager.savePeriodTimes(calendar.sectionTimes.toSortedMap().map { (period, time) ->
-                    ScheduleSettingsManager.PeriodTime(period, time.start.toString(), time.end.toString())
-                })
+                if (calendar.sectionTimes.isNotEmpty()) {
+                    settingsManager.savePeriodTimes(calendar.sectionTimes.toSortedMap().map { (period, time) ->
+                        ScheduleSettingsManager.PeriodTime(period, time.start.toString(), time.end.toString())
+                    })
+                }
             }
             val requiredPeriods = maxOf(
                 LocalSemesterConfigStore.loadSections(context),
-                calendar.sectionTimes.keys.maxOrNull() ?: 12
+                LocalScheduleStore.load(context).maxOfOrNull { it.endSection } ?: 12,
+                calendar?.sectionTimes?.keys?.maxOrNull() ?: 1
             ).coerceIn(ScheduleSettingsManager.PERIOD_COUNT_MIN, ScheduleSettingsManager.PERIOD_COUNT_MAX)
-            if (settingsManager.periodCount < requiredPeriods) settingsManager.periodCount = requiredPeriods
+            if (settingsManager.periodCount != requiredPeriods) settingsManager.periodCount = requiredPeriods
         }
     }
     // 早/晚自习与课表共用一份数据，并且按「账号 + 当前浏览的学期」隔离：
@@ -340,7 +342,8 @@ fun ScheduleRoute(isActive: Boolean = true) {
                     LocalSemesterConfigStore.loadSections(context),
                     localLessons.maxOfOrNull { it.endSection } ?: 12
                 ).coerceIn(ScheduleSettingsManager.PERIOD_COUNT_MIN, ScheduleSettingsManager.PERIOD_COUNT_MAX)
-                periodCount = maxOf(settingsManager.periodCount, requiredPeriods)
+                settingsManager.periodCount = requiredPeriods
+                periodCount = requiredPeriods
                 periodTimes = settingsManager.getPeriodTimes(routeAccountKey).map {
                     PeriodTimeUi(it.period, it.startTime, it.endTime)
                 }
