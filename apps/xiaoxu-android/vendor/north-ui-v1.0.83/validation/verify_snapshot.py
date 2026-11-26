@@ -17,6 +17,7 @@ for path, sha in expected.items():
     actual = hashlib.sha1(b'blob ' + str(len(content)).encode() + b'\0' + content).hexdigest()
     assert actual == sha, (path, sha, actual)
 actual_paths = {str(p.relative_to(root)) for p in (root / 'app').rglob('*') if p.is_file()}
+actual_paths.update(str(p.relative_to(root)) for p in (root / 'pending-business-adapters').rglob('*') if p.is_file())
 actual_paths.add('LICENSE')
 assert actual_paths == set(expected), (actual_paths - set(expected), set(expected) - actual_paths)
 print(f'Verified {len(expected)} unchanged upstream files.')

@@ -1,0 +1,60 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/ui/screen/ScheduleSettingsScreen.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/ui/screen/ScheduleSettingsScreen.kt",
+      "blob": "82fb5cf8ed0f8b11e26fbb3f65a2e2b0e7e4b473"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/ui/screen/ScheduleCourseEditor.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/ui/screen/ScheduleCourseEditor.kt",
+      "blob": "bf401202f0c73420bf6ae15fec8782dc20b86e55"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/ui/screen/ScheduleCourseSheet.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/ui/screen/ScheduleCourseSheet.kt",
+      "blob": "9c60b76ebefeb32887af3cbbef15e34808b8d568"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/ui/screen/CourseDetailContent.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/ui/screen/CourseDetailContent.kt",
+      "blob": "620c919587b7dd4add7615202753a47c016cc33a"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/ui/screen/ScheduleWidgetPicker.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/ui/screen/ScheduleWidgetPicker.kt",
+      "blob": "83bd986ce84a87f5152fc9d4fb662eb60a76c81f"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/manager/ScheduleSettingsManager.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/manager/ScheduleSettingsManager.kt",
+      "blob": "739c917eaa4d4676ebafdf12cd58ff33b36e5bb4"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/schedule/ScheduleCalendarStore.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/schedule/ScheduleCalendarStore.kt",
+      "blob": "6ffb1c525da923503c7b7daed17c4c02c3bad491"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/schedule/ScheduleCacheStore.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/schedule/ScheduleCacheStore.kt",
+      "blob": "c1bb17eddc0a23e4893aabaf47e95ea4986fdeb6"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/schedule/ScheduleRepository.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/schedule/ScheduleRepository.kt",
+      "blob": "7dac155f81275d46c3674851dec8f53d72566e04"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/schedule/ScheduleJson.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/schedule/ScheduleJson.kt",
+      "blob": "24d4c58ce1d97b1ca47884231d6cc57a04f7f6d2"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/schedule/ReminderJson.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/schedule/ReminderJson.kt",
+      "blob": "28ef4e2e0aa6739e5b7294e1da335c4f6ec1842c"
+    }
+  ]
+}
