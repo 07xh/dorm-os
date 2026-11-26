@@ -212,6 +212,7 @@ class CloudClient(context: Context) {
     var state by mutableStateOf(CloudUiState())
         private set
     private var sessionEpoch: Long = 0L
+    internal val ownerSessionGeneration: Long get() = sessionEpoch
     // Out-of-order HTTPS results must not overwrite a newer owner snapshot.
     private var privateSnapshotReadId: Long = 0L
     private var secondClassReadId: Long = 0L
