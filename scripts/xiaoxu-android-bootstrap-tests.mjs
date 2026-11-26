@@ -898,9 +898,11 @@ assert.match(statusTabSource, /\.selectableGroup\(\)/,
 assert.doesNotMatch(workspace, /private fun TaskStatusTab\(/,
   '不得恢复独立任务筛选控件');
 // messageUi is loaded before these assertions; messageCenter is declared later.
-const messageSearchSource = messageUi.slice(
-    messageUi.indexOf('private fun MessageSearchField('),
-    messageUi.indexOf('private fun FilterRow('));
+const messageSearchSource = designSystem.slice(
+    designSystem.indexOf('internal fun XiaoxuSearchField('),
+    designSystem.indexOf('data class XiaoxuSegmentOption'));
+assert.match(messageUi, /XiaoxuSearchField\(/, '消息搜索复用公共控件');
+assert.match(workspace, /XiaoxuSearchField\(/, '任务搜索复用公共控件');
 assert.match(messageSearchSource, /focusedContainerColor = XiaoxuPalette\.GlassCard/,
   '消息搜索框需与列表共用玻璃材质');
 assert.match(messageSearchSource, /GlassBorder/,
@@ -2176,8 +2178,8 @@ assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\
 assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
   '消息顶栏不再重复展示英文装饰标题');
 assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
-assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
-assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
+assert.match(messageSearchSource, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
+assert.match(designSystem, /fun XiaoxuSearchField\(/, '搜索条抽成独立组件');
 assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
   '官方与微信来源使用共享原生分段组件');
 assert.match(messageCenter, /Box\(Modifier\.size\(7\.dp\)\.clip\(CircleShape\)/,
