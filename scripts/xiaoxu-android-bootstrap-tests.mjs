@@ -105,9 +105,9 @@ assert.match(scheduleUi, /IconButton\(onEdit, Modifier\.size\(48\.dp\)\)/);
 assert.match(scheduleUi, /\.combinedClickable\([\s\S]*?indication = null,/);
 assert.match(messageUi, /InsetGroupedRow\(title = notice\.title/);
 assert.match(messageUi, /AppDialog\(usePortal = true,/);
-assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/);
-assert.match(rebuildShell, /activePage = route\.ordinal, retainOutgoing = false/);
-assert.match(motionHost, /else listOf\(activePage\)/);
+assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\)/);
+assert.match(rebuildShell, /NavigationPages\(navigationMotion,/);
+assert.match(motionHost, /val outgoing = visible\.filterKeys/);
 assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/);
 assert.match(rebuildShell, /BackHandler\(enabled = route\.parent != null \|\| routeTrail\.isNotEmpty\(\)\)/);
 assert.match(rebuildShell, /if \(phoneDock\) RebuildCapsuleDock\(/);
@@ -463,7 +463,7 @@ assert.match(secondClassMain, /val catalogKeys = listOf\("报名中", "待验证
  '活动类别须保留报名中筛选');
 
 assert.doesNotMatch(rebuildShell, /\bInitialPageLoad\(/, '共享快照页面不等待异步挂载');
-assert.match(motionHost, /val frame = if \(retainOutgoing\) state\.transform\(page\) else PageMotion\(\)/, '即时页无额外位移');
+assert.match(motionHost, /val frame = state\.transform\(page\)/);
 assert.match(rebuildShell, /LaunchedEffect\(route\) \{\s*if \(route == AppRoute\.SECOND_CLASS\) latestSecondClassRefresh\(\)/, '进入二课复用Activity读取');
 assert.match(main, /secondClassAutoJob\?\.isActive == true\) return/, '已有读取不重复启动');
 assert.match(main, /requestSecondClassRefresh = ::requestSecondClassRefresh/, '读取由Activity生命周期拥有');
@@ -1109,10 +1109,10 @@ assert.match(windowHost, /LocalGlassLensAnchor provides controlAnchor/);
 assert.match(windowHost, /LocalGlassLensModalAnchor provides modalAnchor/);
 assert.match(windowHost, /LocalDialogHost provides dialogs\s*\n/);
 assert.match(windowHost, /DialogHost\(dialogs\)/, "唯一弹窗宿主");
-assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/, "边界裁剪");
-assert.match(motionHost, /alpha = if \(retainOutgoing\) frame\.alpha else 1f/, "不叠加旧页透明残影");
+assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\)/);
+assert.match(motionHost, /val frame = state\.transform\(page\)/);
 assert.match(motionHost, /fun pageSpring\(\)/, "复用统一动效");
-assert.match(rebuildShell, /activePage = route\.ordinal, retainOutgoing = false/, "只组合当前页面");
+assert.match(rebuildShell, /NavigationPages\(navigationMotion,/);
 assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/, "按路由保存状态");
 assert.match(rebuildShell, /val accountKey = if \(data\.cloud\.authenticated\) "cloud:" \+ data\.cloud\.ownerId\.orEmpty\(\) else "local"/, "账号隔离");
 assert.match(rebuildShell, /val showPrimary = route\.parent == null/, "子页隐藏底栏");
@@ -1741,3 +1741,9 @@ assert.match(pageScaffold, /SystemIconButton\(Icons\.AutoMirrored\.Filled\.Arrow
 assert.match(systemUi, /fun AnimatedIconButton\(/);
 assert.match(systemUi, /fun SystemIconButton\(/);
 assert.match(systemUi, /\.adaptiveGlassChip\(/);
+
+// Upstream navigation retains at most one outgoing page and blocks its pointer events.
+assert.doesNotMatch(motionHost, /retainOutgoing/);
+assert.match(motionHost, /if \(page != state\.target\) Box\(Modifier\.fillMaxSize\(\)\.pointerInput/);
+assert.match(rebuildShell, /LocalLoadingActive provides active/);
+assert.match(rebuildShell, /if \(active\) inboxTaskId \?: reminderTaskId else null/);

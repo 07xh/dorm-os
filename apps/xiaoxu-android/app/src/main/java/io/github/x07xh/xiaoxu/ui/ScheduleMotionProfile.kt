@@ -2,7 +2,7 @@ package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
 // Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/theme/NavigationMotion.kt
-// Original authors and contributors; active-only host option for Xiaoxu business pages.
+// Original authors and contributors. Package adaptation only.
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -137,26 +136,22 @@ fun rememberNavigationMotionState(selected: Int, account: String, reduced: Boole
 }
 
 @Composable
-fun NavigationPages(state: NavigationMotionState, modifier: Modifier = Modifier,
-    activePage: Int = state.target, retainOutgoing: Boolean = true,
-    content: @Composable (Int) -> Unit) {
+fun NavigationPages(state: NavigationMotionState, modifier: Modifier = Modifier, content: @Composable (Int) -> Unit) {
     val density = LocalDensity.current
-    Box(modifier.fillMaxSize().clipToBounds()) {
-        val pages = if (retainOutgoing) state.pages.keys.sortedBy { if (it == state.target) 1 else 0 }
-            else listOf(activePage)
-        pages.forEach { page ->
+    Box(modifier.fillMaxSize()) {
+        state.pages.keys.sortedBy { if (it == state.target) 1 else 0 }.forEach { page ->
             key(page) {
                 Box(Modifier.fillMaxSize().graphicsLayer {
-                    val frame = if (retainOutgoing) state.transform(page) else PageMotion()
+                    val frame = state.transform(page)
                     translationX = with(density) { frame.x.dp.toPx() }
-                    alpha = if (retainOutgoing) frame.alpha else 1f
+                    alpha = frame.alpha
                     scaleX = frame.scale
                     scaleY = frame.scale
-                }.then(if (retainOutgoing && page != state.target) Modifier.clearAndSetSemantics {} else Modifier)) {
-                    CompositionLocalProvider(LocalModuleEntrance provides remember(state, page, retainOutgoing) { { if (retainOutgoing) state.moduleProgress(page) else 1f } }) {
+                }.then(if (page != state.target) Modifier.clearAndSetSemantics {} else Modifier)) {
+                    CompositionLocalProvider(LocalModuleEntrance provides remember(state, page) { { state.moduleProgress(page) } }) {
                         content(page)
                     }
-                    if (retainOutgoing && page != state.target) Box(Modifier.fillMaxSize().pointerInput(Unit) {
+                    if (page != state.target) Box(Modifier.fillMaxSize().pointerInput(Unit) {
                         awaitEachGesture {
                             awaitFirstDown(requireUnconsumed = false).consume()
                             do { val event = awaitPointerEvent(); event.changes.forEach { it.consume() } }

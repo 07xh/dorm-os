@@ -220,18 +220,20 @@ internal fun NativeShell(
                             val savedPages = rememberSaveableStateHolder()
                             NavigationPages(navigationMotion,
                                 modifier = Modifier.fillMaxSize()
-                                    .nestedScroll(scroll),
-                                activePage = route.ordinal, retainOutgoing = false) { index ->
+                                    .nestedScroll(scroll)) { index ->
                                 val pageRoute = AppRoute.entries[index]
                                 val routeKey = "app." + pageRoute.name.lowercase()
                                 savedPages.SaveableStateProvider(pageRoute.name) {
                                     // The workspace already owns the data. Mount immediately rather than
                                     // gating a cached page on a second asynchronous preparation/animation.
-                                    CompositionLocalProvider(LocalLoadingRoute provides routeKey, LocalLoadingActive provides true) {
-                                        AppFeaturePage(pageRoute, data, actions, inboxTaskId ?: reminderTaskId,
-                                            { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
-                                            { inboxLessonId = null; onReminderCourseConsumed() },
-                                            back = if (pageRoute.parent != null || routeTrail.isNotEmpty()) ::goBack else null)
+                                    val active = pageRoute == route
+                                    CompositionLocalProvider(LocalLoadingRoute provides routeKey, LocalLoadingActive provides active) {
+                                        AppFeaturePage(pageRoute, data, actions,
+                                            if (active) inboxTaskId ?: reminderTaskId else null,
+                                            { if (active) { inboxTaskId = null; onReminderTaskConsumed() } },
+                                            if (active) inboxLessonId ?: reminderLessonId else null,
+                                            { if (active) { inboxLessonId = null; onReminderCourseConsumed() } },
+                                            back = if (active && (pageRoute.parent != null || routeTrail.isNotEmpty())) ::goBack else null)
                                     }
                                 }
                             }
