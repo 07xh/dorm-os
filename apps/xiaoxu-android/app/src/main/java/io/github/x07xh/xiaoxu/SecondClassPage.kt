@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -70,21 +71,30 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
         }
     }
     LaunchedEffect(connectOnOpen) { if(connectOnOpen && !attempted) { attempted = true; refresh() } }
+    val appContext = context.applicationContext
+    val autoPrefs = remember(appContext) { appContext.getSharedPreferences(SecondClassAutoRefresh.SETTINGS, 0) }
+    var autoRevision by remember { mutableIntStateOf(0) }
+    DisposableEffect(autoPrefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> autoRevision++ }
+        autoPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { autoPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    val autoStatus = remember(autoRevision) { SecondClassAutoRefresh.status(appContext) }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.End) {
-            AcademicReadAction("手动读取积分", refreshing) { refresh() }
+        if (snapshot !is PageSnapshot.Ready) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            AcademicReadAction("手动读取", refreshing) { refresh() }
         }
         error?.let { AppNotice(it, error = true) }
         AppSnapshotContent(snapshot) { all ->
-            val records = all.filter { it.provider == "second_class" && it.sourceHost == "dekt.ncwu.edu.cn" }
-            val credits = records.filter { it.kind == "credits" }
+            val records = remember(all) { all.filter { it.provider == "second_class" && it.sourceHost == "dekt.ncwu.edu.cn" } }
+            val credits = remember(records) { records.filter { it.kind == "credits" } }
             val capture = credits.map { it.capturedAt }.distinct().singleOrNull()
             val binding = records.singleOrNull { it.kind == "account_binding" && it.fingerprint == "current" &&
                 it.details.matches(Regex("[a-f0-9]{64}")) }
             val confirmed = capture != null && capture > 0 && binding?.capturedAt == capture
             if (!confirmed) {
                 SystemEmptyState("尚无已确认积分快照", "需要完成一次本人身份核验和积分读取。")
+                AcademicReadAction("手动读取", refreshing) { refresh() }
                 return@AppSnapshotContent
             }
             val stamp = capture!!
@@ -94,10 +104,10 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
             val selected = requestedTerm?.takeIf { requested -> terms.any { it.title == requested } }
             val total = credits.singleOrNull { it.title == "学校积分合计" }
             val chosen = if (selected == null) total else terms.firstOrNull { it.title == selected }
-            val personal = records.filter { it.kind in setOf("activity", "activity_summary") && it.capturedAt == stamp }
+            val personal = remember(records, stamp) { records.filter { it.kind in setOf("activity", "activity_summary") && it.capturedAt == stamp } }
             val summary = personal.singleOrNull { it.kind == "activity_summary" }
-            val activities = personal.filter { it.kind == "activity" }
-            val catalog = records.filter { it.kind in setOf("catalog_empty", "catalog_activity") }
+            val activities = remember(personal) { personal.filter { it.kind == "activity" } }
+            val catalog = remember(records) { records.filter { it.kind in setOf("catalog_empty", "catalog_activity") } }
             val catalogTime = catalog.map { it.capturedAt }.distinct().singleOrNull()
             val catalogKeys = listOf("报名中", "待验证", "即将开始报名")
             var catalogFilter by rememberSaveable(binding!!.details) { mutableIntStateOf(0) }
@@ -108,45 +118,64 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
             }
             var detailKey by rememberSaveable(binding!!.details) { mutableStateOf<String?>(null) }
             val detail = (credits + activities + catalog).firstOrNull { it.kind + ":" + it.fingerprint == detailKey }
-            AppNotice("本机学校读取快照 · " + DateFormat.getDateTimeInstance().format(Date(stamp)))
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
-                item(key = "credits-header") {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f)) { SystemSectionHeader("积分概览") }
-                        AcademicTermPicker(terms.map { it.title }, selected, allLabel = "学校积分合计",
-                            onSelect = { requestedTerm = it })
-                    }
-                }
-                item(key = "credits-summary") {
-                    SystemStatStrip(items = listOf(
-                        "学校累计" to (secondClassPoints(total) ?: "—"),
-                        (if (selected == null) "素质分" else "所选学期") to (secondClassPoints(chosen) ?: "—"),
-                        "我的活动" to (if (summary != null) activities.size.toString() else "—")
-                    ))
-                    if (chosen == null) AppNotice("学校未提供积分合计；请选择已读取的学期。")
-                }
-                item(key = "credits-detail") {
-                    InsetGroupedSection {
+            val stampLabel = remember(stamp) { android.text.format.DateFormat.format("MM-dd HH:mm", stamp).toString() }
+            val reading = refreshing || autoStatus == "reading"
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)) {
+                item(key = "credits-overview") {
+                    InsetGroupedSection(header = "积分概览", animateSize = false) {
+                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                                Text("更新于 $stampLabel", style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (autoStatus == "reading") Text("正在同步 · 保留当前数据", style = MaterialTheme.typography.labelSmall)
+                                else if (autoStatus == "failed") Text("上次同步失败", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error)
+                                else if (autoStatus in setOf("needs_reconnect", "needs_confirmation"))
+                                    Text("请重新核验学校账号", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                            }
+                            AcademicReadAction("手动读取", reading) { refresh() }
+                        }
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(secondClassPoints(chosen) ?: "—", style = MaterialTheme.typography.headlineLarge,
+                                    color = MaterialTheme.colorScheme.primary)
+                                Text(if (selected == null) "累计素质分" else "本学期素质分",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            AcademicTermPicker(terms.map { it.title }, selected, allLabel = "全部学期",
+                                onSelect = { requestedTerm = it })
+                        }
+                        if (selected != null) InsetGroupedRow(title = "学校累计素质分",
+                            trailing = { Text(secondClassPoints(total) ?: "—") })
                         InsetGroupedRow(title = "积分明细",
-                            subtitle = if (chosen == null) "暂未获取" else chosen.title,
-                            showDivider = false, onClick = {
-                                if (chosen != null) detailKey = chosen.kind + ":" + chosen.fingerprint
-                            })
+                            subtitle = chosen?.title ?: "暂未获取",
+                            showDivider = false, enabled = chosen != null,
+                            trailing = { Icon(androidx.compose.material.icons.Icons.Outlined.ChevronRight, contentDescription = null) },
+                            onClick = { if (chosen != null) detailKey = chosen.kind + ":" + chosen.fingerprint })
                     }
                 }
-                item(key = "activity-header") { SystemSectionHeader("我的活动") }
+                item(key = "activity-header") {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { SystemSectionHeader("我的活动") }
+                        Text(if (summary == null) "未读取" else "${activities.size} 项",
+                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 if (summary == null) item(key = "activity-unknown") { AppNotice("尚无已确认活动快照") }
                 else {
-                    item(key = "activity-summary") { AppNotice(summary.details) }
+                    if (activities.isEmpty()) item(key = "activity-summary") { AppNotice("已确认暂无报名活动") }
                     items(activities, key = { "activity:${it.fingerprint}" }) { row ->
                         val points = secondClassActivityPoints(row)
                         val time = row.details.lineSequence().firstOrNull { it.startsWith("开始时间：") }
-                            ?.removePrefix("开始时间：")?.takeUnless { it == "学校未提供" }
+                            ?.removePrefix("开始时间：")?.takeUnless { it == "学校未提供" }?.take(16)
                         val settlement = row.details.lineSequence()
                             .firstOrNull { it.startsWith("报名：") }
                             ?.substringAfter("结算：", "")?.takeIf { it.isNotBlank() }
-                        InsetGroupedSection {
+                        InsetGroupedSection(animateSize = false) {
                             InsetGroupedRow(title = row.title,
                                 subtitle = listOfNotNull(time, settlement).joinToString(" · ").ifBlank { "学校未提供活动状态" },
                                 trailing = {
@@ -172,12 +201,15 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                         onSelect = { catalogFilter = it })
                 }
                 if (catalogTime == null || visibleCatalogActivities.isEmpty()) item(key = "catalog-status") {
-                    AppNotice(if (catalogTime != null && catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取")
+                    InsetGroupedSection(animateSize = false) {
+                    InsetGroupedRow(title = if (catalogTime != null && catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
+                        subtitle = "可手动读取或前往学校官网核对", showDivider = false)
                     TextButton(onClick = {
                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,
                             android.net.Uri.parse("https://dekt.ncwu.edu.cn/"))) }
                             .onFailure { error = "无法打开学校官网" }
-                    }) { Text("学校官网") }
+                    }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("学校官网") }
+                    }
                 } else items(visibleCatalogActivities, key = { "${it.kind}:${it.fingerprint}" }) { row ->
                     InsetGroupedSection {
                         InsetGroupedRow(title = row.title, subtitle = row.details, showDivider = false,
