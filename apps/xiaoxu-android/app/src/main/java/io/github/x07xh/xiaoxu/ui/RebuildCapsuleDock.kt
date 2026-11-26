@@ -1246,7 +1246,8 @@ internal fun rememberNavigationMaterialTier(): NavigationMaterialTier {
 internal fun RebuildCapsuleDock(
     selected: MainDestination, onSelect: (MainDestination) -> Unit,
     tier: NavigationMaterialTier, backdrop: Backdrop?, modifier: Modifier = Modifier,
-    minimized: Boolean = false, onExpandRequest: () -> Unit = {}
+    minimized: Boolean = false, onExpandRequest: () -> Unit = {},
+    lensFreshness: GlassLensFreshness? = null
 ) {
     val destinations = MainDestination.entries
     val items = remember { destinations.map { BottomNavItem(it.label, it.upstreamSymbol) } }
@@ -1260,7 +1261,7 @@ internal fun RebuildCapsuleDock(
             onTabSelect = { index -> destinations.getOrNull(index)?.let(onSelect) },
             minimized = minimized, onExpandRequest = onExpandRequest,
             backdrop = backdrop.takeIf { tier == NavigationMaterialTier.Refractive && !accessibility.highContrast },
-            modifier = modifier
+            modifier = modifier, lensFreshness = lensFreshness
         )
     }
 }

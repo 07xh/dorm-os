@@ -169,6 +169,9 @@ internal fun NativeShell(
     val accountKey = if (data.cloud.authenticated) "cloud:" + data.cloud.ownerId.orEmpty() else "local"
     val pageData = remember(accountKey) { PageDataState() }
     DisposableEffect(pageData) { onDispose { pageData.close() } }
+    // Upstream MainActivity: API 31/32 reuses one throttled page-lens freshness state.
+    val lensFreshness = remember { if (isGlassLensApplicable()) GlassLensFreshness() else null }
+    CompositionLocalProvider(LocalPageGlassFreshness provides lensFreshness) {
     GlassWindowHost {
         CompositionLocalProvider(LocalPageDataState provides pageData) {
             val dialogs = LocalDialogHost.current
@@ -177,7 +180,7 @@ internal fun NativeShell(
                 !reducedMotion
             var minimized by remember { mutableStateOf(false) }
             val intent = remember { NavScrollIntent() }
-            val scroll = remember(density, dialogs, autoCollapse) {
+            val scroll = remember(density, dialogs, autoCollapse, lensFreshness) {
                 object : NestedScrollConnection {
                     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                         if (autoCollapse && source == NestedScrollSource.UserInput && dialogs?.hasBlockingSurface != true) {
@@ -188,6 +191,8 @@ internal fun NativeShell(
                                 intent.scroll(consumed.y / density.density)?.let { minimized = it }
                             }
                         }
+                        // Same as upstream MainActivity: include inertial scrolling.
+                        if (consumed.y != 0f) lensFreshness?.onScroll()
                         return Offset.Zero
                     }
                 }
@@ -242,12 +247,14 @@ internal fun NativeShell(
                             selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
                             tier = if (wallpaperBackdrop != null) tier else NavigationMaterialTier.Opaque,
                             backdrop = wallpaperBackdrop, modifier = Modifier.align(Alignment.BottomCenter),
-                            minimized = autoCollapse && minimized, onExpandRequest = { minimized = false; intent.reset() }
+                            minimized = autoCollapse && minimized, onExpandRequest = { minimized = false; intent.reset() },
+                            lensFreshness = lensFreshness
                         )
                     }
                 }
                 }
             }
         }
+    }
     }
 }

@@ -45,7 +45,8 @@ fun GlassWindowHost(modifier: Modifier = Modifier, capturePage: Boolean = true, 
     val controlAnchor = if (wallpaper != null) rememberGlassLensRegion("window-control") { coordinates ->
         drawBackdropSource(wallpaper, density, coordinates)
     } else null
-    val modalAnchor = if (modal != null) rememberGlassLensRegion("window-modal", dialogs.currentDialog) { coordinates ->
+    val modalAnchor = if (modal != null) rememberGlassLensRegion("window-modal", dialogs.currentDialog,
+        freshness = LocalPageGlassFreshness.current) { coordinates ->
         drawBlurred(GlassRecipe.DialogBlurDp * density.density) { drawBackdropSource(modal, density, coordinates) }
     } else null
     CompositionLocalProvider(

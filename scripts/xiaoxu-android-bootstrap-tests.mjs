@@ -1747,3 +1747,10 @@ assert.doesNotMatch(motionHost, /retainOutgoing/);
 assert.match(motionHost, /if \(page != state\.target\) Box\(Modifier\.fillMaxSize\(\)\.pointerInput/);
 assert.match(rebuildShell, /LocalLoadingActive provides active/);
 assert.match(rebuildShell, /if \(active\) inboxTaskId \?: reminderTaskId else null/);
+
+// Shared freshness is the original MainActivity contract, not a per-page animation engine.
+assert.match(rebuildShell, /LocalPageGlassFreshness provides lensFreshness/);
+assert.match(rebuildShell, /if \(consumed\.y != 0f\) lensFreshness\?\.onScroll\(\)/);
+assert.match(rebuildShell, /lensFreshness = lensFreshness/);
+assert.match(windowHost, /freshness = LocalPageGlassFreshness\.current/);
+assert.match(navDock, /modifier = modifier, lensFreshness = lensFreshness/);
