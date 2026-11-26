@@ -299,7 +299,7 @@ jobs:
           working_files=$(find "$WORKING_COPY" -type f | wc -l | tr -d " ")
           test "$working_files" = "$EXPECTED_FILES"
           diff -qr --exclude=.git "$source_dir" "$WORKING_COPY"
-          (cd "$WORKING_COPY" && find . -type f -printf "%P %m\\n" | sort) > "$RUNNER_TEMP/working-file-modes.txt"
+          (cd "$WORKING_COPY" && find . -type f -printf "%P %m\n" | sort) > "$RUNNER_TEMP/working-file-modes.txt"
           diff -u "$RUNNER_TEMP/upstream-file-modes.txt" "$RUNNER_TEMP/working-file-modes.txt"
 
           # Remove the one-shot request marker so it cannot become a standing build trigger.
