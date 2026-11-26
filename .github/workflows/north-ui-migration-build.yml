@@ -64,6 +64,7 @@ jobs:
 
       - name: Restore the existing private release signing identity
         id: release-signing
+        if: ${{ always() && !cancelled() }}
         env:
           KEYSTORE_BASE64: ${{ secrets.XIAOXU_KEYSTORE_BASE64 }}
         run: |
