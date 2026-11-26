@@ -76,14 +76,13 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/xiaoxu-release.p12"
           test -s "$RUNNER_TEMP/xiaoxu-release.p12"
           echo "enabled=true" >> "$GITHUB_OUTPUT"
-          echo "keystore_path=$RUNNER_TEMP/xiaoxu-release.p12" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_SIGNING_CONFIG_FILE=$RUNNER_TEMP/xiaoxu-release.p12" >> "$GITHUB_ENV"
 
       - name: Assemble same-package release candidate
         id: release-candidate
         if: ${{ always() && !cancelled() }}
         working-directory: apps/xiaoxu-android/migrated
         env:
-          RELEASE_SIGNING_CONFIG_FILE: ${{ steps.release-signing.outputs.keystore_path }}
           RELEASE_STORE_PASSWORD: ${{ secrets.XIAOXU_STORE_PASSWORD }}
           RELEASE_KEY_PASSWORD: ${{ secrets.XIAOXU_KEY_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.XIAOXU_KEY_ALIAS }}
