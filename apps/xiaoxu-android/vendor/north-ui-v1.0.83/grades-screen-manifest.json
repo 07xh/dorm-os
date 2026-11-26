@@ -1,0 +1,17 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/GradesScreen.kt",
+      "blob": "fa33975566a62d115d56a8b5a95807ef8b248d81"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/MeasuredGradesHeader.kt",
+      "blob": "04bfeb0d68531761eb0b8b681e74ad02ac30c0c1"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/GradeRowIdentity.kt",
+      "blob": "3905afd2ed0bc7bfe41a3cd727b0671ad42feea0"
+    }
+  ]
+}

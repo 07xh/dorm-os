@@ -864,20 +864,16 @@ assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)
   '成绩页面入口仍为独立原生内容页');
 assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
   '考试页面与成绩统一页内间距');
-const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> Content('),
-    main.indexOf('AcademicDestination.SERVICES -> Content('));
-assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 2,
-  '成绩与考试须使用唯一的玻璃空态组件，禁止两套自绘白卡');
-assert.match(academicGradeArea, /title = "成绩尚未读取"/,
-  '成绩未取得本人真实数据时明确为空态');
-assert.match(academicGradeArea, /title = "考试安排尚未读取"/,
-  '考试未读取前不能显示模拟考试安排');
-assert.match(academicGradeArea, /actionLabel = "连接青果教务",\s*onAction = openProfile/,
-  '成绩操作必须打开现有学校连接中心');
-assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction = openProfile/,
-  '考试操作必须打开现有学校连接中心');
-assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
-  '未核验数据不能混入成绩或考试页面');
+const academicGradeArea = main.slice(main.indexOf('if (academicRoute == AcademicDestination.GRADES || academicRoute == AcademicDestination.EXAMS)'), main.indexOf('val title = when (academicRoute)'));
+assert.match(academicGradeArea, /GradesScreen\(/, '成绩和考试直接使用原版完整页面');
+assert.match(academicGradeArea, /semesterGrades = emptyList\(\)/, '无核验成绩不得伪造');
+assert.match(academicGradeArea, /examList = emptyList\(\)/, '无核验考试不得伪造');
+assert.match(academicGradeArea, /supportedTabs = setOf\(0, 2\)/, '未接入总体成绩不展示虚构统计');
+assert.match(academicGradeArea, /尚无已核验的本人成绩/);
+assert.match(academicGradeArea, /尚无已核验的本人考试安排/);
+assert.match(academicGradeArea, /onRefresh = openProfile/);
+assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/);
+
 
 assert.match(workspace, /LiquidSegmentedControl\(/);
 assert.match(workspace, /selectedIndex = keys\.indexOf\(filter\)/);
@@ -1893,7 +1889,7 @@ assert.match(taskHubRegion,
   '本机任务维持逐条 lazy item 与稳定 key');
 assert.match(workspace, /private fun ConnectedTaskShell\(/,
   '任务行使用共享首尾圆角与连接线容器');
-assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
+assert.match(workspace, /if \(index > 0\) \{\s*SystemDivider\(/,
   '相邻任务之间必须只有轻分割线');
 assert.match(workspace, /index == total - 1 -> RoundedCornerShape\(/,
   '任务分组最后一条保留与玻璃外壳一致的底部圆角');
@@ -1901,7 +1897,7 @@ assert.match(workspace, /joinedRows = true,/,
   '课程、微信和本机任务分组须与所属任务行衔接为单层玻璃列表');
 assert.match(workspace, /label = "task-group-chevron"/,
   '任务分组折叠箭头须使用共享动画时序');
-assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.rotate\(chevronRotation\)/,
+assert.match(workspace, /modifier = Modifier\.rotate\(chevronRotation\)/,
   '分组状态改变时只旋转箭头，不重新绘制业务数据');
 
 assert.match(designSystem, /val listRowMin: Dp = 68\.dp/,

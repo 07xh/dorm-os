@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tyust.course.NorthPrimaryHost
+import com.tyust.course.ui.screen.GradesScreen
+import com.tyust.course.ui.screen.OverallStatsUi
 import com.tyust.course.ui.system.GlassPageScaffold
 import com.tyust.course.ui.system.SystemIconButton
 import com.tyust.course.xiaoxuNavigationItems
@@ -827,6 +829,30 @@ private fun AcademicPage(
 ) {
     val tabStateHolder = rememberSaveableStateHolder()
     val academicRoute = selected
+    // The original full-page GradesScreen owns its own header, content sampling,
+    // per-tab scroll state, and insets. Do not wrap it in GlassPageScaffold.
+    if (academicRoute == AcademicDestination.GRADES || academicRoute == AcademicDestination.EXAMS) {
+        val currentTab = if (academicRoute == AcademicDestination.GRADES) 0 else 2
+        GradesScreen(
+            currentTab = currentTab,
+            onTabChange = { tab -> select(if (tab == 2) AcademicDestination.EXAMS else AcademicDestination.GRADES) },
+            semesterGrades = emptyList(),
+            semesters = emptyList(),
+            currentSemester = "",
+            onSemesterChange = {},
+            semesterIsLoading = false,
+            overallGrades = emptyList(),
+            overallStats = OverallStatsUi("—", "—", 0, 0, 0, 0, 0),
+            overallIsLoading = false,
+            examList = emptyList(),
+            examIsLoading = false,
+            onRefresh = openProfile,
+            semesterError = "尚无已核验的本人成绩；点击刷新按钮进入数据连接设置。",
+            examError = "尚无已核验的本人考试安排；点击刷新按钮进入数据连接设置。",
+            supportedTabs = setOf(0, 2)
+        )
+        return
+    }
     val title = when (academicRoute) {
         AcademicDestination.OVERVIEW -> "校园"
         AcademicDestination.GRADES -> "成绩"
@@ -874,26 +900,7 @@ private fun AcademicPage(
                 tabStateHolder.SaveableStateProvider("second_class") {
                     SecondClassPage()
                 }
-            AcademicDestination.GRADES -> Content(topPadding = 6.dp) {
-                item {
-                    XiaoxuEmpty(
-                        title = "成绩尚未读取",
-                        message = "尚无已核验的本人成绩，学校连接情况请在「我的」查看。",
-                        actionLabel = "连接青果教务",
-                        onAction = openProfile
-                    )
-                }
-            }
-            AcademicDestination.EXAMS -> Content(topPadding = 6.dp) {
-                item {
-                    XiaoxuEmpty(
-                        title = "考试安排尚未读取",
-                        message = "尚无已核验的本人考试安排，学校连接情况请在「我的」查看。",
-                        actionLabel = "查看数据连接",
-                        onAction = openProfile
-                    )
-                }
-            }
+            AcademicDestination.GRADES, AcademicDestination.EXAMS -> Unit // handled by the original full-page screen above
             AcademicDestination.SERVICES -> Content {
                 item { CampusRunPanel(cloud) }
                 item {
