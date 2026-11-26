@@ -16,7 +16,8 @@ const help = argv.includes('--help') || argv.includes('-h');
 if (help) {
   console.log([
     '用法: node scripts/xiaoxu-ace6-visual-qa.mjs [选项]',
-    '  --package <id>  默认 io.github.x07xh.xiaoxu.unifiedqa（隔离 QA 包）',
+    '  --upstream-baseline  原版完整源码基线模式；不测试校序业务',
+    '  --package <id>  默认校序 QA；基线模式默认 com.tyust.course.benchmark',
     '  --serial <id>   多台 adb 设备时指定真实手机序列号',
     '  --apk <file>    验证本机 QA APK 与手机实际安装 APK 的 SHA256，不会自动安装',
     '  --commit <sha>  记录与截图对应的 GitHub 源码提交',
@@ -37,16 +38,17 @@ function option(flag, fallback = undefined) {
   }
   return argv[i + 1];
 }
-const packageName = option('--package', 'io.github.x07xh.xiaoxu.unifiedqa');
+const upstreamBaseline = argv.includes('--upstream-baseline');
+const packageName = option('--package', upstreamBaseline ? 'com.tyust.course.benchmark' : 'io.github.x07xh.xiaoxu.unifiedqa');
 const serial = option('--serial');
 const gitCommit = option('--commit', 'UNVERIFIED');
 const apkPath = option('--apk');
-const referencePackage = option('--reference-package');
+const referencePackage = option('--reference-package', upstreamBaseline ? 'com.tyust.course' : undefined);
 const collectPageTiming = argv.includes('--page-timing');
-const referenceSceneNames = ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '11-glass-rest', '12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content', '15-glass-gesture-inset', '16-glass-dialog-gray-edge'];
+const referenceSceneNames = upstreamBaseline ? ['02-schedule','03-course-detail','04-schedule-settings','11-glass-rest','12-glass-rapid-tabs','13-glass-drag-return','14-glass-course-content','16-glass-dialog-gray-edge'] : ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '11-glass-rest', '12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content', '15-glass-gesture-inset', '16-glass-dialog-gray-edge'];
 const referenceSceneSet = new Set(referenceSceneNames);
-if (!/^io\.github\.x07xh\.xiaoxu(?:\.unifiedqa|\.performanceqa)?$/.test(packageName)) {
-  throw new Error('只能采集校序正式包、统一 UI 隔离 QA 包或性能 QA 包');
+if (!(upstreamBaseline ? packageName === 'com.tyust.course.benchmark' : /^io\.github\.x07xh\.xiaoxu(?:\.unifiedqa|\.performanceqa)?$/.test(packageName))) {
+  throw new Error('只能采集校序指定 QA/正式包或上游隔离 benchmark 包');
 }
 if (referencePackage && (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(referencePackage) || referencePackage === packageName)) {
   throw new Error('北化课表原版包名格式错误，或与当前校序 QA 包名相同');
@@ -118,9 +120,23 @@ const installedDigestMatch = /^([a-f0-9]{64})(?:\s|$)/i.exec(remoteDigestOutput)
 const installedApkSha256 = installedDigestMatch?.[1]?.toLowerCase() ?? null;
 const installedMatchesLocal = apkSha256 && installedApkSha256
   ? apkSha256 === installedApkSha256 : null;
-const declaredCommitLooksLikeSha = /^[a-f0-9]{7,40}$/i.test(gitCommit);
+const pinnedUpstreamCommit = 'bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed';
+const declaredCommitLooksLikeSha = /^[a-f0-9]{7,40}$/i.test(gitCommit) &&
+  (!upstreamBaseline || gitCommit === pinnedUpstreamCommit);
+const packageVersions = target => adb(['shell', 'dumpsys', 'package', target], false, true).split(/\r?\n/).filter(x => /\bversion(?:Name|Code)=/.test(x)).slice(0, 4).map(x => x.trim());
+const targetVersions = packageVersions(packageName);
+const referenceVersions = referencePackage ? packageVersions(referencePackage) : [];
+const matchingBaselineVersions = upstreamBaseline ? (
+  targetVersions.some(x => x === 'versionName=1.0.135-benchmark') &&
+  referenceVersions.some(x => x === 'versionName=1.0.135')
+) : null;
 const metadata = {
   capturedAt: new Date().toISOString(),
+  mode: upstreamBaseline ? 'exact-upstream-baseline' : 'xiaoxu',
+  pinnedUpstreamCommit: upstreamBaseline ? pinnedUpstreamCommit : null,
+  matchingBaselineVersions,
+  // Same version labels do not prove equal source, build flags, signatures or data.
+  baselineBuildVariant: upstreamBaseline ? 'original benchmark (release-derived, UI_PREVIEW=true)' : null,
   device: { brand, model, deviceCode, androidRelease: release, api: sdk },
   display: {
     size: adb(['shell', 'wm', 'size'], false, true),
@@ -131,6 +147,7 @@ const metadata = {
   },
   app: {
     packageName,
+    versionEvidence: targetVersions,
     installedPath: installed.split('\n')[0],
     gitCommit,
     apkSha256,
@@ -144,16 +161,25 @@ const metadata = {
     installedPath: referenceInstalled.split('\n')[0],
     originalVersionVerified: false,
     versionEvidence: adb(['shell', 'dumpsys', 'package', referencePackage], false, true).split(/\r?\n/).filter(x => /\bversion(?:Name|Code)=/.test(x)).slice(0, 4).map(x => x.trim()),
-    note: '原版 APK 版本须人工核对为北化课表 v1.0.8.3，包名不能代替版本证据'
+    note: upstreamBaseline ? '固定源码标注 1.0.135；核对版本、实际来源、设置及数据一致性，版本号相同不代表源码相同。' : '原版 APK 版本须人工核对为北化课表 v1.0.8.3，包名不能代替版本证据'
   } : null,
   referenceScenes: [],
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
   result: 'pending_capture',
-  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '11-glass-rest', '12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content', '16-glass-dialog-gray-edge'],
+  requiredReferenceScenes: upstreamBaseline ? referenceSceneNames : ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '11-glass-rest', '12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content', '16-glass-dialog-gray-edge'],
   scenes: []
 };
-const steps = [
+const steps = upstreamBaseline ? [
+  ['02-schedule', '周课表：两包使用相同的本人已有数据或原版内置演示模式；连续滚动，最后停在相同周次'],
+  ['03-course-detail', '课程详情：打开相同课程，只查看并返回，不保存或修改'],
+  ['04-schedule-settings', '课表设置：滚动同一设置页，不改变设置'],
+  ['11-glass-rest', '底栏静止：核对同主题、壁纸、亮度和导航位置'],
+  ['12-glass-rapid-tabs', '在课表、课程、成绩、设置等两包相同的非写入页面间连续切换至少20次，最终返回相同页面；不要进入选课提交等业务'],
+  ['13-glass-drag-return', '对相同非写入导航标签重复拖动再返回，至少10轮'],
+  ['14-glass-course-content', '在相同周课表连续滚动和切换周次，不修改课程'],
+  ['16-glass-dialog-gray-edge', '打开并关闭相同设置选择器或课程详情，不保存任何修改']
+] : [
   ['01-home', '首页：核对标题、课程列表、任务卡、留白与底部导航；切到其他页再返回'],
   ['02-schedule', '周课表：核对原版周一至周日选择条、周次、课程卡颜色和七日布局；不要更改真实课程'],
   ['03-course-detail', '课程详情：点击本人已有课程后保持底部抽屉打开，对照原图的弹出位置、文字、双信息卡、教师/周次、提醒和关闭按钮；不要切换提醒'],
@@ -342,6 +368,8 @@ try {
   metadata.sameDeviceFrameEvidenceComplete = Boolean(referencePackage) && metadata.sameDevicePerformance.every(x => x.comparable &&
     Number.isFinite(x.xiaoxu?.frameDuration?.p95Ms) && Number.isFinite(x.reference?.frameDuration?.p95Ms));
   metadata.pageReadyEvidence = 'manual_video_measurements_only; not independently verified';
+  metadata.baselineEvidenceComplete = upstreamBaseline ? (matchingBaselineVersions === true && metadata.sameDeviceFrameEvidenceComplete && metadata.missingReferenceScenes.length === 0 && installedMatchesLocal === true && declaredCommitLooksLikeSha) : null;
+  metadata.baselineVerdict = upstreamBaseline ? 'manual_same_device_review_required; no automatic parity claim' : null;
   const capturedOriginal = new Set(metadata.referenceScenes
     .filter(x => x.captured && x.foregroundVerified).map(x => x.name));
   metadata.referenceMissingScenes = referencePackage
@@ -355,7 +383,9 @@ try {
     : (!declaredCommitLooksLikeSha || installedMatchesLocal !== true)
       ? 'unverified_installed_build'
       : referencePackage && !metadata.referenceComparisonComplete
-        ? 'incomplete_reference_comparison' : 'pending_manual_comparison';
+        ? 'incomplete_reference_comparison'
+        : upstreamBaseline && !metadata.baselineEvidenceComplete
+          ? 'incomplete_baseline_evidence' : 'pending_manual_comparison';
   fs.writeFileSync(path.join(output, 'manifest.json'),
     JSON.stringify(metadata, null, 2) + '\n', 'utf8');
 }
