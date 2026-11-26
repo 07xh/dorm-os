@@ -18,6 +18,8 @@ CI 提供三种不同用途的包：
 2. **Ace 6 UI 预览包**：包名为 `io.github.x07xh.xiaoxu.uipreview`，由 Android Debug 证书签名、仅包含 arm64 原生库，可以与当前校序并排安装，但它有独立数据目录，不会读取现有校序的本机课表数据。
 3. **普通 Debug 包**：CI 用于编译验证，不作为用户安装包分发。
 
+当前已有一个可用的 ARM Debug Artifact：`xiaoxu-north-ui-phone-debug-cdc0d50ef161766277876da11a62e2a1a2915b77`，来自 [构建 45792471448](https://github.com/07xh/dorm-os/actions/runs/45792471448)。其包名为 `io.github.x07xh.xiaoxu.northui`，使用 Debug 证书签名、可并行安装，但包含调试构建开销且文件较大。后续 compact `uiPreview` Artifact 完成后优先使用 `.uipreview` 包。
+
 如果 Release 候选包未签名，或证书 SHA-256 与仓库固定证书不一致，**不要尝试覆盖安装，也不要卸载当前校序**。应先解决签名问题。
 
 ## Windows 操作
@@ -36,12 +38,20 @@ adb install -r $apk
 node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu --apk $apk --commit <CI提交SHA>
 ```
 
-如果没有可用的同包名签名候选包，使用 CI 的 Ace 6 UI 预览 APK：
+如果 compact UI 预览 Artifact 已完成，优先使用：
 
 ```powershell
 $apk = ".\app-uiPreview.apk" # CI Artifact 中的 arm64 UI 预览包
 adb install $apk
 node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu.uipreview --apk $apk --commit <CI提交SHA>
+```
+
+如果 compact 预览包仍在构建，可使用现有 ARM Debug Artifact：
+
+```powershell
+$apk = ".\app-debug.apk" # 从构建 45792471448 的 Artifact 解压得到
+adb install $apk
+node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu.northui --apk $apk --commit 00db26e34794b3f9610a52cbb7d41df74771f56b
 ```
 
 脚本不会替用户安装 APK。`adb install -r` 只应用于包名和签名均已验证的同包名候选包；签名不匹配时停止，不要卸载旧应用绕过检查。
