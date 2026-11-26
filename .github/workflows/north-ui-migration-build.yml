@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: north-ui-migration-${{ github.ref }}
+  group: north-ui-migration-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -180,6 +180,7 @@ jobs:
       - name: Emulator launch and frame-stats smoke test
         id: emulator-smoke
         if: ${{ always() && steps.assemble-emulator.outcome == 'success' }}
+        timeout-minutes: 20
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
