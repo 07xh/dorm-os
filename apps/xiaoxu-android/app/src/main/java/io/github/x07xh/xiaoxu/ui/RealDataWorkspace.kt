@@ -1528,39 +1528,21 @@ fun RealAcademicTaskHub(
             }
         }
         item {
-            // One continuous status strip; values come from real saved tasks.
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.card))
-                    .background(XiaoxuPalette.GlassTrack)
-                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
-                        RoundedCornerShape(XiaoxuRadius.card))
-                    .padding(5.dp)
-                    .selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                TaskStatusTab(
-                    label = "可执行", count = nowCount,
-                    active = filter == "now", modifier = Modifier.weight(1f),
-                    onClick = { filter = "now" }
-                )
-                TaskStatusTab(
-                    label = "待完成", count = all.count(::isActionableWorkspaceTask),
-                    active = filter == "pending", modifier = Modifier.weight(1f),
-                    onClick = { filter = "pending" }
-                )
-                TaskStatusTab(
-                    label = "全部", count = all.size,
-                    active = filter == "all", modifier = Modifier.weight(1f),
-                    onClick = { filter = "all" }
-                )
-                TaskStatusTab(
-                    label = "已完成", count = all.count { considerCompleteInTaskList(it) },
-                    active = filter == "done", modifier = Modifier.weight(1f),
-                    onClick = { filter = "done"; onlyThisWeek = false }
-                )
-            }
+            XiaoxuSegmentedControl(
+                options = listOf(
+                    XiaoxuSegmentOption("now", "可执行 $nowCount"),
+                    XiaoxuSegmentOption("pending", "待完成 ${all.count(::isActionableWorkspaceTask)}"),
+                    XiaoxuSegmentOption("all", "全部 ${all.size}"),
+                    XiaoxuSegmentOption("done", "已完成 ${all.count { considerCompleteInTaskList(it) }}")
+                ),
+                selectedKey = filter,
+                onSelected = { key ->
+                    filter = key
+                    if (key == "done") onlyThisWeek = false
+                },
+                modifier = Modifier.padding(top = 6.dp),
+                compact = true
+            )
         }
         // Reviewable historical notices remain accessible in their collapsed
         // group, but do not compete with today's actionable tasks at the top.
@@ -1779,7 +1761,7 @@ fun RealAcademicTaskHub(
                         val executionRow = rows[i]
                         val row = executionRow.parent
                         val step = executionRow.step
-                        ConnectedTaskShell(index = i, total = rows.size, standalone = true) {
+                        XiaoxuConnectedListRow(index = i, total = rows.size, standalone = true) {
                             if (step != null && executionRow.root != null) {
                                 ExecutionStepListRow(
                                     step = step, parentTitle = row.title,
@@ -1837,7 +1819,7 @@ fun RealAcademicTaskHub(
                         }.orEmpty()
                         val hint = "等待 ${prerequisites.size} 项前置" +
                             prerequisites.take(2).joinToString(prefix = " · ") { it.title }
-                        ConnectedTaskShell(index = i, total = waitingRows.size) {
+                        XiaoxuConnectedListRow(index = i, total = waitingRows.size) {
                             TaskRow(
                                 row, today, executionHint = executionProgress(row),
                                 onOpen = { onTaskTap(row) },
@@ -1864,7 +1846,7 @@ fun RealAcademicTaskHub(
                     items(count = needsVerificationRows.size,
                         key = { i -> "unverified:" + needsVerificationRows[i].key }) { i ->
                         val row = needsVerificationRows[i]
-                        ConnectedTaskShell(index = i, total = needsVerificationRows.size) {
+                        XiaoxuConnectedListRow(index = i, total = needsVerificationRows.size) {
                             TaskRow(
                                 row, today, onOpen = { onTaskTap(row) },
                                 verificationHint = "来源状态未核实 · 点击查看"
@@ -1900,7 +1882,7 @@ fun RealAcademicTaskHub(
                     }
                 }
                 items(count = chaoxingRows.size, key = { i -> chaoxingRows[i].key }) { i ->
-                    ConnectedTaskShell(index = i, total = chaoxingRows.size) {
+                    XiaoxuConnectedListRow(index = i, total = chaoxingRows.size) {
                         TaskRow(chaoxingRows[i], today,
                             onOpen = { openedTaskKey = chaoxingRows[i].key })
                     }
@@ -1962,7 +1944,7 @@ fun RealAcademicTaskHub(
                 }
                 if (showCourseTasks) {
                     items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
-                        ConnectedTaskShell(index = i, total = cloudRows.size) {
+                        XiaoxuConnectedListRow(index = i, total = cloudRows.size) {
                             TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
                         }
                     }
@@ -1986,7 +1968,7 @@ fun RealAcademicTaskHub(
                 }
                 if (showWechatTasks) {
                     items(count = wechatRows.size, key = { i -> wechatRows[i].key }) { i ->
-                        ConnectedTaskShell(
+                        XiaoxuConnectedListRow(
                             index = i, total = wechatRows.size
                         ) {
                             val row = wechatRows[i]
@@ -2019,7 +2001,7 @@ fun RealAcademicTaskHub(
                 if (showPersonalTasks) {
                     items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
                         val row = localRows[i]
-                        ConnectedTaskShell(index = i, total = localRows.size) {
+                        XiaoxuConnectedListRow(index = i, total = localRows.size) {
                             TaskRow(row, today, executionHint = executionProgress(row),
                                 onOpen = { onTaskTap(row) },
                                 onToggleLocal = { checked -> toggleLocal(row, checked) },
@@ -2466,42 +2448,6 @@ internal fun WorkspaceTaskDetailSheet(
 }
 
 
-/** Three real-data statuses in a single container, sized through the shared typography. */
-@Composable
-private fun TaskStatusTab(
-    label: String, count: Int, active: Boolean, modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
-            .selectable(selected = active, role = Role.Tab, onClick = onClick)
-            .semantics { contentDescription = "$label，$count 条" }
-            .heightIn(min = 56.dp)
-            .padding(horizontal = 4.dp, vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-            maxLines = 1
-        )
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 18.sp, lineHeight = 24.sp, fontFeatureSettings = "tnum"
-            ),
-            fontWeight = FontWeight.SemiBold,
-            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink,
-            maxLines = 1
-        )
-    }
-}
-
 /** 轻量分组标题：一层布局保留真实来源及核验信息，不再套图标大卡与独立徽标。 */
 @Composable
 private fun TaskGroupHeader(
@@ -2669,46 +2615,6 @@ private const val DUE_NORMAL = 1
 private const val DUE_WEEK = 2
 private const val DUE_TODAY = 3
 private const val DUE_OVERDUE = 4
-
-/** Individually lazy rows share one surface. The heading keeps its outline,
- * while the rows use hairline separators instead of stacked gray borders.
- */
-@Composable
-private fun ConnectedTaskShell(
-    index: Int,
-    total: Int,
-    modifier: Modifier = Modifier,
-    standalone: Boolean = false,
-    content: @Composable () -> Unit
-) {
-    val groupRadius = XiaoxuRadius.group
-    val rowRadius = XiaoxuRadius.list
-    // Only exposed outer edges are rounded; joined rows have no inter-row "bubbles".
-    val corners = when {
-        standalone && total == 1 -> RoundedCornerShape(rowRadius)
-        standalone && index == 0 -> RoundedCornerShape(
-            topStart = rowRadius, topEnd = rowRadius, bottomStart = 0.dp, bottomEnd = 0.dp)
-        index == total - 1 -> RoundedCornerShape(
-            topStart = 0.dp, topEnd = 0.dp,
-            bottomStart = if (standalone) rowRadius else groupRadius,
-            bottomEnd = if (standalone) rowRadius else groupRadius)
-        else -> RoundedCornerShape(0.dp)
-    }
-    Column(
-        modifier = modifier.fillMaxWidth()
-            .clip(corners)
-            .background(XiaoxuPalette.GlassCard)
-    ) {
-        if (index > 0) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 14.dp),
-                thickness = 0.5.dp,
-                color = XiaoxuPalette.Line
-            )
-        }
-        content()
-    }
-}
 
 /** Compact row based on the reference image; click still opens the original real-data sheet. */
 @Composable
