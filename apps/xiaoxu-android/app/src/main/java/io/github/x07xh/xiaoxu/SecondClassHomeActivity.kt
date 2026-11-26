@@ -5,12 +5,14 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import io.github.x07xh.xiaoxu.ui.AppPageFrame
+import io.github.x07xh.xiaoxu.ui.GlassWindowHost
 import androidx.compose.ui.Modifier
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.data.SecondClassSaveReceipt
@@ -43,13 +45,14 @@ class SecondClassHomeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setSavedReceipt(SecondClassSaveReceipt.validate("second_class", "credits",
             savedInstanceState?.getInt(RECEIPT_COUNT, 0) ?: 0))
         setContent {
             XiaoxuTheme {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Column(Modifier.fillMaxSize()) {
-                        TextButton(onClick = { finish() }) { Text("返回校序") }
+                GlassWindowHost {
+                    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                        AppPageFrame(title = "第二课堂", onBack = { finish() }, compactHeader = true) {
                         SecondClassPage(
                             connectOnOpen = true,
                             onRefreshResult = { success ->
@@ -61,6 +64,7 @@ class SecondClassHomeActivity : ComponentActivity() {
                             },
                             modifier = Modifier.weight(1f)
                         )
+                        }
                     }
                 }
             }
