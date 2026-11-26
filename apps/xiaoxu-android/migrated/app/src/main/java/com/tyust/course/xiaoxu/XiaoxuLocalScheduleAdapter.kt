@@ -18,8 +18,9 @@ object XiaoxuLocalScheduleAdapter {
     const val ACCOUNT_KEY = "default"
     const val SCHOOL_ID = "xiaoxu-local"
 
-    fun termId(firstMonday: String?): String =
-        firstMonday?.takeIf { it.isNotBlank() }?.let { "local:$it" } ?: "local:unconfigured"
+    // The local timetable is one user-owned semester; changing its week-one date
+    // must not fork reminder, display-position, or schedule settings into a new term.
+    fun termId(firstMonday: String?): String = "local:current"
 
     fun toUi(lessons: List<VerifiedLesson>, palette: List<Color>): List<ScheduleCourseUi> {
         require(palette.isNotEmpty()) { "Schedule palette cannot be empty" }
