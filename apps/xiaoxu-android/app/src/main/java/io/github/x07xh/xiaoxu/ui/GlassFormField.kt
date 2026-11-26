@@ -1,8 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
-// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, GlassFormField.kt
-// Original authors and contributors; local Material theme and performance adapter.
+// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassFormField.kt
+// Original authors and contributors. Package adaptation only.
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
@@ -31,12 +31,14 @@ fun GlassFormField(
     placeholder: String = "",
     enabled: Boolean = true,
     singleLine: Boolean = true,
+    password: Boolean = false,
     supportingText: String? = null,
     isError: Boolean = false,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     trailing: (@Composable () -> Unit)? = null
 ) {
+    var reveal by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = MaterialTheme.typography.labelLarge,
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -44,10 +46,14 @@ fun GlassFormField(
             placeholder = placeholder, enabled = enabled, singleLine = singleLine,
             minHeight = if (singleLine) 52.dp else 96.dp, maxLines = if (singleLine) 1 else 6,
             keyboardOptions = keyboardOptions, keyboardActions = keyboardActions, isError = isError,
-            visualTransformation = VisualTransformation.None,
+            visualTransformation = if (password && !reveal) PasswordVisualTransformation() else VisualTransformation.None,
             trailing = {
                 when {
                     trailing != null -> trailing()
+                    password -> IconButton(onClick = { reveal = !reveal }, enabled = enabled, modifier = Modifier.size(40.dp)) {
+                        Icon(if (reveal) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            if (reveal) "隐藏密码" else "显示密码", Modifier.size(20.dp))
+                    }
                     value.isNotEmpty() && enabled -> IconButton(onClick = { onValueChange("") }, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Default.Close, "清空" + label, Modifier.size(18.dp))
                     }
