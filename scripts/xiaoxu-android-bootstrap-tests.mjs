@@ -1,6 +1,6 @@
 // Static boundary tests for native Android V0.2. Android CI also compiles the real APK.
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
@@ -9,7 +9,6 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
-const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt');
 // RC1 retired these sources and superseded QA requests. Deleting them is not
 // enough: later UI branches must not silently restore obsolete containers.
 const obsoleteUiPaths = [
@@ -706,7 +705,7 @@ assert.match(messageCenter, /maxWidth >= 840\.dp && !showWechat/, "宽屏双栏�
 assert.match(messageCenter, /AppDialog\(usePortal = true, onDismissRequest = \{ openedUrl = null \}, title = \{ Text\("公告详情"\) \}/, "共用公告浮层");
 assert.match(messageCenter, /Text\(notice\.title, style = MaterialTheme\.typography\.titleMedium\)/, "真实标题");
 assert.match(messageCenter, /正文请在学校官网查看/, "无正文数据不得编造");
-assert.match(messageCenter, /Button\(onClick = \{ openArticle\(notice\.url\) \}\)/, "官网原文入口");
+assert.match(messageCenter, /LiquidButton\([^\n]*onClick = \{ openArticle\(notice\.url\) \}\)/, "官网原文入口");
 assert.match(messageCenter, /GlassFormField\(query, \{ query = it\.take\(60\) \}/, "共享检索表单");
 assert.match(messageCenter, /GlassFilterCapsule\(label = option\.label, selected = filter == option\.key/, "共享公告筛选");
 assert.match(messageCenter, /fun pendingWechatShortLabel\(/, "区分待审计数未知");
@@ -1775,3 +1774,17 @@ assert.match(rebuildShell, /GlassWindowHost\(\s*chrome = \{[\s\S]*?if \(phoneDoc
 assert.match(rebuildShell, /val navBarBackdrop = com\.tyust\.course\.ui\.system\.LocalModalBackdrop\.current/);
 assert.match(rebuildShell, /backdrop = navBarBackdrop/);
 assert.doesNotMatch(rebuildShell, /backdrop = wallpaperBackdrop/);
+
+// Verify removed legacy components have no remaining Kotlin references at the exact CI checkout.
+const retiredUiSourceRoot = new URL('../apps/xiaoxu-android/app/src/', import.meta.url);
+function verifyRetiredUi(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const child = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir);
+    if (entry.isDirectory()) verifyRetiredUi(child);
+    else if (entry.name.endsWith('.kt')) {
+      assert.doesNotMatch(readFileSync(child, 'utf8'), /\bxiaoxuSettingsRouteTransition\b|\bAppEntry\s*\(/, 'retired UI reference: ' + child.pathname);
+    }
+  }
+}
+verifyRetiredUi(retiredUiSourceRoot);
+assert.equal(existsSync(new URL('main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt', retiredUiSourceRoot)), false);

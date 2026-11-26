@@ -20,13 +20,6 @@ internal object AppSpacing {
 }
 
 @Composable
-internal fun AppEntry(title: String, summary: String? = null, onClick: () -> Unit) {
-    InsetGroupedSection {
-        AppGroupedEntry(title, summary, showDivider = false, onClick = onClick)
-    }
-}
-
-@Composable
 internal fun AppGroupedEntry(
     title: String, summary: String? = null, showDivider: Boolean = true,
     onClick: () -> Unit

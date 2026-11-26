@@ -244,3 +244,6 @@ R36 完整上游主题及壁纸源码迁移的编译门禁 45585128446 已全部
 ## 2026-11-26 上游页面及底栏架构纠偏
 
 固定上游 bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed 的 ui/system/GlassPageScaffold.kt 原文重新移植（包名、现有返回图标 API 绑定外保持原逻辑），业务页面与第二课堂兼容 Activity 直接调用，删除 AppPageFrame 自研滚动折叠及布局函数，保留文件中业务展示小组件/间距常量供其他页面使用。按上游 MainActivity 的 NavBarMetrics.contentInset / LocalAppOverlayBottomInset 接法，移除 RebuildDockMetrics 和 Shell 统一物理扣高；普通业务与课表增加 16dp 兼容留白（上游 contentInset 扣除 16dp 供页面补充），设置原有 24dp 留白保留。一级手机页面的系统底栏由上游导航自身 Insets 处理，二级页和平板仍保持现有安全区，键盘继续使用 Compose imePadding。保留学校业务回调、账号状态、原五入口及平板适配。尚未完成上游 MainActivity 完整逐行移植、玻璃采样差异和全部页面组件审计；须以本提交 CI 及真机验收确认，不声明 1:1。
+
+### 旧转场适配清理
+已删除 ImmediateRouteTransition.kt、其仅针对旧实现的单元测试及无调用的 AppEntry 封装；保留 AppGroupedEntry、AppSnapshotContent 等实际业务绑定。转场测试以原版 NavigationMotionStateTest 为准，静态检查扫描 app/src 的 Kotlin 文件阻止恢复旧符号。基于 PR 差异核对旧调用移除情况，完整引用检查由 CI 执行。尚未完成编译与真机验收。
