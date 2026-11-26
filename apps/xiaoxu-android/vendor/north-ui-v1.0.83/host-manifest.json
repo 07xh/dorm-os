@@ -1,0 +1,29 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "LICENSE",
+      "blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassWindowHost.kt",
+      "blob": "8f1741ee405f105bab532b7b1173056f2376a698"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassPageScaffold.kt",
+      "blob": "656fe16f3a2c1987cc41faf46d7766fcf0e09376"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassSubpage.kt",
+      "blob": "57e13e6d6b0bfcbf6aafee5938d848fb7c707cfe"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassOverlayHost.kt",
+      "blob": "731699e314a7e3039b33237dbb7808d6980e64fc"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/DialogHost.kt",
+      "blob": "7c227890961844d5a8a7d247af0b6037d9488a70"
+    }
+  ]
+}
