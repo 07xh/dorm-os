@@ -131,25 +131,27 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
   for(const heading of ['积分概览','我的活动','活动广场','积分明细'])
     assert.ok(page.includes('"'+heading+'"'),'missing section '+heading);
   assert.match(page,/secondClassPoints\(total\) \?: "—"/);
-  assert.match(page,/if \(summary != null\) activities\.size\.toString\(\) else "—"/);
+  assert.match(page,/if \(summary == null\) "未读取" else "\$\{activities\.size\} 项"/);
   assert.match(page,/it\.provider == "second_class" && it\.sourceHost == "dekt\.ncwu\.edu\.cn"/);
   assert.match(page,/binding\?\.capturedAt == capture/);
   assert.match(page,/if \(!confirmed\)[\s\S]*?return@AppSnapshotContent/);
   assert.match(page,/it\.capturedAt == stamp/);
-  assert.match(page,/val catalog = records\.filter/);
-  assert.match(page,/val visibleCatalogActivities = catalog\.filter/);
+  assert.match(page,/val catalog = remember\(records\) \{ records\.filter/);
+  assert.match(page,/val visibleCatalogActivities = remember\(catalog, activeCatalogFilter\) \{ catalog\.filter/);
   assert.match(page,/catalogTime == null \|\| visibleCatalogActivities\.isEmpty\(\)/);
   assert.match(page,/else items\(visibleCatalogActivities/);
   assert.match(page,/if \(catalogTime != null && catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/);
   assert.doesNotMatch(page,/row\.reviewStatus == "approved"/);
   assert.match(page,/AppDialog\(onDismissRequest/);
-  const header = page.slice(page.indexOf('item(key = "credits-header")'),
-    page.indexOf('item(key = "credits-summary")'));
-  assert.match(header,/SystemSectionHeader\("积分概览"\)/);
-  assert.match(header,/AcademicTermPicker\(/);
+  const header = page.slice(page.indexOf('item(key = "credits-overview")'),
+    page.indexOf('item(key = "activity-header")'));
+  assert.match(header,/Text\("积分概览", Modifier\.weight\(1f\)/);
+  assert.match(header,/AcademicTermPicker\(termTitles, selected/);
+  assert.match(header,/正在同步 · 保留当前数据/);
+  assert.match(header,/AcademicReadAction\("手动读取", refreshing\)/);
   assert.match(ui,/GlassOptionWheelDialog\(/);
   assert.doesNotMatch(page,/item\(key = "term_selector"\)/);
-  const breakdown = page.slice(page.indexOf('item(key = "credits-detail")'),
+  const breakdown = page.slice(page.indexOf('InsetGroupedRow(title = "积分明细"'),
     page.indexOf('item(key = "activity-header")'));
   assert.match(breakdown,/title = "积分明细"/);
   assert.doesNotMatch(breakdown,/secondClassCategories\(/);
@@ -159,7 +161,7 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
   assert.match(page,/val receipt = if \(result\.resultCode == Activity\.RESULT_OK\) SecondClassSaveReceipt\.validate/);
   assert.match(page,/val succeeded = receipt != null/);
   assert.match(page,/refreshing = false/);
-  assert.match(page,/AcademicReadAction\("手动读取积分", refreshing\)/);
+  assert.match(page,/AcademicReadAction\("手动读取", refreshing\)/);
   assert.match(ui,/TextButton\(onClick = onRead, enabled = !busy\)/);
   assert.match(page,/onRefreshResult\?\.invoke\(false\)/);
 });
