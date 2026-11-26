@@ -233,7 +233,6 @@ jobs:
         id: emulator-smoke
         if: ${{ always() && steps.assemble-emulator.outcome == 'success' }}
         timeout-minutes: 20
-        continue-on-error: true
         env:
           ANDROID_I_WANT_MY_TCG: 'yes'
         uses: reactivecircus/android-emulator-runner@v2
@@ -245,7 +244,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             adb install -r apps/xiaoxu-android/migrated/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop io.github.x07xh.xiaoxu.northui
             adb shell am start -W -n io.github.x07xh.xiaoxu.northui/com.tyust.course.MainActivity
