@@ -39,6 +39,10 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -448,6 +452,75 @@ fun XiaoxuSettingsSwitch(
 }
 
 /** 同一个分段选择器供课表设置、二课、成绩与任务筛选使用；不持有业务状态。 */
+/** Shared search field; pages own query, filtering and length constraints. */
+@Composable
+internal fun XiaoxuSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    hint: String,
+    modifier: Modifier = Modifier
+) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
+                RoundedCornerShape(XiaoxuRadius.tile))
+            .semantics { contentDescription = hint },
+        singleLine = true,
+        placeholder = {
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink3
+            )
+        },
+        leadingIcon = {
+            Icon(
+                Icons.Outlined.Search,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = XiaoxuPalette.Ink3
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = { onQueryChange("") }, role = Role.Button)
+                        .semantics { contentDescription = "清空搜索" },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = XiaoxuPalette.Ink2
+                    )
+                }
+            }
+        },
+        textStyle = MaterialTheme.typography.bodyMedium,
+        shape = RoundedCornerShape(XiaoxuRadius.tile),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = XiaoxuPalette.GlassCard,
+            unfocusedContainerColor = XiaoxuPalette.GlassCard,
+            disabledContainerColor = XiaoxuPalette.GlassCard,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            focusedTextColor = XiaoxuPalette.Ink,
+            unfocusedTextColor = XiaoxuPalette.Ink,
+            cursorColor = XiaoxuPalette.Brand
+        )
+    )
+}
+
 data class XiaoxuSegmentOption(val key: String, val label: String)
 
 @Composable
