@@ -130,7 +130,7 @@ class StudyRemindersTest {
 
     /** 评审第二轮 P1：判重必须看完整课表，不能只看「开了提醒的课程」。 */
     @Test fun `a new course in the snapshot must block an existing study reminder`() {
-        val tuesday = ScheduleCourseRecord("custom:tue", "周二课", "", "", 2, 1, 2, "1-25周")
+        val tuesday = ScheduleCourseRecord("custom:tue", "周二课", "", "", 2, 1, 2, "1-${ScheduleMaxWeeks}周")
         val records = SemesterReminders.update(emptyList(), account, term, listOf(tuesday), enabled = true, defaultLead = 15)
         val study = ScheduleStudyBlock(ScheduleStudyKind.Morning, enabled = true, name = "早自习",
             start = "08:10", end = "09:10", days = setOf(1))
