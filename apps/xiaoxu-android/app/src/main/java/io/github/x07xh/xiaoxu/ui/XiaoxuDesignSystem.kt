@@ -56,6 +56,8 @@ import com.tyust.course.ui.system.SystemCompactSegmentedControl
 import com.tyust.course.ui.system.SystemDialog
 import com.tyust.course.ui.system.SystemPrimaryButton
 import com.tyust.course.ui.system.SystemTopBar
+import com.tyust.course.ui.system.SystemCard
+import androidx.compose.foundation.layout.PaddingValues
 import com.tyust.course.ui.system.SystemIconButton
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -397,29 +399,17 @@ internal fun XiaoxuSoftIconButton(
 @Composable
 fun XiaoxuCard(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(XiaoxuRadius.card),
+    @Suppress("UNUSED_PARAMETER") shape: Shape = RoundedCornerShape(XiaoxuRadius.card),
     container: Color = XiaoxuPalette.GlassCard,
     onClick: (() -> Unit)? = null,
     contentPadding: Dp = XiaoxuSpacing.card,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(container)
-            .border(
-                XiaoxuSpacing.glassStroke,
-                XiaoxuPalette.Line,
-                shape
-            )
-            .then(
-                if (onClick != null) {
-                    Modifier.heightIn(min = 48.dp).clickable(onClick = onClick)
-                } else Modifier
-            )
-            .padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.gap),
+    SystemCard(
+        modifier = modifier,
+        backgroundColor = if (container == XiaoxuPalette.GlassCard) MaterialTheme.colorScheme.surface else container,
+        onClick = onClick,
+        contentPadding = PaddingValues(contentPadding),
         content = content
     )
 }

@@ -2246,6 +2246,7 @@ fun RealAcademicTaskHub(
             title = "备份与恢复",
             onDismiss = { if (!backupBusy) showTaskBackup = false },
             dismissEnabled = !backupBusy,
+            guardDismiss = true,
             cancelLabel = "关闭"
         ) {
             LocalTaskBackupPanel(
@@ -2261,6 +2262,7 @@ fun RealAcademicTaskHub(
             subtitle = "删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。",
             onDismiss = { if (!deletingLocalBusy) deletingLocalId = null },
             dismissEnabled = !deletingLocalBusy,
+            guardDismiss = true,
             actions = listOf(
                 XiaoxuSheetAction(
                     label = "删除任务",

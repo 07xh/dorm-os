@@ -467,8 +467,7 @@ assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
  '活动筛选继续保持所选官方目录类别');
 assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
  '活动类别须保留报名中筛选');
-assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
- '共享分段控件必须等宽且具有至少44dp触控高度');
+assert.match(designSystem, /SystemSegmentedControl\(labels, selectedIndex, select/);
 assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeight = 26\.sp/,
  '一级页面共用20sp字级与26sp行高');
 assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
@@ -481,14 +480,12 @@ assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
  '三态数字同卡保留内容且压缩多余高度');
 assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
  '任务顶部四个工具按钮必须复用唯一组件');
-assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
- '共享工具按钮必须具有统一42dp几何尺寸');
-assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 3,
- '任务中心只保留搜索、新建和更多三个统一工具按钮');
-assert.match(workspace, /label = "更多任务操作"/,
+assert.match(designSystem, /SystemIconButton\(/, '工具按钮使用原版组件');
+assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 2);
+assert.match(workspace, /SystemActionMenu\(/);
+assert.match(workspace, /description = "更多任务操作"/,
  '低频操作必须收进可发现的更多菜单');
-assert.match(workspace, /expanded = taskMenuOpen/,
- '更多菜单必须有明确展开与关闭状态');
+assert.doesNotMatch(workspace, /taskMenuOpen/, '菜单状态由原版组件维护');
 assert.match(workspace, /本周暂无可做的本机任务/,
  '本周无数据必须明确说明，而非误报任务消失');
 assert.match(workspace, /onlyThisWeek -> "查看全部待办"/,
@@ -1102,8 +1099,11 @@ assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,
   '个人分类选择应改用统一的底部操作弹窗');
 assert.match(bottomActions, /stateDescription = "已选择"/,
   '选中状态必须对无障碍服务可见');
-assert.match(bottomActions, /indication = ripple\(/,
-  '底部弹窗按钮必须有清晰的触控反馈');
+assert.match(bottomActions, /SystemSecondaryButton\(/);
+assert.match(bottomActions, /presentation = DialogPresentation\.Bottom/);
+assert.match(bottomActions, /if \(guardDismiss \|\| !dismissEnabled\)/);
+assert.match(workspace, /dismissEnabled = !backupBusy,\s*guardDismiss = true/);
+assert.match(workspace, /dismissEnabled = !deletingLocalBusy,\s*guardDismiss = true/);
 assert.match(taskBoard, /TASK_SOURCES/);
 assert.match(taskBoard, /dao\.insert\(LocalTask\(/);
 assert.match(taskBoard, /本人标注/);
@@ -1650,8 +1650,7 @@ assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
 const primaryCardSource = design.slice(design.indexOf('fun XiaoxuCard('),
   design.indexOf('/** 同一个分段选择器', design.indexOf('fun XiaoxuCard(')));
-assert.match(primaryCardSource, /XiaoxuSpacing\.glassStroke/,
-  '最常用玻璃卡必须使用设计系统的0.5dp边缘，而不是遗留的0.75dp硬灰边');
+assert.match(primaryCardSource, /SystemCard\(/, '公共卡片直接复用原版');
 assert.doesNotMatch(primaryCardSource, /\.shadow\(/,
   '普通玻璃卡不得重新叠加可见灰色投影');
 
@@ -2002,8 +2001,7 @@ assert.match(messageCenter, /WechatReviewPanel\(/,
 assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
   '任务中心不得恢复重复微信审核器');
 assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
-assert.match(workspace, /taskMenuOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '低频任务管理收进默认关闭的更多菜单');
+assert.match(workspace, /SystemActionMenu\(/, '低频任务操作使用原版菜单');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
 assert.match(workspace, /if \(showCloudEditor\) \{[\s\S]*?CloudTaskEditor\(client\)/,
   '云端新建使用独立浮层');
@@ -2328,8 +2326,7 @@ assert.match(main, /localTasks = localTasks, localLessons = localLessons/,
   '本机提醒聚合仅使用本机 Room 任务与本机课表，不冒充官方公告');
 assert.match(main, /BackHandler\(enabled = messagesOpen\)/,
   '系统返回键也必须关闭消息页并恢复原一级页');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
-  '页面状态跨导航保留');
+assert.match(northHost, /savedPages\.SaveableStateProvider\(items\[page\]\.route\)/);
 assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
   '消息来源采用共享玻璃分段控件');
 assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle\)/,
