@@ -1,8 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
-// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassFilterCapsule.kt
-// Original authors and contributors. See upstream license.
+// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassFilterCapsule.kt.
+// Original authors and contributors; package and existing themed-panel context adapted.
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.kyant.shapes.Capsule
 import com.tyust.course.ui.system.LocalWallpaperAppearanceColors
+import com.tyust.course.ui.system.LocalThemedContent
 import com.tyust.course.ui.system.isBackdropSupported
 
 /** A readable choice on a glass container. No nested page readback for every filter chip. */
@@ -48,7 +49,7 @@ internal fun GlassFilterCapsule(
     val reduced = accessibility.reduceMotion
     val colors = MaterialTheme.colorScheme
     val appearance = LocalWallpaperAppearanceColors.current
-    val overPanel = LocalOverlayBody.current
+    val overPanel = LocalThemedContent.current
     val chosen = selected == true
     val emphasis by animateFloatAsState(if (chosen) 1f else 0f,
         if (reduced) snap() else spring(dampingRatio = .9f, stiffness = 700f), label = "filter-shape")

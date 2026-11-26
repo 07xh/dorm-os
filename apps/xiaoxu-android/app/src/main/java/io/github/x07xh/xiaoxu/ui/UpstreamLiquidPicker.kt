@@ -7,12 +7,6 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.ui.platform.testTag
 
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.scale
 
 import androidx.activity.compose.BackHandler
@@ -714,7 +708,7 @@ fun LiquidPicker(
                             layerPolicy.bridgeOverlayAlpha
                     )
                 )
-                .upstreamPickerGlassRim(
+                .glassRim(
                     shape = surfaceShape,
                     intensity = if (contentEnabled) 1.14f else 0.62f,
                     isLightTheme = isLightTheme,
@@ -1139,86 +1133,6 @@ private fun MorphingPickerRow(
                 tint = appearance.onSurface
             )
         }
-    }
-}
-
-
-// Original glassRim implementation from GlassChipSurface.kt; shared recipe retained.
-private fun Modifier.upstreamPickerGlassRim(
-    shape: Shape,
-    intensity: Float = 1f,
-    isLightTheme: Boolean = true,
-    pressProgress: () -> Float = { 0f },
-    pointerOffset: () -> Offset = { Offset.Unspecified }
-): Modifier = drawWithCache {
-    val outline = shape.createOutline(size, layoutDirection, this)
-    val contourWidth = 1.dp.toPx()
-
-    // 内缘：把轮廓整体内缩一圈再描边，光就贴在玻璃内壁上
-    val insetPx = 1.1.dp.toPx()
-    val innerSize = Size(
-        (size.width - insetPx * 2f).coerceAtLeast(0.1f),
-        (size.height - insetPx * 2f).coerceAtLeast(0.1f)
-    )
-    val innerOutline = shape.createOutline(innerSize, layoutDirection, this)
-    val innerWidth = 1.2.dp.toPx()
-
-    // 浅色主题下白色内缘线画在白色盘面上等于没画（白叠白），只留一点点；
-    // 深色主题反过来，白线才是唯一能看见的光。
-    val baseContour = if (isLightTheme) {
-        GlassRecipe.ChipContourAlphaLight
-    } else {
-        GlassRecipe.ChipContourAlphaDark
-    }
-    val baseInner = if (isLightTheme) {
-        GlassRecipe.ChipRimAlphaLight
-    } else {
-        GlassRecipe.ChipRimAlphaDark
-    }
-
-    onDrawWithContent {
-        drawContent()
-        val p = pressProgress().coerceIn(0f, 1f)
-
-        // 内缘亮线：默认顶部略强，按压时最亮处移向手指
-        val innerAlpha = baseInner * intensity * (1f + GlassRecipe.ChipPressedRimBoost * p)
-        val pointer = pointerOffset()
-        val innerBrush = if (pointer != Offset.Unspecified && p > 0.01f && size.minDimension > 0f) {
-            // 用触点为中心的径向渐变去调制边缘线的亮度分布：
-            // 靠近手指的那一段更亮。半径取整个控件，保证渐变覆盖全边缘。
-            val travel = GlassRecipe.ChipHighlightTravel * p
-            val center = Offset(
-                size.width / 2f + (pointer.x - size.width / 2f) * travel,
-                size.height / 2f + (pointer.y - size.height / 2f) * travel
-            )
-            Brush.radialGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = innerAlpha * 1.25f),
-                    Color.White.copy(alpha = innerAlpha * 0.55f)
-                ),
-                center = center,
-                radius = size.maxDimension * 0.85f
-            )
-        } else {
-            Brush.verticalGradient(
-                colorStops = arrayOf(
-                    0.00f to Color.White.copy(alpha = innerAlpha),
-                    0.50f to Color.White.copy(alpha = innerAlpha * 0.55f),
-                    1.00f to Color.White.copy(alpha = innerAlpha * 0.75f)
-                )
-            )
-        }
-        translate(insetPx, insetPx) {
-            drawOutline(innerOutline, brush = innerBrush, style = Stroke(innerWidth))
-        }
-
-        // 外轮廓：均匀一圈，界定形状。按下时收紧变实，像被压出的应力边
-        val contourColor = if (isLightTheme) {
-            Color.Black.copy(alpha = baseContour * intensity * (1f + 0.5f * p))
-        } else {
-            Color.White.copy(alpha = baseContour * intensity * (1f + 0.5f * p))
-        }
-        drawOutline(outline, color = contourColor, style = Stroke(contourWidth))
     }
 }
 
