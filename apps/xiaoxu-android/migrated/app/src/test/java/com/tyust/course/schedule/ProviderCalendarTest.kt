@@ -66,11 +66,11 @@ class ProviderCalendarTest {
         manager.applyProviderCalendar("default", numberedCalendar(1, 6))
         assertEquals(8, manager.periodCount)
         manager.applyProviderCalendar("default", numberedCalendar(1, 30))
-        assertEquals(16, manager.periodCount)
+        assertEquals(ScheduleSettingsManager.PERIOD_COUNT_MAX, manager.periodCount)
         manager.applyProviderCalendar("default", numberedCalendar())
-        assertEquals(16, manager.periodCount)
+        assertEquals(ScheduleSettingsManager.PERIOD_COUNT_MAX, manager.periodCount)
         manager.applyProviderCalendar("default", numberedCalendar(0, 10))
-        assertEquals(16, manager.periodCount)
+        assertEquals(ScheduleSettingsManager.PERIOD_COUNT_MAX, manager.periodCount)
     }
 
     @Test fun manualTimesAndAutomaticCountHaveIndependentOwnership() {
