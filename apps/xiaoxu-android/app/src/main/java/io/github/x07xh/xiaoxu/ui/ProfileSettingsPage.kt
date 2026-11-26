@@ -39,6 +39,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.GlassPageScaffold
+import com.tyust.course.ui.system.SystemIconButton
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,14 +87,7 @@ fun ProfileSettingsPage(
     onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
-    androidx.compose.animation.AnimatedContent(
-        targetState = route,
-        transitionSpec = {
-            xiaoxuSettingsRouteTransition(initialState, targetState)
-        },
-        modifier = Modifier.fillMaxSize().clipToBounds(),
-        label = "settingsDetail"
-    ) { animatedRoute ->
+    val animatedRoute = route
     val title = when (animatedRoute) {
         "connections" -> "数据连接"
         "notifications" -> "通知与提醒"
@@ -107,34 +103,19 @@ fun ProfileSettingsPage(
         "notifications-course", "notifications-task" -> "notifications"
         else -> "home"
     }) }
-    // Each animated route paints an opaque page, so the outgoing settings
-    // labels/cards cannot bleed through the incoming full-screen page.
-    Column(
-        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        Row(Modifier.xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            if (animatedRoute != "home") {
-                XiaoxuSoftIconButton(onClick = goBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回设置")
-                }
-            }
-            Text(title, modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall,
-                color = XiaoxuPalette.Ink)
+    GlassPageScaffold(
+        title = title,
+        onBack = if (animatedRoute != "home") goBack else null,
+        actions = {
             if (animatedRoute == "home") {
-                XiaoxuSoftIconButton(onClick = onRefresh, enabled = !client.state.busy) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
-                }
-                XiaoxuSoftIconButton(onClick = onMessages) {
-                    Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
-                }
+                SystemIconButton(Icons.Outlined.Refresh, "刷新", onRefresh, enabled = !client.state.busy)
+                SystemIconButton(Icons.Outlined.NotificationsNone, "消息中心", onMessages)
             }
         }
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
         androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.weight(1f).xiaoxuPageWidth(),
+            modifier = Modifier.fillMaxSize().xiaoxuPageWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = 18.dp, end = 18.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

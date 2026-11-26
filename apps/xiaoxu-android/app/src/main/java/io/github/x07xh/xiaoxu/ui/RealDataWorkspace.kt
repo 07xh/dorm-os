@@ -55,12 +55,10 @@ import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -73,6 +71,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import com.tyust.course.ui.system.SystemActionMenu
 import com.tyust.course.ui.system.SystemMenuAction
+import com.tyust.course.ui.system.SystemPicker
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1215,7 +1214,6 @@ fun RealAcademicTaskHub(
     }
     var filter by rememberSaveable { mutableStateOf("now") }
     var sourceFilter by rememberSaveable { mutableStateOf("all") }
-    var sourceMenuOpen by rememberSaveable { mutableStateOf(false) }
     var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
@@ -1607,48 +1605,19 @@ fun RealAcademicTaskHub(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = { sourceMenuOpen = true },
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) {
-                        Text(
-                            when (sourceFilter) {
-                                "local" -> "本机来源"
-                                "cloud" -> "云端来源"
-                                "wechat" -> "微信任务"
-                                "chaoxing" -> "学习通任务"
-                                else -> "全部来源"
-                            },
-                            style = MaterialTheme.typography.titleSmall,
-                            color = XiaoxuPalette.Ink
-                        )
-                        Icon(Icons.Outlined.ExpandMore,
-                            contentDescription = "切换任务来源",
-                            tint = XiaoxuPalette.Ink2,
-                            modifier = Modifier.size(20.dp))
-                    }
-                    DropdownMenu(
-                        expanded = sourceMenuOpen,
-                        onDismissRequest = { sourceMenuOpen = false }
-                    ) {
-                        listOf(
-                            "all" to "全部来源",
-                            "cloud" to "云端来源",
-                            "wechat" to "微信任务",
-                            "chaoxing" to "学习通任务",
-                            "local" to "本机来源"
-                        ).forEach { (source, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    sourceFilter = source
-                                    sourceMenuOpen = false
-                                }
-                            )
-                        }
-                    }
-                }
+                val sources = listOf(
+                    "all" to "全部来源",
+                    "cloud" to "云端来源",
+                    "wechat" to "微信任务",
+                    "chaoxing" to "学习通任务",
+                    "local" to "本机来源"
+                )
+                SystemPicker(
+                    options = sources.map { it.second },
+                    selectedIndex = sources.indexOfFirst { it.first == sourceFilter }.coerceAtLeast(0),
+                    onSelect = { index -> sources.getOrNull(index)?.let { (source, _) -> sourceFilter = source } },
+                    modifier = Modifier.weight(1f)
+                )
                 FilterChip(
                     selected = onlyThisWeek,
                     onClick = {

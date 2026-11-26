@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tyust.course.NorthPrimaryHost
+import com.tyust.course.ui.system.GlassPageScaffold
+import com.tyust.course.ui.system.SystemIconButton
 import com.tyust.course.xiaoxuNavigationItems
 import com.tyust.course.manager.AppearanceSettingsManager
 import com.tyust.course.ui.system.GlassRuntimeGuard
@@ -655,10 +657,14 @@ private fun AcademicRouteHost(
         ) { index ->
             val page = PrimaryTabs[index]
             // Temporary adapter for legacy pages that do not yet read the upstream inset.
-            val insets = if (!tabletLayout && showPrimaryNavigation)
-                Modifier.padding(bottom = LocalAppOverlayBottomInset.current)
-            else Modifier.navigationBarsPadding()
-            Box(Modifier.fillMaxSize().statusBarsPadding().then(insets)) {
+            val ownsInsets = page == MainDestination.ACADEMIC ||
+                (page == MainDestination.PROFILE && profileSettingsRoute !in listOf("timetable-settings", "timetable-editor"))
+            val insets = if (ownsInsets) Modifier else Modifier.statusBarsPadding().then(
+                if (!tabletLayout && showPrimaryNavigation)
+                    Modifier.padding(bottom = LocalAppOverlayBottomInset.current)
+                else Modifier.navigationBarsPadding()
+            )
+            Box(Modifier.fillMaxSize().then(insets)) {
                 when (page) {
                             MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
                                 XiaoxuTopBar(
@@ -847,50 +853,24 @@ private fun AcademicPage(
     onMessages: () -> Unit
 ) {
     val tabStateHolder = rememberSaveableStateHolder()
-    // A single academic child host without page-level motion.
-    // The second-class Room data and per-destination saveable state remain owned here.
-    AnimatedContent(
-        targetState = selected,
-        transitionSpec = {
-            xiaoxuSettingsRouteTransition(
-                if (initialState == AcademicDestination.OVERVIEW) "home" else "detail",
-                if (targetState == AcademicDestination.OVERVIEW) "home" else "detail"
-            )
-        },
-        modifier = Modifier.fillMaxSize().clipToBounds(),
-        label = "academicChild"
-    ) { academicRoute ->
-    Column(
-        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            Row(
-                Modifier.widthIn(max = 860.dp).fillMaxWidth()
-                    .padding(start = 12.dp, end = 18.dp, top = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (academicRoute != AcademicDestination.OVERVIEW) {
-                    IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "返回校园",
-                            tint = XiaoxuPalette.Ink2)
-                    }
-                }
-                Box(Modifier.weight(1f)) {
-                    CompactPageHeading(
-                        title = when (academicRoute) {
-                            AcademicDestination.OVERVIEW -> "校园"
-                            AcademicDestination.GRADES -> "成绩"
-                            AcademicDestination.EXAMS -> "考试"
-                            AcademicDestination.SECOND_CLASS -> "第二课堂"
-                            AcademicDestination.SERVICES -> "校园服务"
-                        },
-                        onMessages = onMessages
-                    )
-                }
-            }
+    val academicRoute = selected
+    val title = when (academicRoute) {
+        AcademicDestination.OVERVIEW -> "校园"
+        AcademicDestination.GRADES -> "成绩"
+        AcademicDestination.EXAMS -> "考试"
+        AcademicDestination.SECOND_CLASS -> "第二课堂"
+        AcademicDestination.SERVICES -> "校园服务"
+    }
+    GlassPageScaffold(
+        title = title,
+        onBack = if (academicRoute != AcademicDestination.OVERVIEW) {
+            { select(AcademicDestination.OVERVIEW) }
+        } else null,
+        actions = {
+            SystemIconButton(Icons.Outlined.NotificationsNone, "打开消息中心", onMessages)
         }
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
