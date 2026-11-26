@@ -26,6 +26,11 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.GlassPageScaffold
+import com.tyust.course.ui.system.GlassWindowHost
+import com.tyust.course.ui.system.SystemActionButton
+import com.tyust.course.ui.system.LocalDialogHost
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -122,39 +127,23 @@ internal fun CourseEditorDialog(
 
     Dialog(onDismissRequest = { if (!busy) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-                .background(XiaoxuPalette.PageGradient)
-                .systemBarsPadding()
-                .imePadding()
-                .padding(horizontal = 22.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                XiaoxuSoftIconButton(
-                    enabled = !busy,
-                    onClick = onDismiss,
-                    modifier = Modifier.size(46.dp),
-                    backgroundColor = Color.White.copy(alpha = 0.65f)
-                ) { Icon(Icons.Outlined.Close, contentDescription = "关闭课程编辑") }
-                Text(
-                    if (original == null) "新增课程" else "编辑课程",
-                    modifier = Modifier.weight(1f).padding(start = 14.dp),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontSize = 27.sp, fontWeight = FontWeight.SemiBold,
-                    color = XiaoxuPalette.Ink
-                )
-                TextButton(enabled = !busy, onClick = ::submit) {
-                    Text(if (busy) "保存中" else "保存", color = XiaoxuPalette.Brand, fontSize = 16.sp)
-                }
-            }
-            Column(
-                modifier = Modifier.fillMaxWidth().weight(1f)
-                    .verticalScroll(rememberScrollState()).padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+        // A platform window preserves the busy-operation dismissal guard.
+        CompositionLocalProvider(LocalDialogHost provides null) {
+            GlassWindowHost {
+                GlassPageScaffold(
+                    title = if (original == null) "新增课程" else "编辑课程",
+                    onBack = if (busy) null else onDismiss,
+                    actions = {
+                        SystemActionButton(text = if (busy) "保存中" else "保存",
+                            onClick = ::submit, enabled = !busy, primary = true)
+                    }
+                ) { padding ->
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(padding).imePadding()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 22.dp, vertical = 16.dp).padding(bottom = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                 XiaoxuGroupedSection(title = "课程信息") {
                     Column(
                         Modifier.fillMaxWidth().padding(16.dp),
@@ -242,6 +231,8 @@ internal fun CourseEditorDialog(
             }
         }
     }
+        }
+    }
     if (confirmDelete && original != null) {
         XiaoxuBottomActionSheet(
             title = "确认删除课程",
@@ -249,6 +240,7 @@ internal fun CourseEditorDialog(
                 else "删除此课程全部周次？",
             onDismiss = { if (!busy) confirmDelete = false },
             dismissEnabled = !busy,
+            guardDismiss = true,
             actions = listOf(
                 XiaoxuSheetAction(
                     label = "确认删除",

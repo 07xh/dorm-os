@@ -33,6 +33,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemPicker
+import com.tyust.course.ui.system.SystemIconButton
+import com.tyust.course.ui.system.SystemListItem
 import androidx.compose.runtime.LaunchedEffect
 import io.github.x07xh.xiaoxu.ui.rememberLocalRows
 import androidx.compose.runtime.getValue
@@ -148,7 +151,6 @@ fun SecondClassPage(
         it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0
     }
     var selectedTermTitle by rememberSaveable { mutableStateOf<String?>(null) }
-    var termMenuOpen by rememberSaveable { mutableStateOf(false) }
     val selectedTerm = termRows.firstOrNull { it.title == selectedTermTitle }
         ?: termRows.firstOrNull()
     val schoolTotal = scores.firstOrNull { it.title == "学校积分合计" }
@@ -190,53 +192,16 @@ fun SecondClassPage(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = XiaoxuPalette.Ink)
-                // 学期筛选紧贴概览标题；只选择已有的真实学期快照。
-                Box {
-                    val pillShape = RoundedCornerShape(999.dp)
-                    Row(
-                        modifier = Modifier
-                            .clip(pillShape)
-                            .background(XiaoxuPalette.GlassCard)
-                            .border(XiaoxuSpacing.glassStroke,
-                                XiaoxuPalette.GlassBorder, pillShape)
-                            .clickable(enabled = termRows.isNotEmpty()) {
-                                termMenuOpen = true
-                            }
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            selectedTerm?.title?.removeSuffix("积分") ?: "未获取",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = XiaoxuPalette.Ink,
-                            maxLines = 1
-                        )
-                        Icon(
-                            Icons.Outlined.KeyboardArrowDown,
-                            contentDescription = "选择学期",
-                            tint = XiaoxuPalette.Ink2
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = termMenuOpen && termRows.isNotEmpty(),
-                        onDismissRequest = { termMenuOpen = false }
-                    ) {
-                        termRows.forEach { term ->
-                            DropdownMenuItem(
-                                text = { Text(term.title.removeSuffix("积分")) },
-                                onClick = {
-                                    selectedTermTitle = term.title
-                                    termMenuOpen = false
-                                }
-                            )
-                        }
-                    }
-                }
-                IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
-                    Icon(Icons.Outlined.Refresh,
-                        contentDescription = "从学校重新读取第二课堂")
-                }
+                SystemPicker(
+                    options = termRows.map { it.title.removeSuffix("积分") },
+                    selectedIndex = termRows.indexOfFirst { it.title == selectedTermTitle }.takeIf { it >= 0 },
+                    onSelect = { index -> termRows.getOrNull(index)?.let { selectedTermTitle = it.title } },
+                    modifier = Modifier.weight(1f),
+                    placeholder = "未获取",
+                    enabled = termRows.isNotEmpty()
+                )
+                SystemIconButton(Icons.Outlined.Refresh, "从学校重新读取第二课堂",
+                    ::refreshPersonalRecords, enabled = !refreshing)
             }
             if (refreshing) {
                 Text("读取中…", style = MaterialTheme.typography.labelSmall,

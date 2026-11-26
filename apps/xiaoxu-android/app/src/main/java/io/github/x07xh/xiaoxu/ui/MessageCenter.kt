@@ -49,6 +49,14 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemTopBar
+import com.tyust.course.ui.system.SystemIconButton
+import com.tyust.course.ui.system.SystemSegmentedControl
+import com.tyust.course.ui.system.SystemListItem
+import com.tyust.course.ui.system.SystemCard
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -579,29 +587,15 @@ private fun NoticeTabletDetailPane(
 /** 紧凑统一页头；来源计数归入来源标签，不重复堆叠摘要卡片。 */
 @Composable
 private fun MessageHeader(onRefresh: () -> Unit, onBack: (() -> Unit)?) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .padding(top = 4.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (onBack != null) {
-            XiaoxuToolbarAction(
-                icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                label = "返回原页面",
-                onClick = onBack
-            )
-        }
-        Text(
-            text = "消息中心",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = XiaoxuPalette.Ink,
-            modifier = Modifier.weight(1f).semantics { heading() }
-        )
-        XiaoxuToolbarAction(
-            icon = Icons.Outlined.Refresh,
-            label = "刷新官方公告与待审核数量",
-            onClick = onRefresh
+    Box(Modifier.consumeWindowInsets(WindowInsets.statusBars)) {
+        SystemTopBar(
+            title = "消息中心",
+            navigationIcon = if (onBack != null) {
+                { SystemIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "返回原页面", onBack) }
+            } else null,
+            actions = {
+                SystemIconButton(Icons.Outlined.Refresh, "刷新官方公告与待审核数量", onRefresh)
+            }
         )
     }
 }
@@ -721,77 +715,12 @@ private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
 
 @Composable
 private fun FilterRow(selected: String, onSelect: (String) -> Unit) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth().selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(vertical = 2.dp)
-    ) {
-        items(count = MESSAGE_FILTERS.size, key = { index -> MESSAGE_FILTERS[index].key }) { index ->
-            val option = MESSAGE_FILTERS[index]
-            MessagePill(
-                label = option.label,
-                icon = messageFilterIcon(option.key),
-                isSelected = selected == option.key,
-                a11yLabel = when (option.key) {
-                    MSG_FILTER_ALL -> "全部官方公告筛选"
-                    MSG_FILTER_WECHAT -> "微信候选筛选"
-                    else -> option.label + "筛选"
-                },
-                onClick = { onSelect(option.key) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun MessagePill(
-    label: String,
-    icon: ImageVector,
-    isSelected: Boolean,
-    a11yLabel: String,
-    onClick: () -> Unit
-) {
-    val background by animateColorAsState(
-        targetValue = if (isSelected) XiaoxuPalette.GlassIndicator
-        else XiaoxuPalette.GlassTrack,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
-        label = "message-pill-bg"
+    SystemSegmentedControl(
+        options = MESSAGE_FILTERS.map { it.label },
+        selectedIndex = MESSAGE_FILTERS.indexOfFirst { it.key == selected }.coerceAtLeast(0),
+        onSelect = { index -> MESSAGE_FILTERS.getOrNull(index)?.let { onSelect(it.key) } },
+        modifier = Modifier.fillMaxWidth()
     )
-    val foreground by animateColorAsState(
-        targetValue = if (isSelected) XiaoxuPalette.BrandDeep
-        else XiaoxuPalette.Ink2,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
-        label = "message-pill-fg"
-    )
-    Row(
-        modifier = Modifier
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(50))
-            .background(background)
-            .border(
-                width = XiaoxuSpacing.glassStroke,
-                color = XiaoxuPalette.GlassBorder,
-                shape = RoundedCornerShape(50)
-            )
-            // selected 由 selectable 提供，与 selectableGroup 一起被读屏当作单选组播报。
-            .selectable(
-                selected = isSelected,
-                role = Role.Tab,
-                onClick = onClick
-            )
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-            .semantics { contentDescription = a11yLabel },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(15.dp),
-            tint = foreground
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(text = label, style = MaterialTheme.typography.labelLarge, color = foreground)
-    }
 }
 
 @Composable
@@ -828,42 +757,20 @@ private fun MessageCountLine(
 
 @Composable
 private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
-    val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    val isExam = notice.category == "exam"
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(XiaoxuRadius.list))
-            .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line,
-                RoundedCornerShape(XiaoxuRadius.list))
-            .clickable(
-                interactionSource = interaction,
-                indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
-                onClickLabel = "查看公告详情与官网链接", role = Role.Button,
-                onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onClick() }
-            )
-            .heightIn(min = 64.dp)
-            .padding(horizontal = 14.dp, vertical = 11.dp)
-            .semantics(mergeDescendants = true) {
-                contentDescription = noticeCategoryLabel(notice.category) + "：" +
-                    notice.title + "，" + notice.dateLabel + "；查看详情"
+    val meta = listOf(noticeCategoryLabel(notice.category), notice.dateLabel)
+        .filter { it.isNotBlank() }.joinToString(" · ")
+    SystemCard(contentPadding = PaddingValues(0.dp)) {
+        SystemListItem(
+            title = notice.title,
+            subtitle = meta,
+            leadingIcon = {
+                Icon(
+                    if (notice.category == "exam") Icons.Outlined.DateRange else Icons.Outlined.MailOutline,
+                    contentDescription = null
+                )
             },
-        horizontalArrangement = Arrangement.spacedBy(11.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(
-            if (isExam) XiaoxuPalette.Warning else XiaoxuPalette.Brand))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(notice.title, style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium, color = XiaoxuPalette.Ink,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
-            val meta = listOf(noticeCategoryLabel(notice.category), notice.dateLabel)
-                .filter { it.isNotBlank() }.joinToString(" · ")
-            Text(meta, style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2, maxLines = 1,
-                overflow = TextOverflow.Ellipsis)
-        }
+            onClick = onClick
+        )
     }
 }
 

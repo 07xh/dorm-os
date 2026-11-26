@@ -37,6 +37,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.GlassPageScaffold
+import com.tyust.course.ui.system.SystemActionButton
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -103,46 +105,29 @@ internal fun SemesterSettingsPage(
         timeError = null
     }
 
-    // Routed content in the existing Activity window, not a full-screen Dialog.
-    Column(
-            modifier = Modifier.fillMaxSize()
-                .background(XiaoxuPalette.PageGradient)
+    GlassPageScaffold(
+        title = "课表设置",
+        subtitle = "学期起始与节次时间",
+        onBack = onDismiss,
+        actions = {
+            SystemActionButton(text = "完成", onClick = {
+                try {
+                    val config = if (monday.isBlank() && weeks.isBlank() && times.isBlank())
+                        null else SemesterCalendar.parse(monday, weeks, times)
+                    onSave(config, viewMode, sections)
+                } catch (failure: IllegalArgumentException) {
+                    error = failure.message ?: "课表设置无效"
+                }
+            }, primary = true)
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp)
+                .padding(horizontal = 22.dp, vertical = 16.dp)
                 .padding(bottom = 30.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                XiaoxuSoftIconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(46.dp),
-                    backgroundColor = Color.White.copy(alpha = 0.65f)
-                ) { Icon(Icons.Outlined.Close, contentDescription = "关闭课表设置") }
-                Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                    Text("课表设置", fontSize = 27.sp, fontWeight = FontWeight.SemiBold,
-                        color = XiaoxuPalette.Ink)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(6.dp).clip(CircleShape).background(XiaoxuPalette.Brand))
-                        Spacer(Modifier.width(7.dp))
-                        Text("学期起始与节次时间", style = MaterialTheme.typography.bodySmall,
-                            color = XiaoxuPalette.Ink2)
-                    }
-                }
-                TextButton(onClick = {
-                    try {
-                        // The view preference is valid even before any semester is configured.
-                        val config = if (monday.isBlank() && weeks.isBlank() && times.isBlank())
-                            null else SemesterCalendar.parse(monday, weeks, times)
-                        onSave(config, viewMode, sections)
-                    } catch (failure: IllegalArgumentException) {
-                        error = failure.message ?: "课表设置无效"
-                    }
-                }) { Text("完成", color = XiaoxuPalette.Brand, fontSize = 16.sp) }
-            }
-
             // Save is in the header. Validation feedback must appear beside it,
             // rather than below a long list of period rows.
             if (error != null) {
@@ -283,6 +268,8 @@ internal fun SemesterSettingsPage(
                 }
             }
         }
+
+    }
 
     // Keep the existing date chooser; use a numeric wheel for lesson times.
     // Only the top-right 完成 persists the validated semester settings.
