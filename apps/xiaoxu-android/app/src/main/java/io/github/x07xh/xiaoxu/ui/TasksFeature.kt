@@ -263,6 +263,12 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                             AppNotice("微信任务完成状态仅为本人整理，不代表学校提交状态。")
                             WechatTaskLinkActions(task.links)
                         } else AppNotice("平台记录只读，不修改学校提交状态。")
+                        if (task.provider == "chaoxing") {
+                            AppNotice(if (task.sourceExternalId.isNullOrBlank()) "尚未确认当前官方作业身份"
+                                else "来源身份：学校记录；完成状态仍以本人官方页面为准。")
+                            AppGroupedEntry("核对学习通官方记录", showDivider = false,
+                                onClick = { detailKey = null; actions.connectLocal("chaoxing") })
+                        }
                         if (task.storage == "cloud" && task.provider == "chaoxing" && considerCompleteInTaskList(task)) {
                             TextButton(onClick = { archiveStore.archive(task.key); detailKey = null }) { Text("移至本机归档") }
                         }
