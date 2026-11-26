@@ -2,7 +2,8 @@ package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
 // Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassPageScaffold.kt
-// Original authors and contributors; root shell owns system insets.
+// Original authors and contributors; use upstream bottom-inset policy.
+// Parent-consumed insets are excluded automatically by Compose.
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,7 +38,7 @@ fun GlassPageScaffold(
     val page: @Composable () -> Unit = {
             Scaffold(
                 containerColor = Color.Transparent,
-                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom),
                 bottomBar = bottomBar,
                 topBar = {
                     if (topBar != null) topBar() else SystemTopBar(
