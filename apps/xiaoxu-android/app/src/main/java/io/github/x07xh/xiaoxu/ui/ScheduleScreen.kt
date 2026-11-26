@@ -938,7 +938,8 @@ private fun NoLessonCard(selectedWeek: Int) {
 @Composable
 private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     val courseColor = xiaoxuCourseColor(lesson.colorKey)
-    SystemCard(onClick = onOpen, contentPadding = PaddingValues(0.dp)) {
+    SystemCard(onClick = onOpen, contentPadding = PaddingValues(0.dp),
+        modifier = Modifier.semantics { contentDescription = "查看课程详情：" + lesson.title }) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(4.dp).heightIn(min = XiaoxuSpacing.listRowMin)
                 .background(courseColor.accent))

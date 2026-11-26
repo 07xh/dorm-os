@@ -19,6 +19,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      - name: Audit UI references and original snapshot
+        run: |
+          python3 apps/xiaoxu-android/vendor/north-ui-v1.0.83/validation/verify_snapshot.py
+          node scripts/xiaoxu-north-ui-residual-audit.mjs
       - name: Compile actual app and test business state
         run: gradle -p apps/xiaoxu-android :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
       - name: Compile optimized Release locally (no APK upload or publication)
@@ -26,3 +30,6 @@ jobs:
           gradle -p apps/xiaoxu-android :app:assembleRelease --no-daemon
           test -s apps/xiaoxu-android/app/build/outputs/apk/release/app-release-unsigned.apk
           sha256sum apps/xiaoxu-android/app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Record resolved Release dependency inventory
+        if: always()
+        run: gradle -p apps/xiaoxu-android :app:dependencies --configuration releaseRuntimeClasspath --no-daemon

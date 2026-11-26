@@ -3,6 +3,10 @@
 set -euo pipefail
 : "${GH_TOKEN:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_SHA:?}" "${ANDROID_HOME:?}" "${RUNNER_TEMP:?}"
 [[ "${GITHUB_REF:-}" == refs/heads/main ]]
+# The GPL UI integration must not be distributed until its rights review is explicitly cleared.
+if grep -Fq "implementation project(':north-ui')" apps/xiaoxu-android/app/build.gradle; then
+  node -e 'const s=require("./apps/xiaoxu-android/north-ui-distribution-review.json"); if(s.distributionCleared!==true){console.error("North UI distribution review not cleared");process.exit(1)}'
+fi
 read -r version code < <(python3 - <<'PYV'
 import re
 s=open('apps/xiaoxu-android/app/build.gradle').read()

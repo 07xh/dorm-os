@@ -1,5 +1,18 @@
 // Static boundary tests for native Android V0.2. Android CI also compiles the real APK.
-import assert from 'node:assert/strict';
+import strictAssert from 'node:assert/strict';
+const assertionFailures = [];
+const assert = Object.fromEntries(['equal', 'match', 'doesNotMatch', 'ok'].map(method => [
+  method, (...args) => {
+    try { strictAssert[method](...args); }
+    catch (error) {
+      if (error?.code !== 'ERR_ASSERTION') throw error;
+      const caller = error.stack?.split('\n').find(line => line.includes('xiaoxu-android-bootstrap-tests.mjs:') && !line.includes('Object.'));
+      const description = typeof args.at(-1) === 'string' && args.length > (method === 'ok' ? 1 : 2)
+        ? args.at(-1) : String(error.expected ?? method).slice(0, 300);
+      assertionFailures.push({ method, description, caller });
+    }
+  }
+]));
 import { existsSync, readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -687,7 +700,7 @@ const dayCardSource = schedulePanel.slice(
   schedulePanel.indexOf('private fun LessonCard('),
   schedulePanel.indexOf('/** 首页与完整课表共用')
 );
-assert.match(dayCardSource, /onClickLabel = "查看课程详情"/,
+assert.match(dayCardSource, /SystemCard\(onClick = onOpen,[\s\S]*?contentDescription = "查看课程详情：" \+ lesson.title/,
   '点击日视图课程应打开与周视图共用的详情抽屉');
 assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ChevronRight|Icons\.Outlined\.ExpandMore/,
   '紧凑课程卡整行点击打开详情，不再堆叠无用箭头');
@@ -2353,3 +2366,8 @@ const semesterSettingsUi = read('apps/xiaoxu-android/app/src/main/java/io/github
 assert.match(semesterSettingsUi, /Text\("默认课表视图"/);
 assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,
   'default timetable view must use the compact inline choice, not a full-row segmented bar');
+
+if (assertionFailures.length) {
+  console.error(JSON.stringify(assertionFailures, null, 2));
+  throw new Error(`Static Android contract failures: ${assertionFailures.length}`);
+}

@@ -1,0 +1,10 @@
+{
+  "distributionCleared": false,
+  "upstreamCommit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "originalFiles": 87,
+  "blockers": [
+    "No root LICENSE found in reviewed Git tree; verify and obtain all applicable rights for whole Android work",
+    "Audit remaining SleepDown-derived expressions and all runtime dependencies/resources",
+    "Prepare complete corresponding source and retained license notices"
+  ]
+}

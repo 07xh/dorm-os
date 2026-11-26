@@ -53,9 +53,9 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
         }
     }
     val projects = listOf(
-        Triple("SleepDown-Schedule", "导航手势与页面动效", "https://github.com/xiaomanjun233/SleepDown-Schedule"),
+        Triple("SleepDown-Schedule", "历史导航复用致谢", "https://github.com/xiaomanjun233/SleepDown-Schedule"),
         Triple("拾光课程表", "教务适配 · MIT", "https://github.com/ShiGuangSchedule/shiguang_warehouse"),
-        Triple("北化课表", "玻璃材质与图标 · GPL-3.0", "https://github.com/znjhahaha/zhengfang-apk/tree/v1.0.83"),
+        Triple("北化课表", "原版窗口、导航与公共 UI · GPL-3.0", "https://github.com/znjhahaha/zhengfang-apk/tree/v1.0.83"),
         Triple("Phosphor Icons", "图标资源 · MIT", "https://github.com/phosphor-icons/core")
     )
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -102,7 +102,7 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
                     color = XiaoxuPalette.Ink
                 )
                 Text(
-                    "目前的 GPLv3 适配与 SleepDown 非商业衍生代码的组合分发兼容性尚未完成审查，" +
+                    "旧 SleepDown 移植文件已删除；整体应用许可、其余依赖及对应源码义务仍待审查，" +
                         "此版本仅供开发与设备验收；不可据此认定可公开分发。",
                     style = MaterialTheme.typography.bodySmall,
                     color = XiaoxuPalette.Warning
