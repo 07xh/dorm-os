@@ -1700,3 +1700,11 @@ const semesterSettingsUi = read('apps/xiaoxu-android/app/src/main/java/io/github
 assert.match(semesterSettingsUi, /Text\("默认课表视图"/);
 assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,
   'default timetable view must use the compact inline choice, not a full-row segmented bar');
+
+// Preserve the upstream inset contract and reuse the same window on standalone entries.
+assert.match(pageScaffold, /contentWindowInsets = WindowInsets\.safeDrawing\.only\(WindowInsetsSides\.Bottom\)/);
+assert.match(secondClassHome, /GlassWindowHost\s*\{/);
+assert.match(secondClassHome, /AppPageFrame\(title = "第二课堂"/);
+assert.doesNotMatch(secondClassHome, /Surface\(Modifier\.fillMaxSize\(\)/);
+const upstreamBarTheme = read('apps/xiaoxu-android/app/src/main/java/com/tyust/course/ui/theme/Theme.kt');
+assert.match(upstreamBarTheme, /window\.isNavigationBarContrastEnforced = false/);
