@@ -34,10 +34,10 @@ object XiaoxuLocalScheduleAdapter {
                 endPeriod = lesson.endSection,
                 weeks = lesson.weeks.distinct().sorted().joinToString(",") { "${it}周" },
                 color = palette[ScheduleIdentity.colorIndex(lesson.id, palette.size)],
-                isCustom = false,
+                isCustom = true,
                 customId = lesson.id,
                 sourceId = lesson.id,
-                id = lesson.id
+                id = "custom:${lesson.id}"
             )
         }
     }
@@ -73,7 +73,7 @@ object XiaoxuLocalScheduleAdapter {
         val parsed = ScheduleWeeks.parse(record.weeks, ScheduleMaxWeeks)
         require(parsed.valid) { "课程周次无法恢复" }
         return VerifiedLesson(
-            id = record.id,
+            id = record.id.removePrefix("custom:"),
             term = term,
             title = record.name,
             teacher = record.teacher,
