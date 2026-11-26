@@ -1,0 +1,29 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/SystemUi.kt",
+      "blob": "2a02fc94aa303f3d35b86a4f61d2ec59d10841c7"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/ContentSurface.kt",
+      "blob": "37a84c20f22ebe01a85e341e066cd8f70fdd306f"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/TopBarActionRail.kt",
+      "blob": "6322088e782b27c0a118809fb7eabc4a34669b9e"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/SystemActionMenu.kt",
+      "blob": "47cf67491ff55367f3cb66c265a4d9b4c3e7b815"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/CapsuleNavigationBar.kt",
+      "blob": "705b2ed93bfac28849b19617a87a93c99ad9b3b3"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/LiquidSelectionComponents.kt",
+      "blob": "ed2df7633c48a73753e4238807ef8ccaf814d785"
+    }
+  ]
+}
