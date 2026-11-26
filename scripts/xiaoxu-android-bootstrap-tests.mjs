@@ -542,7 +542,7 @@ assert.doesNotMatch(secondClassHome, /dao\.observe\(|nativeSchoolRecords\(\)/,
 
 assert.match(secondClassMain, /val capture = credits\.map \{ it\.capturedAt \}\.distinct\(\)\.singleOrNull\(\)/);
 assert.match(secondClassMain, /val confirmed = capture != null && capture > 0 && binding\?\.capturedAt == capture/);
-assert.match(secondClassMain, /val personal = records\.filter \{ it\.kind in setOf\("activity", "activity_summary"\) && it\.capturedAt == stamp \}/);
+assert.match(secondClassMain, /val personal = remember\(records, stamp\) \{ records\.filter \{ it\.kind in setOf\("activity", "activity_summary"\) && it\.capturedAt == stamp \} \}/);
 assert.match(secondClassMain, /val catalogTime = catalog\.map \{ it\.capturedAt \}\.distinct\(\)\.singleOrNull\(\)/);
 assert.doesNotMatch(secondClassMain, /SecondClassActivity\(|HttpURLConnection|CookieManager|addJavascriptInterface|schoolPassword/);
 
@@ -1708,3 +1708,6 @@ assert.match(secondClassHome, /AppPageFrame\(title = "第二课堂"/);
 assert.doesNotMatch(secondClassHome, /Surface\(Modifier\.fillMaxSize\(\)/);
 const upstreamBarTheme = read('apps/xiaoxu-android/app/src/main/java/com/tyust/course/ui/theme/Theme.kt');
 assert.match(upstreamBarTheme, /window\.isNavigationBarContrastEnforced = false/);
+
+// A local reminder adapter must delegate row chrome to the shared upstream group.
+assert.match(profileSettings, /private fun ReminderToggleRow\([\s\S]*?\) \{\s*InsetGroupedRow\([\s\S]*?trailing = \{ LiquidSwitch\(/);

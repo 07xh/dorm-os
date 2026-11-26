@@ -103,3 +103,139 @@ R34 CI 45580208201 全部通过，包括 APK 打包。恢复原 CloudClient.sign
 R35 QA 的实际观感未达到用户要求，废弃简化自制主题。以固定上游提交 bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed 的原包名引入完整主题、色板、字型、壁纸渲染/色调图/图片存储/可读性源码，恢复原分组控件的壁纸区域及动画。现有入口仅桥接 CourseSelectorTheme，主容器直接绘制原壁纸。未移植 AppCompat 跨进程主题应用，保留校序 Activity/数据与原有设备性能降级；不宣称完整页面或导航已替换。后续以整页源码及真实截图比较验收，不以组件数量估计还原度。R35 原始备份分支 backup/android-r35-before-upstream-rebase。
 ## R37 统一上游窗口与页面基础设施
 R36 完整上游主题及壁纸源码迁移的编译门禁 45585128446 已全部通过。停止并行维护简化组件：以完整 GlassKit.kt、AnimatedCount.kt、PageLoadingIcon.kt、ModuleMotion.kt、GlassOverlayHost.kt、GlassWindowHost.kt、GlassPageScaffold.kt 为统一公共基础，删除 UpstreamGlassKit.kt 和 UpstreamGlassTextField.kt，保留原组件签名。根窗口统一独立壁纸源、页面源、模态合成源；不在采样层中绘制自己的光学结果。五个根页面及二级路由共享该窗口；普通页面经 GlassPageScaffold，设置页直接采用上游 SettingsScreen 的完整页面 Scaffold、滚动折叠、分组与账号头布局，替换不可用的上游业务入口为校序真实路由，并复用现有上游滚轮及 AppearanceSettingsManager 提供主题、预设背景和玻璃开关。原版独立设备采样门禁保留，API31/32 离屏路径继续禁用。未完成原版完整导航、课表及成绩页面业务映射，未声称视觉完全一致。此批需编译、运行和截图验收；未发布。
+
+
+## 2026-11-26 文件级源码复用清点（基线 218af2741486d60499cc5e2a4b94439c26b5c32c）
+
+以 Git tree 实际存在的 Kotlin 文件为范围：两个包的 ui、manager、Activity 与 SecondClassPage，共 120 个。固定上游 bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed。按 Git blob SHA 完全相同、同名但不同 SHA、无同名分三类。此分类是完整文件清点而非逐行等价证明；别名说明是已知映射或业务职责，不能用名称代替来源证据。13 个完全一致；52 个同名但差异需复核；55 个无同名（含已知别名和校序独有业务）。
+
+### 19 个路由的实际容器检查
+
+五个一级路由与 14 个子路由由 AppRoute/AppFeaturePage 分发。总览、教务、任务、通知、数据连接、账户、关于、学习进度、校园跑、第二课堂及其同步设置、提醒、备份、许可、课表设置使用 AppPageFrame；课表及个人中心走 GlassPageScaffold；成绩、考试使用移植的专用 GradesFeature 透明 Scaffold。已检查这些入口不存在自绘全屏 PageGradient；专用课表/成绩布局与局部分组颜色不是重复根背景。第二课堂兼容 Activity 已改共享 GlassWindowHost / AppPageFrame。两类官方授权/导入 WebView 是必要独立窗口，保留既有授权、回执和安全逻辑，不把学校网页替换成仿造登录。
+
+本批实际修复：提醒开关行委托 InsetGroupedRow + LiquidSwitch，保留现有分隔和回调；修正 CI 中第二课堂缓存筛选的旧字符串断言，仍要求同一批次和记录类型，不削弱身份/数据安全约束。旧分支停止新增 UI。剩余差异必须逐个核实，尚不能声称 120 文件全部逐行复核或全部适配完成。
+
+### 文件清单（相对 app/src/main/java）
+
+| 文件 | SHA/同名/别名分类 | 上游候选或职责 |
+|---|---|---|
+| `com/tyust/course/manager/AppThemeCoordinator.kt` | 同名有差异 | `com/tyust/course/manager/AppThemeCoordinator.kt` |
+| `com/tyust/course/manager/AppThemeMode.kt` | 原样一致 | `com/tyust/course/manager/AppThemeMode.kt` |
+| `com/tyust/course/manager/AppearanceSettingsManager.kt` | 原样一致 | `com/tyust/course/manager/AppearanceSettingsManager.kt` |
+| `com/tyust/course/manager/WallpaperImageStore.kt` | 原样一致 | `com/tyust/course/manager/WallpaperImageStore.kt` |
+| `com/tyust/course/manager/WallpaperToneMap.kt` | 原样一致 | `com/tyust/course/manager/WallpaperToneMap.kt` |
+| `com/tyust/course/ui/system/GlassCompat.kt` | 原样一致 | `com/tyust/course/ui/system/GlassCompat.kt` |
+| `com/tyust/course/ui/system/GlassIndication.kt` | 原样一致 | `com/tyust/course/ui/system/GlassIndication.kt` |
+| `com/tyust/course/ui/system/GlassRuntimeGuard.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassRuntimeGuard.kt` |
+| `com/tyust/course/ui/system/WallpaperAppearance.kt` | 原样一致 | `com/tyust/course/ui/system/WallpaperAppearance.kt` |
+| `com/tyust/course/ui/system/WallpaperReadability.kt` | 原样一致 | `com/tyust/course/ui/system/WallpaperReadability.kt` |
+| `com/tyust/course/ui/system/WallpaperRenderer.kt` | 原样一致 | `com/tyust/course/ui/system/WallpaperRenderer.kt` |
+| `com/tyust/course/ui/theme/AppAppearance.kt` | 原样一致 | `com/tyust/course/ui/theme/AppAppearance.kt` |
+| `com/tyust/course/ui/theme/AppSystemBars.kt` | 原样一致 | `com/tyust/course/ui/theme/AppSystemBars.kt` |
+| `com/tyust/course/ui/theme/Color.kt` | 原样一致 | `com/tyust/course/ui/theme/Color.kt` |
+| `com/tyust/course/ui/theme/Theme.kt` | 同名有差异 | `com/tyust/course/ui/theme/Theme.kt` |
+| `com/tyust/course/ui/theme/Type.kt` | 原样一致 | `com/tyust/course/ui/theme/Type.kt` |
+| `io/github/x07xh/xiaoxu/LocalQingguoImportActivity.kt` | 无同名 | 校序原课表导入 WebView |
+| `io/github/x07xh/xiaoxu/MainActivity.kt` | 同名有差异 | `com/tyust/course/MainActivity.kt` |
+| `io/github/x07xh/xiaoxu/NativeSchoolConnectActivity.kt` | 无同名 | 校序原授权 WebView |
+| `io/github/x07xh/xiaoxu/SecondClassHomeActivity.kt` | 无同名 | 校序兼容入口 / GlassWindowHost + AppPageFrame |
+| `io/github/x07xh/xiaoxu/SecondClassPage.kt` | 无同名 | 校序业务 / 上游分组与弹窗 |
+| `io/github/x07xh/xiaoxu/ui/AboutFeature.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/AcademicSnapshotList.kt` | 无同名 | GradesScreen.kt（学期与读取操作） |
+| `io/github/x07xh/xiaoxu/ui/AnimatedCount.kt` | 同名有差异 | `com/tyust/course/ui/system/AnimatedCount.kt` |
+| `io/github/x07xh/xiaoxu/ui/AnimatedIconSpec.kt` | 同名有差异 | `com/tyust/course/ui/system/AnimatedIconSpec.kt` |
+| `io/github/x07xh/xiaoxu/ui/AnimatedStateIcon.kt` | 同名有差异 | `com/tyust/course/ui/system/AnimatedStateIcon.kt` |
+| `io/github/x07xh/xiaoxu/ui/AppDialog.kt` | 无同名 | SystemUi.kt（SystemDialogContent） |
+| `io/github/x07xh/xiaoxu/ui/AppFeaturePages.kt` | 无同名 | 校序业务路由绑定 |
+| `io/github/x07xh/xiaoxu/ui/AppPageContract.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/AppPageFrame.kt` | 无同名 | GlassPageScaffold / SystemTopBar 的业务适配 |
+| `io/github/x07xh/xiaoxu/ui/AppSymbolSpec.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/AppWorkspaceState.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/CampusRunFeature.kt` | 无同名 | 校序原校园跑逻辑 / 上游分组 |
+| `io/github/x07xh/xiaoxu/ui/CollapsingGlassHeader.kt` | 同名有差异 | `com/tyust/course/ui/system/CollapsingGlassHeader.kt` |
+| `io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/DampedDragAnimation.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/DampedDragAnimation.kt` |
+| `io/github/x07xh/xiaoxu/ui/DialogHost.kt` | 同名有差异 | `com/tyust/course/ui/system/DialogHost.kt` |
+| `io/github/x07xh/xiaoxu/ui/DragGestureInspector.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/DragGestureInspector.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassChipAppearance.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassChipAppearance.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassFilterCapsule.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassFilterCapsule.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassFormField.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassFormField.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassFrameQueue.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassFrameQueue.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassKit.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassKit.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLens.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLens.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensCapture.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensCapture.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensEngine.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensEngine.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensFrameIdentity.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensFrameIdentity.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensFreshness.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensFreshness.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensGeometry.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensGeometry.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensRegion.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensRegion.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensRenderer.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensRenderer.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassLensShader.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassLensShader.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassMaterial.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassMaterial.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassOverlayHost.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassOverlayHost.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassPageScaffold.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassPageScaffold.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassPerformancePolicy.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassPerformancePolicy.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassSheetSurface.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/GlassSheetSurface.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassWheelPicker.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassWheelPicker.kt` |
+| `io/github/x07xh/xiaoxu/ui/GlassWindowHost.kt` | 同名有差异 | `com/tyust/course/ui/system/GlassWindowHost.kt` |
+| `io/github/x07xh/xiaoxu/ui/GradesFeature.kt` | 无同名 | GradesScreen.kt / MeasuredGradesHeader.kt |
+| `io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/InitialPageLoad.kt` | 同名有差异 | `com/tyust/course/ui/system/InitialPageLoad.kt` |
+| `io/github/x07xh/xiaoxu/ui/LocalRowsState.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/LocalTaskDependencyGraph.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/LocalTaskEditSheet.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/MessageCenterFeature.kt` | 无同名 | 校序原通知逻辑 / 上游分组、弹窗 |
+| `io/github/x07xh/xiaoxu/ui/ModuleMotion.kt` | 同名有差异 | `com/tyust/course/ui/theme/ModuleMotion.kt` |
+| `io/github/x07xh/xiaoxu/ui/MotionTokens.kt` | 同名有差异 | `com/tyust/course/ui/theme/MotionTokens.kt` |
+| `io/github/x07xh/xiaoxu/ui/NavScrollIntent.kt` | 同名有差异 | `com/tyust/course/ui/system/NavScrollIntent.kt` |
+| `io/github/x07xh/xiaoxu/ui/NavigationIconMotion.kt` | 同名有差异 | `com/tyust/course/ui/system/NavigationIconMotion.kt` |
+| `io/github/x07xh/xiaoxu/ui/NavigationIconPlayback.kt` | 同名有差异 | `com/tyust/course/ui/system/NavigationIconPlayback.kt` |
+| `io/github/x07xh/xiaoxu/ui/NavigationMaterialPolicy.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/OpenSourceCredits.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/PageDataState.kt` | 同名有差异 | `com/tyust/course/ui/system/PageDataState.kt` |
+| `io/github/x07xh/xiaoxu/ui/PageLoadingIcon.kt` | 同名有差异 | `com/tyust/course/ui/system/PageLoadingIcon.kt` |
+| `io/github/x07xh/xiaoxu/ui/PhosphorNavigationIcon.kt` | 同名有差异 | `com/tyust/course/ui/system/PhosphorNavigationIcon.kt` |
+| `io/github/x07xh/xiaoxu/ui/ProfileFeature.kt` | 无同名 | SettingsScreen.kt（SettingsRow） |
+| `io/github/x07xh/xiaoxu/ui/RebuildCapsuleDock.kt` | 无同名 | CapsuleNavigationBar.kt |
+| `io/github/x07xh/xiaoxu/ui/RebuildReadContracts.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/RebuildShell.kt` | 无同名 | MainActivity.kt（路由、窗口与导航集成适配） |
+| `io/github/x07xh/xiaoxu/ui/RebuildTheme.kt` | 无同名 | CourseSelectorTheme（Theme.kt 桥接） |
+| `io/github/x07xh/xiaoxu/ui/ReminderSettingsFeature.kt` | 无同名 | 校序原提醒业务 / InsetGroupedRow + LiquidSwitch |
+| `io/github/x07xh/xiaoxu/ui/ScheduleBottomSheetState.kt` | 同名有差异 | `com/tyust/course/ui/system/ScheduleBottomSheetState.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScheduleDateText.kt` | 同名有差异 | `com/tyust/course/ui/screen/ScheduleDateText.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScheduleDetail.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/ScheduleDomain.kt` | 同名有差异 | `com/tyust/course/schedule/ScheduleDomain.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScheduleFeature.kt` | 无同名 | 共享课表源码的数据绑定 |
+| `io/github/x07xh/xiaoxu/ui/ScheduleFocus.kt` | 同名有差异 | `com/tyust/course/ui/screen/ScheduleFocus.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScheduleHeader.kt` | 同名有差异 | `com/tyust/course/ui/screen/ScheduleHeader.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScheduleLocation.kt` | 同名有差异 | `com/tyust/course/schedule/ScheduleLocation.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScheduleMotionProfile.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/ScheduleOverlap.kt` | 同名有差异 | `com/tyust/course/schedule/ScheduleOverlap.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScheduleSettingsFeature.kt` | 无同名 | ScheduleSettingsScreen.kt |
+| `io/github/x07xh/xiaoxu/ui/ScheduleWeekLabel.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/ScheduleWeekPagerSync.kt` | 同名有差异 | `com/tyust/course/schedule/ScheduleWeekPagerSync.kt` |
+| `io/github/x07xh/xiaoxu/ui/ScreenMetrics.kt` | 同名有差异 | `com/tyust/course/ui/system/ScreenMetrics.kt` |
+| `io/github/x07xh/xiaoxu/ui/SecondClassAutoReadControls.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/SettingsScreen.kt` | 同名有差异 | `com/tyust/course/ui/screen/SettingsScreen.kt` |
+| `io/github/x07xh/xiaoxu/ui/StudyProgressFeature.kt` | 无同名 | 校序业务 / 上游分组与空状态 |
+| `io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/TaskExecutionRows.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/TasksFeature.kt` | 无同名 | 校序原任务数据逻辑 / 上游分组、弹窗 |
+| `io/github/x07xh/xiaoxu/ui/ThumbLens.kt` | 同名有差异 | `com/tyust/course/ui/system/glass/ThumbLens.kt` |
+| `io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/UpstreamCourseDetailSheet.kt` | 无同名 | CourseDetailContent |
+| `io/github/x07xh/xiaoxu/ui/UpstreamDayCourse.kt` | 无同名 | ScheduleAgendaContent |
+| `io/github/x07xh/xiaoxu/ui/UpstreamExamCard.kt` | 无同名 | 考试卡片 |
+| `io/github/x07xh/xiaoxu/ui/UpstreamGradeCard.kt` | 无同名 | GradeItemRow |
+| `io/github/x07xh/xiaoxu/ui/UpstreamHeaderInterpolation.kt` | 无同名 | CollapsingGlassHeader.kt |
+| `io/github/x07xh/xiaoxu/ui/UpstreamLiquidSegmentedControl.kt` | 无同名 | LiquidSelectionComponents.kt |
+| `io/github/x07xh/xiaoxu/ui/UpstreamLiquidSwitch.kt` | 无同名 | LiquidComponents.kt |
+| `io/github/x07xh/xiaoxu/ui/UpstreamNavTab.kt` | 无同名 | CapsuleNavigationBar.kt |
+| `io/github/x07xh/xiaoxu/ui/UpstreamPhysicalLens.kt` | 无同名 | PhysicalLensSurface |
+| `io/github/x07xh/xiaoxu/ui/UpstreamScheduleGlass.kt` | 无同名 | ScheduleGlass |
+| `io/github/x07xh/xiaoxu/ui/UpstreamStatStrip.kt` | 无同名 | SystemStatStrip |
+| `io/github/x07xh/xiaoxu/ui/UpstreamSystemUi.kt` | 无同名 | SystemUi.kt |
+| `io/github/x07xh/xiaoxu/ui/UpstreamTimetable.kt` | 无同名 | 课表 TimetableLayout / TimetableBackground / CourseCard |
+| `io/github/x07xh/xiaoxu/ui/WechatTaskLinkActions.kt` | 无同名 | 待复核来源或校序专用适配 |
+| `io/github/x07xh/xiaoxu/ui/WorkspaceTaskLogic.kt` | 无同名 | 待复核来源或校序专用适配 |
