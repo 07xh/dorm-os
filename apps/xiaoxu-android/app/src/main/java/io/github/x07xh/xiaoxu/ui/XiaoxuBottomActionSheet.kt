@@ -35,6 +35,8 @@ import com.tyust.course.ui.system.SystemDialog
 import com.tyust.course.ui.system.DialogPresentation
 import com.tyust.course.ui.system.SystemSecondaryButton
 import com.tyust.course.ui.system.SystemPrimaryButton
+import com.tyust.course.ui.system.SystemCard
+import androidx.compose.foundation.layout.PaddingValues
 import com.tyust.course.ui.system.SystemDestructiveButton
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -90,9 +92,7 @@ internal fun XiaoxuBottomSheet(
 }
 
 /**
- * SleepDown 参考的轻量底部浮层。只承载链接、选择、确认等短内容；
- * 课程编辑、长表单、日期与时间轮盘继续使用各自的专用页面。
- * Dialog 仍由系统负责返回键和外部触摸关闭，不模拟系统授权弹窗。
+ * Platform window is retained only for busy-state dismissal veto. The surface and buttons are upstream components.
  */
 @Composable
 private fun XiaoxuGuardedBottomSheet(
@@ -107,10 +107,10 @@ private fun XiaoxuGuardedBottomSheet(
 ) {
     val outerInteraction = remember { MutableInteractionSource() }
     val innerInteraction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(XiaoxuRadius.modal)
     Dialog(
         onDismissRequest = { if (dismissEnabled) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false,
+            dismissOnBackPress = dismissEnabled, dismissOnClickOutside = dismissEnabled)
     ) {
         XiaoxuDialogDim(dimAmount = 0.26f)
         // Size against the usable dialog window, not the full screen.
@@ -130,22 +130,13 @@ private fun XiaoxuGuardedBottomSheet(
             contentAlignment = Alignment.BottomCenter
         ) {
             val sheetMaxHeight = maxHeight * 0.88f
-            Column(
+            SystemCard(
                 modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth()
                     .heightIn(max = sheetMaxHeight)
-                    .clip(shape)
-                    .background(XiaoxuPalette.GlassModalFallback)
-                    .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
-                    .clickable(interactionSource = innerInteraction, indication = null, onClick = {})
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .clickable(interactionSource = innerInteraction, indication = null, onClick = {}),
+                contentPadding = PaddingValues(20.dp),
+                backdrop = null
             ) {
-                Box(
-                    Modifier.width(36.dp).height(4.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(XiaoxuPalette.Ink3.copy(alpha = 0.28f))
-                )
                 Text(
                     title, style = MaterialTheme.typography.titleLarge,
                     color = XiaoxuPalette.Ink,

@@ -3,7 +3,6 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,18 +42,18 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import com.tyust.course.ui.system.SystemSegmentedControl
 import com.tyust.course.ui.system.SystemCompactSegmentedControl
 import com.tyust.course.ui.system.SystemDialog
 import com.tyust.course.ui.system.SystemPrimaryButton
+import com.tyust.course.ui.system.LiquidButton
+import com.tyust.course.ui.system.LiquidButtonStyle
+import com.tyust.course.ui.theme.CourseSelectorTheme
 import com.tyust.course.ui.system.SystemTopBar
 import com.tyust.course.ui.system.SystemCard
 import androidx.compose.foundation.layout.PaddingValues
@@ -62,7 +61,6 @@ import com.tyust.course.ui.system.SystemIconButton
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -84,7 +82,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -273,77 +270,10 @@ val XiaoxuTone.contentColor: Color
         XiaoxuTone.Neutral -> XiaoxuPalette.Neutral
     }
 
-private val XiaoxuColorScheme = lightColorScheme(
-    primary = XiaoxuPalette.Brand,
-    onPrimary = Color.White,
-    primaryContainer = XiaoxuPalette.BrandSoft,
-    onPrimaryContainer = XiaoxuPalette.BrandDeep,
-    secondary = XiaoxuPalette.Neutral,
-    onSecondary = Color.White,
-    secondaryContainer = XiaoxuPalette.NeutralSoft,
-    onSecondaryContainer = XiaoxuPalette.Ink,
-    tertiary = XiaoxuPalette.Success,
-    onTertiary = Color.White,
-    tertiaryContainer = XiaoxuPalette.SuccessSoft,
-    onTertiaryContainer = XiaoxuPalette.Success,
-    background = XiaoxuPalette.Bg,
-    onBackground = XiaoxuPalette.Ink,
-    surface = XiaoxuPalette.Surface,
-    onSurface = XiaoxuPalette.Ink,
-    surfaceVariant = XiaoxuPalette.SurfaceAlt,
-    onSurfaceVariant = XiaoxuPalette.Ink2,
-    outline = Color(0xFFD8E1F2),
-    outlineVariant = XiaoxuPalette.Line,
-    error = XiaoxuPalette.Danger,
-    onError = Color.White,
-    errorContainer = XiaoxuPalette.DangerSoft,
-    onErrorContainer = XiaoxuPalette.Danger,
-    surfaceTint = XiaoxuPalette.Brand
-)
-
-private val XiaoxuTypography = Typography(
-    headlineMedium = TextStyle(
-        fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.4).sp
-    ),
-    headlineSmall = TextStyle(
-        fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.2).sp
-    ),
-    titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
-    bodySmall = TextStyle(fontSize = 12.5.sp, lineHeight = 19.sp),
-    labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp)
-)
-
-private val XiaoxuShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(XiaoxuRadius.card),
-    large = RoundedCornerShape(XiaoxuRadius.hero),
-    extraLarge = RoundedCornerShape(28.dp)
-)
-
-/** 全 App 唯一主题入口：颜色 / 字级 / 圆角一次装好，页面不再自带配色。 */
+/** Standalone activity compatibility entry; the upstream theme is the only Material theme. */
 @Composable
 fun XiaoxuTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = XiaoxuColorScheme,
-        typography = XiaoxuTypography,
-        shapes = XiaoxuShapes,
-        content = {
-            // Default Compose clickable/selectable rows receive the same bounded
-            // low-contrast ripple; individually clipped shapes retain their outline.
-            CompositionLocalProvider(
-                LocalIndication provides ripple(bounded = true, color = XiaoxuPalette.PressTint)
-            ) { content() }
-        }
-    )
+    CourseSelectorTheme(darkTheme = false, content = content)
 }
 
 /** Keep dialog dimming uniform across content and system-bar regions. */
@@ -790,10 +720,12 @@ internal fun XiaoxuDialogPrimaryButton(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    Button(
+    LiquidButton(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().heightIn(min = 50.dp),
-        shape = RoundedCornerShape(999.dp),
+        modifier = modifier.fillMaxWidth(),
+        style = LiquidButtonStyle.SolidTinted,
+        tint = MaterialTheme.colorScheme.primary,
+        minHeight = 52.dp,
         content = content
     )
 }

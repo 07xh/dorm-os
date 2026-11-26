@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import com.tyust.course.ui.system.SystemPicker
 import com.tyust.course.ui.system.SystemIconButton
 import com.tyust.course.ui.system.SystemListItem
+import com.tyust.course.ui.system.SystemCard
 import androidx.compose.runtime.LaunchedEffect
 import io.github.x07xh.xiaoxu.ui.rememberLocalRows
 import androidx.compose.runtime.getValue
@@ -290,29 +291,13 @@ fun SecondClassPage(
                 val lines = record.details.lines()
                 val time = lines.firstOrNull { it.startsWith("开始时间：") }
                 val status = lines.firstOrNull { it.startsWith("报名：") }
-                XiaoxuCard(
-                    onClick = {
-                        detailKey = record.kind + ":" + record.fingerprint
-                    },
-                    contentPadding = 16.dp
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(record.title, modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = XiaoxuPalette.Ink, maxLines = 2,
-                            overflow = TextOverflow.Ellipsis)
-                        Icon(Icons.Outlined.ChevronRight,
-                            contentDescription = "查看活动详情",
-                            tint = XiaoxuPalette.Ink2)
-                    }
-                    if (time != null) {
-                        Text(time, style = MaterialTheme.typography.bodySmall,
-                            color = XiaoxuPalette.Ink2)
-                    }
-                    if (status != null) {
-                        Text(status, style = MaterialTheme.typography.bodySmall,
-                            color = XiaoxuPalette.BrandDeep)
-                    }
+                SystemCard(contentPadding = PaddingValues(0.dp)) {
+                    SystemListItem(
+                        title = record.title,
+                        subtitle = listOfNotNull(time, status).joinToString(" · ").ifBlank { null },
+                        trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
+                        onClick = { detailKey = record.kind + ":" + record.fingerprint }
+                    )
                 }
             }
         }
@@ -332,22 +317,12 @@ fun SecondClassPage(
                 items = visibleCatalogActivities,
                 key = { "secondclass-catalog-" + it.fingerprint }
             ) { record ->
-                XiaoxuCard(
-                    onClick = {
-                        detailKey = record.kind + ":" + record.fingerprint
-                    },
-                    contentPadding = 16.dp
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(record.title, modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = XiaoxuPalette.Ink,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis)
-                        Icon(Icons.Outlined.ChevronRight,
-                            contentDescription = "查看学校活动",
-                            tint = XiaoxuPalette.Ink2)
-                    }
+                SystemCard(contentPadding = PaddingValues(0.dp)) {
+                    SystemListItem(
+                        title = record.title,
+                        trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
+                        onClick = { detailKey = record.kind + ":" + record.fingerprint }
+                    )
                 }
             }
         } else {
