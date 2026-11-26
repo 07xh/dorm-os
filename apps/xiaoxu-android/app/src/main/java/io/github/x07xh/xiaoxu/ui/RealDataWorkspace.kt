@@ -1448,29 +1448,12 @@ fun RealAcademicTaskHub(
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            XiaoxuTopBar(
+                title = "任务",
+                subtitle = today.format(DateTimeFormatter.ofPattern("M月d日 · EEEE", java.util.Locale.CHINA)),
+                applyStatusBarInset = false,
+                embedded = true
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text("任务",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = XiaoxuPalette.Ink,
-                        maxLines = 1,
-                        modifier = Modifier.semantics { heading() })
-                    Text(
-                        today.format(DateTimeFormatter.ofPattern("M月d日 · EEEE",
-                            java.util.Locale.CHINA)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2,
-                        maxLines = 1
-                    )
-                }
-
                 XiaoxuToolbarAction(
                     icon = Icons.Outlined.Search,
                     label = "搜索任务",
