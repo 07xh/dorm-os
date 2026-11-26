@@ -71,14 +71,23 @@ internal fun rememberAppWorkspace(
         }
         previousTasks = snapshot
     }
+    val authenticated = cloud.state.authenticated
+    val owner = cloud.state.ownerId
+    val generation = cloud.ownerSessionGeneration
+    val campusScope by key(cloud, authenticated, owner, generation) {
+        produceState<String?>(null) {
+            if (authenticated && !owner.isNullOrBlank()) value = withContext(Dispatchers.IO) {
+                campusRunVisibleScope(authenticated = true, ownerSessionBinding = cloud.ownerSessionBinding())
+            }
+        }
+    }
     return AppWorkspaceState(
         localTasks = pageSnapshot(tasks),
         dependencies = pageSnapshot(dependencies),
         lessons = pageSnapshot(lessons.takeIf { scheduleRevision > 0 || it.isNotEmpty() }),
         nativeRecords = pageSnapshot(records),
         cloud = cloud.state,
-        campusRunScope = campusRunVisibleScope(authenticated = cloud.state.authenticated,
-            ownerSessionBinding = cloud.ownerSessionBinding()),
+        campusRunScope = campusScope,
         semesterCalendar = settings?.first,
         timetableSections = settings?.second ?: 12,
         timetableSettingsLoaded = settings != null
