@@ -22,7 +22,7 @@ class ScheduleSettingsManager internal constructor(private var prefs: SharedPref
     
     companion object {
         const val PERIOD_COUNT_MIN = 8
-        const val PERIOD_COUNT_MAX = 16
+        const val PERIOD_COUNT_MAX = 24
         private const val PREFS_NAME = "schedule_settings"
         private const val KEY_SEMESTER_START = "semester_start"
         private const val KEY_PERIOD_TIMES = "period_times"
