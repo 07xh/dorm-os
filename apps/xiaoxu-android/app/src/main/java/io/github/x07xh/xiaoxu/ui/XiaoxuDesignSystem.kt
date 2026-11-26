@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
@@ -999,7 +1000,10 @@ fun XiaoxuTopBar(
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
     onMessages: (() -> Unit)? = null,
-    applyStatusBarInset: Boolean = true
+    applyStatusBarInset: Boolean = true,
+    embedded: Boolean = false,
+    onBack: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -1008,15 +1012,20 @@ fun XiaoxuTopBar(
             // A topBar-hosted header owns status inset; a page-hosted header is
             // already positioned below Scaffold's contentWindowInsets.
             .then(if (applyStatusBarInset) Modifier.statusBarsPadding() else Modifier)
-            .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = if (embedded) 0.dp else XiaoxuSpacing.page,
+                end = if (embedded) 0.dp else 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (onBack != null) {
+            XiaoxuToolbarAction(Icons.AutoMirrored.Outlined.ArrowBack, "返回原页面", onBack)
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
                 color = XiaoxuPalette.Ink,
-                maxLines = 1
+                maxLines = 1,
+                modifier = Modifier.semantics { heading() }
             )
             if (subtitle != null) {
                 Text(
@@ -1028,6 +1037,7 @@ fun XiaoxuTopBar(
                 )
             }
         }
+        actions()
         if (onMessages != null) {
             XiaoxuSoftIconButton(onClick = onMessages, glassChrome = true) {
                 Icon(
