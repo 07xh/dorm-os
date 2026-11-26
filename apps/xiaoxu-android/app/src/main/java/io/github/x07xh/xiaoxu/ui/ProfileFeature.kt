@@ -26,9 +26,9 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
     val scope = rememberCoroutineScope()
     val tint = MaterialTheme.colorScheme.primary
     val lessonsLabel = when (val snapshot = data.lessons) {
-        PageSnapshot.Loading -> "尚无已读取课表"
+        PageSnapshot.Loading -> "正在读取本机课表"
         is PageSnapshot.Unavailable -> "课表暂不可读取"
-        is PageSnapshot.Ready -> "已保存 ${snapshot.value.size} 条本机课程"
+        is PageSnapshot.Ready -> if (snapshot.value.isEmpty()) "尚未导入课表" else "已保存 ${snapshot.value.size} 条本机课程"
     }
     val localRows = (data.nativeRecords as? PageSnapshot.Ready)?.value
     val localStatuses = remember(localRows) {
@@ -56,7 +56,7 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
         }
         cloud.privateError?.let { AppNotice(it, error = true) }
         InsetGroupedSection(header = "本机学校读取", animateSize = false,
-            footer = "仅保存本人学校记录，无需连接校序云端。") {
+            footer = "只保存学校本人可见记录，无需连接校序云端。") {
             SettingsRow(Icons.Outlined.School, tint, "华水青果", lessonsLabel, onClick = { actions.connectLocal("ncwu") })
             AppGroupedEntry("查看本机课表", onClick = { actions.navigate(AppRoute.SCHEDULE) })
             SettingsRow(Icons.Outlined.MenuBook, tint, "学习通", localStatus("chaoxing"), onClick = { actions.connectLocal("chaoxing") })
