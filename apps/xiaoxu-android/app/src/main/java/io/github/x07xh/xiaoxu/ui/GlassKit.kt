@@ -163,6 +163,7 @@ fun InsetGroupedSection(
     modifier: Modifier = Modifier,
     header: String? = null,
     footer: String? = null,
+    animateSize: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val region = rememberWallpaperRegionState()
@@ -187,7 +188,7 @@ fun InsetGroupedSection(
                 .clip(GlassCardShape)
                 .background(glassSurfaceColor())
                 .border(0.5.dp, glassBorderColor(), GlassCardShape)
-                .animateContentSize(animationSpec = MotionSpring.liquidSettle()),
+                .then(if (animateSize) Modifier.animateContentSize(animationSpec = MotionSpring.liquidSettle()) else Modifier),
             content = content
         )
         }
