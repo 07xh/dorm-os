@@ -15,7 +15,7 @@ object LocalScheduleStore {
     private const val KEY = "meetings"
     private const val MAX_MEETINGS = 300
 
-    fun parseCourses(json: String): List<VerifiedLesson> {
+    fun parseCourses(json: String, preserveIds: Boolean = false): List<VerifiedLesson> {
         require(json.length <= 500_000) { "课表数据过大" }
         val array = JSONArray(json)
         require(array.length() in 1..MAX_MEETINGS) { "没有找到完整课程，未覆盖旧课表" }
@@ -40,8 +40,14 @@ object LocalScheduleStore {
             require(weeks.isNotEmpty() && weeks.size <= 35 &&
                     weeks.all { it in 1..35 }) { "第${i + 1}个课块周次无效，未保存" }
             val key = listOf(title, teacher, location, day, start, end, weeks).joinToString("|")
+            val generatedId = "local-" + key.hashCode().toUInt().toString(16)
+            val storedId = if (preserveIds && item.has("id")) {
+                item.optString("id").trim().also { id ->
+                    require(id.matches(Regex("[A-Za-z0-9._:-]{1,128}"))) { "第${i + 1}个课块 ID 无效" }
+                }
+            } else generatedId
             unique[key] = VerifiedLesson(
-                id = "local-" + key.hashCode().toUInt().toString(16),
+                id = storedId,
                 term = "", // Never fabricate a semester without an official term marker.
                 title = title,
                 teacher = teacher,
@@ -52,7 +58,9 @@ object LocalScheduleStore {
                 weeks = weeks
             )
         }
-        return unique.values.toList()
+        val result = unique.values.toList()
+        require(result.map { it.id }.distinct().size == result.size) { "课块 ID 重复，未保存" }
+        return result
     }
 
     /** Accepts converter-produced ICS only when it explicitly identifies sections and weeks. */
@@ -77,6 +85,7 @@ object LocalScheduleStore {
         val normalized = JSONArray()
         for (lesson in lessons) {
             normalized.put(JSONObject()
+                .put("id", lesson.id)
                 .put("name", lesson.title)
                 .put("teacher", lesson.teacher)
                 .put("position", lesson.location)
@@ -85,14 +94,20 @@ object LocalScheduleStore {
                 .put("endSection", lesson.endSection)
                 .put("weeks", JSONArray(lesson.weeks)))
         }
-        return save(context, normalized.toString())
+        val parsed = parseCourses(normalized.toString(), preserveIds = true)
+        return persist(context, parsed)
     }
 
     fun save(context: Context, input: String): Int {
         val parsed = parseCourses(input)
+        return persist(context, parsed)
+    }
+
+    private fun persist(context: Context, parsed: List<VerifiedLesson>): Int {
         val clean = JSONArray()
         for (item in parsed) {
             clean.put(JSONObject()
+                .put("id", item.id)
                 .put("name", item.title)
                 .put("teacher", item.teacher)
                 .put("position", item.location)
@@ -119,6 +134,6 @@ object LocalScheduleStore {
     fun load(context: Context): List<VerifiedLesson> {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY, null) ?: return emptyList()
-        return runCatching { parseCourses(raw) }.getOrDefault(emptyList())
+        return runCatching { parseCourses(raw, preserveIds = true) }.getOrDefault(emptyList())
     }
 }
