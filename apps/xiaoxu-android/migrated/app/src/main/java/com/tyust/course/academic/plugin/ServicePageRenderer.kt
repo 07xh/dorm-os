@@ -12,6 +12,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.tyust.course.ui.system.*
 import org.json.JSONObject
@@ -111,6 +113,7 @@ fun ServicePageBlock(block: JSONObject, enabled: Boolean, onAction: (JSONObject)
             } else OutlinedTextField(value, { values[id] = it.take(1000) }, label = { Text(label) },
                 placeholder = { Text(field.optString("placeholder")) }, enabled = enabled, singleLine = field.getString("type") != "multiline", minLines = if (field.getString("type") == "multiline") 3 else 1, maxLines = 6,
                 keyboardOptions = KeyboardOptions(keyboardType = if (field.getString("type") == "number") KeyboardType.Decimal else KeyboardType.Text),
+                visualTransformation = if (field.getString("type") == "password") PasswordVisualTransformation() else VisualTransformation.None,
                 modifier = Modifier.fillMaxWidth().testTag("service-field-$id"))
         }
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -121,7 +124,12 @@ fun ServicePageBlock(block: JSONObject, enabled: Boolean, onAction: (JSONObject)
                 field.getBoolean("required") && value.isBlank() || field.getString("type") == "number" && value.isNotBlank() && value.toDoubleOrNull()?.isFinite() != true
             }
             if (invalid != null) error = "请检查${invalid.getString("label")}"
-            else { error = ""; onAction(JSONObject().put("type", "action").put("actionId", submit.getString("actionId")).put("params", JSONObject(values.toMap()))) }
+            else {
+                error = ""
+                val submitted = JSONObject(values.toMap())
+                fields.filter { it.getString("type") == "password" }.forEach { values[it.getString("id")] = "" }
+                onAction(JSONObject().put("type", "action").put("actionId", submit.getString("actionId")).put("params", submitted))
+            }
         }, enabled = enabled, modifier = Modifier.fillMaxWidth().testTag("service-form-submit"), style = LiquidButtonStyle.Tinted) { Text(submit.getString("label")) }
     }
 }
