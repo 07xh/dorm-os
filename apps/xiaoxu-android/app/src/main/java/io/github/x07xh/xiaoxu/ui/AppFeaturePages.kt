@@ -76,6 +76,7 @@ internal fun AppFeaturePage(
         return
     }
     AppPageFrame(title = route.title, onBack = back,
+        compactHeader = route in setOf(AppRoute.CONNECTIONS, AppRoute.SECOND_CLASS, AppRoute.SECOND_CLASS_SETTINGS),
         wideContent = route == AppRoute.HOME || route == AppRoute.TASKS || route == AppRoute.MESSAGES) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
@@ -100,8 +101,10 @@ internal fun AppFeaturePage(
             AppRoute.ACCOUNT -> AccountFeature(data, actions)
             AppRoute.ABOUT -> AboutFeature({ actions.navigate(AppRoute.LICENSES) }, actions.openWebsite)
             AppRoute.SECOND_CLASS_SETTINGS -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                InsetGroupedSection(header = "本机第二课堂读取") { SecondClassAutoReadControls() }
-                AppGroupedEntry("手动读取与积分", showDivider = false, onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
+                SecondClassAutoReadControls()
+                InsetGroupedSection(animateSize = false) {
+                    AppGroupedEntry("手动读取与积分", showDivider = false, onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
+                }
             }
             AppRoute.REMINDER_SETTINGS -> ReminderSettingsFeature(data)
             AppRoute.TASK_BACKUP -> LazyColumn { item { LocalTaskBackupPanel() } }
