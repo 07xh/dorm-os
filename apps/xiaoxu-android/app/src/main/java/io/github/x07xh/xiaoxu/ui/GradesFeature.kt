@@ -319,7 +319,8 @@ private fun MeasuredGradesHeader(
                         color = appearance.onSurfaceVariant, maxLines = 2)
                 }
                 LiquidSegmentedControl(tabs, selected, onSelect,
-                    modifier = Modifier.testTag("grades-segments"), height = 52.dp - 4.dp * p)
+                    modifier = Modifier.testTag("grades-segments"), height = 52.dp - 4.dp * p,
+                    refractLabels = false, stableLabelRefraction = true)
                 Row(Modifier.testTag("grades-actions")) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
