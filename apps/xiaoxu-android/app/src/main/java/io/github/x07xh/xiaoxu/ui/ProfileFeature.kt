@@ -31,13 +31,15 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
         is PageSnapshot.Ready -> "已保存 ${snapshot.value.size} 条本机课程"
     }
     val localRows = (data.nativeRecords as? PageSnapshot.Ready)?.value
-    fun localStatus(provider: String): String {
-        if (localRows == null) return "本机记录尚未读取"
-        val stored = localRows.filter { it.provider == provider && it.kind != "account_binding" }
-        val stamp = stored.maxOfOrNull { it.capturedAt } ?: return "暂无已保存记录"
-        val time = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(stamp))
-        return "已保存 ${stored.size} 条 · 最近读取 $time"
+    val localStatuses = remember(localRows) {
+        localRows?.filter { it.kind != "account_binding" }?.groupBy { it.provider }?.mapValues { (_, rows) ->
+            val stamp = rows.maxOf { it.capturedAt }
+            val time = android.text.format.DateFormat.format("MM-dd HH:mm", stamp)
+            "已保存 ${rows.size} 条 · $time"
+        }
     }
+    fun localStatus(provider: String): String =
+        if (localStatuses == null) "本机记录尚未读取" else localStatuses[provider] ?: "暂无已保存记录"
     fun status(provider: String): String {
         if (!cloud.authenticated || !cloud.connectionsFresh) return "云端状态尚未核验"
         val record = cloud.platforms.firstOrNull { it.id == provider } ?: return "尚无连接记录"
@@ -45,11 +47,16 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
-        AcademicReadAction("刷新连接状态", cloud.busy) { scope.launch { actions.refreshCloud() } }
-        AppNotice(cloud.schoolSyncMessage ?: cloud.authMessage)
+        InsetGroupedSection(animateSize = false) {
+            InsetGroupedRow(title = if (cloud.authenticated) "校序云端已连接" else "校序云端未连接",
+                subtitle = cloud.schoolSyncMessage ?: cloud.authMessage.takeUnless { it == "云端未连接" },
+                showDivider = false, trailing = {
+                    AcademicReadAction("刷新", cloud.busy) { scope.launch { actions.refreshCloud() } }
+                })
+        }
         cloud.privateError?.let { AppNotice(it, error = true) }
-        InsetGroupedSection(header = "本机学校读取") {
-            AppNotice("本机读取无需连接校序云端；只保存学校本人可见记录。")
+        InsetGroupedSection(header = "本机学校读取", animateSize = false,
+            footer = "仅保存本人学校记录，无需连接校序云端。") {
             SettingsRow(Icons.Outlined.School, tint, "华水青果", lessonsLabel, onClick = { actions.connectLocal("ncwu") })
             AppGroupedEntry("查看本机课表", onClick = { actions.navigate(AppRoute.SCHEDULE) })
             SettingsRow(Icons.Outlined.MenuBook, tint, "学习通", localStatus("chaoxing"), onClick = { actions.connectLocal("chaoxing") })
@@ -59,9 +66,9 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
                 onClick = { actions.connectLocal("second_class") })
             AppGroupedEntry("查看活动与积分", showDivider = false, onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
         }
-        InsetGroupedSection(header = "云端学校授权") {
+        InsetGroupedSection(header = "云端学校授权", animateSize = false, footer = "云端授权与本机读取独立。") {
             SettingsRow(Icons.Outlined.School, tint, "青果教务授权", status("ncwu"),
-                onClick = { actions.authorize("ncwu") })
+                onClick = { if (cloud.authenticated) actions.authorize("ncwu") else actions.navigate(AppRoute.ACCOUNT) })
             SettingsRow(Icons.Outlined.MenuBook, tint, "学习通云端授权", status("chaoxing"),
                 onClick = {
                     if (!cloud.authenticated) actions.navigate(AppRoute.ACCOUNT)
@@ -69,11 +76,10 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
                 })
             val linked = cloud.platforms.firstOrNull { it.id == "second_class" }
             val verified = cloud.authenticated && cloud.connectionsFresh
-            AppNotice("本机读取与云端授权独立；只展示已核验的连接状态。")
             SettingsRow(Icons.Outlined.Event, tint, "第二课堂云端授权", status("second_class"),
-                onClick = { actions.authorize("second_class") })
+                onClick = { if (cloud.authenticated) actions.authorize("second_class") else actions.navigate(AppRoute.ACCOUNT) })
             if (verified && linked?.sessionState == "active") {
-                linked.lastSuccessAt?.let { AppNotice("最近成功读取：$it") }
+                linked.lastSuccessAt?.let { InsetGroupedRow(title = "最近成功读取", subtitle = it, showDivider = false) }
                 TextButton(enabled = !cloud.busy && cloud.schoolSyncBusyProvider == null,
                     onClick = { scope.launch { actions.syncAuthorizedSchool("second_class") } }) {
                     Text(if (cloud.schoolSyncBusyProvider == "second_class") "正在同步" else "同步已授权第二课堂")
