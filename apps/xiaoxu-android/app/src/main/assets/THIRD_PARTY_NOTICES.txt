@@ -160,30 +160,15 @@ Material input dialogs replace the not-yet-ported glass wheel pickers.
 No new storage, account manager, or automatic school synchronization.
 
 ------------------------------------------------------------------
-2026-11-25 upstream grades card reuse
+2026-11-26 upstream grades page and liquid controls
 Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
-GPL-3.0, upstream authors and contributors. Imported GradeItemUi and
-GradeItemRow layout from GradesScreen.kt. Adapted to existing page shell,
-Material surface, expansion controls and verified snapshot data model.
-No inferred grade components from free-form notes or fabricated GPA.
-Existing owner-authorized GET /api/v1/verified/grades is manual read only.
-Full upstream grade distribution and overall statistics were not imported.
-
-------------------------------------------------------------------
-2026-11-25 upstream exam card reuse
-Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
-GPL-3.0, upstream authors and contributors. Imported ExamItemUi,
-ExamItemRow and ExamDetailRow from GradesScreen.kt; adapted local surface
-and badge dependencies. Grades and exams share the existing owner-bound
-CloudClient read pipeline and snapshot validation. No school-side writes.
-
-------------------------------------------------------------------
-2026-11-25 unified academic views
-Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
-GPL-3.0, original authors and contributors. SystemStatStrip from SystemUi.kt
-reused with local theme binding. Grade, exam and second-class pages share
-existing section components, term picker and manual read feedback. The local
-second-class reader, account binding and persistence are retained.
+GPL-3.0, upstream authors and contributors. GradesScreen.kt,
+MeasuredGradesHeader.kt, GradeRowIdentity.kt, the split LiquidSelectionComponents.kt port
+and its picker, action rail, glass surface and lens dependencies are reused
+with Xiaoxu package, shared-window and verified snapshot bindings. The grades
+screen has a Back action and preserves plain-text snapshot notes and missing
+values. Exams use the existing owner-bound read pipeline. Xiaoxu's second-class
+term trigger uses the same picker alongside the existing points heading.
 
 ------------------------------------------------------------------
 2026-11-25 unified tasks and settings

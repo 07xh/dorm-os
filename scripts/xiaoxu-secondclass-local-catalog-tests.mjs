@@ -151,8 +151,8 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
   assert.match(header,/AcademicReadAction\("手动读取", refreshing\)/);
   // Upstream liquid picker replaces the previous option wheel; index 0 is the all-terms choice.
   assert.match(ui,/SystemPicker\(/);
-  assert.match(ui,/val options = listOf\(allLabel\) \+ terms/);
-  assert.match(ui,/onSelect = \{ choice -> onSelect\(terms\.getOrNull\(choice - 1\)\) \}/);
+  assert.match(ui,/options = listOf\(allLabel\) \+ terms/);
+  assert.match(ui,/onSelect = \{ index -> onSelect\(terms\.getOrNull\(index - 1\)\) \}/);
   assert.match(ui,/enabled = terms\.isNotEmpty\(\)/);
   assert.doesNotMatch(page,/item\(key = "term_selector"\)/);
   const breakdown = page.slice(page.indexOf('InsetGroupedRow(title = "积分明细"'),

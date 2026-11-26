@@ -10,6 +10,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,9 +23,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,9 +35,11 @@ import androidx.compose.ui.unit.sp
 import com.tyust.course.ui.system.LocalAppBackdrop
 import com.tyust.course.ui.system.rememberWallpaperRegionState
 import com.tyust.course.ui.system.rememberWallpaperRegionAppearance
+import com.tyust.course.ui.system.ProvideThemedContent
 import com.tyust.course.ui.system.ProvideWallpaperAppearance
 import com.tyust.course.ui.system.wallpaperRegion
 import com.tyust.course.ui.system.isBackdropSupported
+import com.tyust.course.ui.theme.NeuDivider
 import com.tyust.course.ui.theme.NeuPrimary
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
@@ -345,4 +351,106 @@ fun SystemListItem(
             trailingContent()
         }
     }
+}
+
+@Composable
+fun SystemCard(
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface,
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant,
+    onClick: (() -> Unit)? = null,
+    contentPadding: PaddingValues = PaddingValues(16.dp),
+    backdrop: Backdrop? = LocalAppBackdrop.current,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val reduceMotion = rememberGlassAccessibilityMode().reduceMotion
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed && !reduceMotion) 0.985f else 1f,
+        animationSpec = MotionSpring.bounce(),
+        label = "cardScale"
+    )
+
+    val cardShape = RoundedCornerShape(16.dp)
+
+    val baseModifier = modifier
+        .fillMaxWidth()
+        .scale(pressScale)
+
+    val clickableModifier = if (onClick != null) {
+        baseModifier.clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onClick
+        )
+    } else {
+        baseModifier
+    }
+
+    // 调用方普遍显式传 colorScheme.surface；把"默认白面"语义映射为半透玻璃面
+    // （纯 alpha 混合零采样开销，多彩壁纸自然透出），特殊色卡保持原色。
+    val translucent = backgroundColor == MaterialTheme.colorScheme.surface
+    val effectiveColor = when {
+        !translucent -> backgroundColor
+        else -> glassSurfaceColor()
+    }
+    val effectiveBorder = if (translucent) {
+        if (borderColor == MaterialTheme.colorScheme.outlineVariant) glassBorderColor()
+        else lerp(glassBorderColor(), borderColor, 0.55f)
+    } else {
+        borderColor.copy(alpha = 0.15f)
+    }
+
+    Surface(
+        modifier = clickableModifier,
+        shape = cardShape,
+        color = effectiveColor,
+        contentColor = if (translucent) MaterialTheme.colorScheme.onSurface
+            else androidx.compose.material3.contentColorFor(backgroundColor),
+        border = BorderStroke(
+            width = 0.5.dp,
+            brush = Brush.linearGradient(listOf(effectiveBorder, effectiveBorder.copy(alpha = effectiveBorder.alpha * 0.45f), effectiveBorder))
+        ),
+        // 半透玻璃面必须关 elevation 阴影：RenderNode 阴影会透过半透表面显形为白蒙层
+        shadowElevation = when {
+            translucent -> 0.dp
+            isPressed -> 1.dp
+            else -> 2.dp
+        },
+        tonalElevation = 0.dp
+    ) {
+        ProvideThemedContent {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(contentPadding),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+        }
+    }
+}
+
+
+@Composable
+fun SystemDivider(
+    modifier: Modifier = Modifier,
+    alpha: Float = 0.5f
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        NeuDivider.copy(alpha = alpha),
+                        NeuDivider.copy(alpha = alpha),
+                        Color.Transparent
+                    )
+                )
+            )
+    )
 }
