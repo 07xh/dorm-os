@@ -30,23 +30,24 @@ internal fun AppPageFrame(
     title: String, onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     wideContent: Boolean = false,
+    compactHeader: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     // Share the upstream SettingsScreen/SystemTopBar collapse treatment.
     // Observe consumed vertical motion without taking scroll away from the child.
     val travel = with(LocalDensity.current) { 64.dp.toPx() }.coerceAtLeast(1f)
     var lift by remember { mutableFloatStateOf(0f) }
-    val observer = remember(travel) {
+    val observer = remember(travel, compactHeader) {
         object : NestedScrollConnection {
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                lift = (lift - consumed.y / travel).coerceIn(0f, 1f)
+                if (!compactHeader) lift = (lift - consumed.y / travel).coerceIn(0f, 1f)
                 return Offset.Zero
             }
         }
     }
     GlassPageScaffold(title = title, onBack = onBack, actions = actions, topBar = {
         Box(Modifier.moduleEntrance(0)) {
-            SystemTopBar(title = title, collapseFraction = lift, navigationIcon = {
+            SystemTopBar(title = title, collapseFraction = if (compactHeader) 1f else lift, navigationIcon = {
                 if (onBack != null) IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
                 }
