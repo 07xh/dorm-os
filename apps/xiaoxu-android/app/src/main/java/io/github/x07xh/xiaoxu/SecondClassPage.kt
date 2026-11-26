@@ -98,8 +98,11 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                 return@AppSnapshotContent
             }
             val stamp = capture!!
-            val terms = credits.filter { Regex("^第[1-9][0-9]*学期积分$").matches(it.title) }
-                .sortedByDescending { it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0 }
+            val terms = remember(credits) {
+                credits.filter { Regex("^第[1-9][0-9]*学期积分$").matches(it.title) }
+                    .sortedByDescending { it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0 }
+            }
+            val termTitles = remember(terms) { terms.map { it.title } }
             var requestedTerm by rememberSaveable(binding!!.details) { mutableStateOf<String?>(null) }
             val selected = requestedTerm?.takeIf { requested -> terms.any { it.title == requested } }
             val total = credits.singleOrNull { it.title == "学校积分合计" }
@@ -113,17 +116,23 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
             var catalogFilter by rememberSaveable(binding!!.details) { mutableIntStateOf(0) }
             val activeCatalogFilter = catalogKeys[catalogFilter.coerceIn(0, catalogKeys.lastIndex)]
             val catalogRecord = catalog.singleOrNull { it.kind == "catalog_empty" && it.title == activeCatalogFilter }
-            val visibleCatalogActivities = catalog.filter {
+            val visibleCatalogActivities = remember(catalog, activeCatalogFilter) { catalog.filter {
                 it.kind == "catalog_activity" && it.details.startsWith("筛选：$activeCatalogFilter\n")
-            }
+            } }
             var detailKey by rememberSaveable(binding!!.details) { mutableStateOf<String?>(null) }
             val detail = (credits + activities + catalog).firstOrNull { it.kind + ":" + it.fingerprint == detailKey }
             val stampLabel = remember(stamp) { android.text.format.DateFormat.format("MM-dd HH:mm", stamp).toString() }
-            val reading = refreshing || autoStatus == "reading"
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
+             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "credits-overview") {
-                    InsetGroupedSection(header = "积分概览", animateSize = false) {
+                    InsetGroupedSection(animateSize = false) {
+                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("积分概览", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            AcademicTermPicker(termTitles, selected, allLabel = "全部学期",
+                                onSelect = { requestedTerm = it })
+                        }
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
@@ -135,7 +144,7 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                                 else if (autoStatus in setOf("needs_reconnect", "needs_confirmation"))
                                     Text("请重新核验学校账号", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                             }
-                            AcademicReadAction("手动读取", reading) { refresh() }
+                            AcademicReadAction("手动读取", refreshing) { refresh() }
                         }
                         HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -146,8 +155,6 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                                 Text(if (selected == null) "累计素质分" else "本学期素质分",
                                     style = MaterialTheme.typography.bodySmall)
                             }
-                            AcademicTermPicker(terms.map { it.title }, selected, allLabel = "全部学期",
-                                onSelect = { requestedTerm = it })
                         }
                         if (selected != null) InsetGroupedRow(title = "学校累计素质分",
                             trailing = { Text(secondClassPoints(total) ?: "—") })
