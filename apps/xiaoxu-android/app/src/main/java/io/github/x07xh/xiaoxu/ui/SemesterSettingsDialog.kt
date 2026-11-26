@@ -37,6 +37,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.GlassDatePickerDialog
+import java.time.Instant
+import java.time.ZoneId
 import com.tyust.course.ui.system.GlassPageScaffold
 import com.tyust.course.ui.system.SystemActionButton
 import androidx.compose.runtime.mutableIntStateOf
@@ -275,27 +278,35 @@ internal fun SemesterSettingsPage(
     // Only the top-right 完成 persists the validated semester settings.
     if (dateOpen) {
         val initialDay = runCatching { LocalDate.parse(monday) }.getOrNull() ?: LocalDate.now()
-        val dateState = rememberDatePickerState(
-            initialSelectedDateMillis = initialDay.toEpochDay() * 86_400_000L
-        )
-        DatePickerDialog(
-            onDismissRequest = { dateOpen = false },
-            confirmButton = {
-                TextButton(onClick = {
+        val zone = ZoneId.systemDefault()
+        // The upstream date wheel supports the current year -2 through +1.
+        // Preserve out-of-range existing dates with the standard calendar.
+        val year = LocalDate.now().year
+        if (initialDay.year in year - 2..year + 1) {
+            GlassDatePickerDialog(
+                initialMillis = initialDay.atStartOfDay(zone).toInstant().toEpochMilli(),
+                title = "选择学期起始日期",
+                onDismiss = { dateOpen = false },
+                onConfirm = { millis ->
+                    monday = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+                        .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString()
+                    error = null
+                    dateOpen = false
+                }
+            )
+        } else {
+            val dateState = rememberDatePickerState(initialSelectedDateMillis = initialDay.toEpochDay() * 86_400_000L)
+            DatePickerDialog(onDismissRequest = { dateOpen = false },
+                confirmButton = { TextButton(onClick = {
                     dateState.selectedDateMillis?.let { epoch ->
                         monday = LocalDate.ofEpochDay(epoch / 86_400_000L)
-                            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                            .toString()
+                            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString()
                         error = null
                     }
                     dateOpen = false
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { dateOpen = false }) { Text("取消") }
-            }
-        ) {
-            DatePicker(state = dateState, showModeToggle = false)
+                }) { Text("确定") } },
+                dismissButton = { TextButton(onClick = { dateOpen = false }) { Text("取消") } }
+            ) { DatePicker(state = dateState, showModeToggle = false) }
         }
     }
 

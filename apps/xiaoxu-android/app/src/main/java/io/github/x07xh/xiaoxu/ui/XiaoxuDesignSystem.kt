@@ -45,6 +45,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemStatStrip
+import com.tyust.course.ui.system.SystemActionButton
 import com.tyust.course.ui.system.LiquidSwitch
 import com.tyust.course.ui.system.SystemSectionHeader
 import com.tyust.course.ui.system.SystemStatusBadge
@@ -295,14 +297,14 @@ internal fun XiaoxuSoftIconButton(
 fun XiaoxuCard(
     modifier: Modifier = Modifier,
     @Suppress("UNUSED_PARAMETER") shape: Shape = RoundedCornerShape(XiaoxuRadius.card),
-    container: Color = XiaoxuPalette.GlassCard,
+    container: Color = MaterialTheme.colorScheme.surface,
     onClick: (() -> Unit)? = null,
     contentPadding: Dp = XiaoxuSpacing.card,
     content: @Composable ColumnScope.() -> Unit
 ) {
     SystemCard(
         modifier = modifier,
-        backgroundColor = if (container == XiaoxuPalette.GlassCard) MaterialTheme.colorScheme.surface else container,
+        backgroundColor = container,
         onClick = onClick,
         contentPadding = PaddingValues(contentPadding),
         content = content
@@ -443,28 +445,10 @@ fun MetricCard(
     tone: XiaoxuTone = XiaoxuTone.Brand,
     onClick: (() -> Unit)? = null
 ) {
-    XiaoxuCard(modifier = modifier, onClick = onClick, contentPadding = 14.dp) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.headlineMedium,
-            color = tone.contentColor,
-            maxLines = 1
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = XiaoxuPalette.Ink,
-            maxLines = 1
-        )
-        if (caption != null) {
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+    SystemCard(modifier = modifier, onClick = onClick) {
+        SystemStatStrip(items = listOf(label to value))
+        if (caption != null) Text(caption, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -706,39 +690,6 @@ fun QuickEntry(
     modifier: Modifier = Modifier,
     tone: XiaoxuTone = XiaoxuTone.Brand
 ) {
-    Column(
-        modifier = modifier
-            .heightIn(min = 88.dp)
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(XiaoxuRadius.tile))
-            .clickable(onClick = onClick, role = Role.Button)
-            .padding(vertical = 10.dp, horizontal = 4.dp)
-            .semantics { contentDescription = label },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(tone.containerColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = tone.contentColor,
-                modifier = Modifier.size(21.dp)
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = XiaoxuPalette.Ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    SystemActionButton(text = label, onClick = onClick, modifier = modifier,
+        icon = icon)
 }

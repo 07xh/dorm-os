@@ -69,6 +69,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemStatStrip
+import com.tyust.course.ui.system.SystemCard
+import com.tyust.course.ui.system.SystemListItem
+import com.tyust.course.ui.system.SystemDivider
+import com.tyust.course.ui.system.SystemSectionHeader
+import com.tyust.course.ui.system.SystemActionButton
 import com.tyust.course.ui.system.LiquidSegmentedControl
 import com.tyust.course.ui.theme.MotionSpecs
 import com.tyust.course.ui.system.SystemActionMenu
@@ -853,44 +859,9 @@ private fun HomeMetricsBlock(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        HorizontalDivider(color = XiaoxuPalette.Ink, thickness = 1.dp)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-                    .heightIn(min = 76.dp)
-                    .clickable(role = Role.Button, onClickLabel = "打开待完成任务", onClick = openTasks)
-                    .padding(vertical = 9.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    pending.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = XiaoxuPalette.BrandDeep
-                )
-                Text("待完成任务", style = MaterialTheme.typography.labelMedium,
-                    color = XiaoxuPalette.Ink2)
-            }
-            Box(Modifier.width(1.dp).height(50.dp).background(XiaoxuPalette.Line))
-            Column(
-                modifier = Modifier.weight(1f)
-                    .heightIn(min = 76.dp)
-                    .clickable(role = Role.Button, onClickLabel = "打开近期截止任务", onClick = openTasks)
-                    .padding(start = 18.dp, top = 9.dp, bottom = 9.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    attention.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (attention > 0) XiaoxuPalette.Warning else XiaoxuPalette.Ink
-                )
-                Text("近期截止", style = MaterialTheme.typography.labelMedium,
-                    color = XiaoxuPalette.Ink2)
-            }
+        SystemCard(onClick = openTasks,
+            modifier = Modifier.semantics { contentDescription = "打开任务：待完成 $pending，近期截止 $attention" }) {
+            SystemStatStrip(items = listOf("待完成任务" to pending.toString(), "近期截止" to attention.toString()))
         }
         if (deadlineHistogram.any { it > 0 }) {
             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
@@ -989,19 +960,7 @@ private fun HomeQuickBlock(
 private fun HomeQuickAction(
     title: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit
 ) {
-    Column(
-        modifier = modifier.clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .clickable(onClickLabel = "打开$title", onClick = onClick)
-            .heightIn(min = 70.dp).padding(horizontal = 2.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp),
-            tint = XiaoxuPalette.Ink2)
-        Text(title, style = MaterialTheme.typography.labelMedium,
-            color = XiaoxuPalette.Ink, maxLines = 1,
-            overflow = TextOverflow.Ellipsis)
-    }
+    SystemActionButton(text = title, icon = icon, onClick = onClick, modifier = modifier)
 }
 
 @Composable
@@ -1635,7 +1594,7 @@ fun RealAcademicTaskHub(
                         modifier = Modifier.fillMaxWidth()
                             .padding(top = 8.dp, bottom = 4.dp)
                             .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                            .background(XiaoxuPalette.GlassTrack)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(start = 12.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2426,25 +2385,15 @@ private fun TaskGroupHeader(
     joinedRows: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val shape = if (joinedRows && expanded) RoundedCornerShape(
-        topStart = XiaoxuRadius.group, topEnd = XiaoxuRadius.group,
-        bottomStart = 0.dp, bottomEnd = 0.dp
-    ) else RoundedCornerShape(XiaoxuRadius.group)
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = MotionSpecs.tabTransition(),
         label = "task-group-chevron"
     )
-    Row(
-        modifier = modifier.fillMaxWidth()
-            .padding(top = 8.dp)
-            .clip(shape)
-            .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line, shape)
-            .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
-            .heightIn(min = 64.dp)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+    SystemListItem(
+        modifier = modifier.padding(top = 8.dp).heightIn(min = 64.dp)
             .semantics(mergeDescendants = true) {
+                heading()
                 contentDescription = buildString {
                     append(title)
                     if (showCount) append("，$count 条")
@@ -2453,38 +2402,15 @@ private fun TaskGroupHeader(
                     append(if (expanded) "，点击收起" else "，点击展开")
                 }
             },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = XiaoxuPalette.Ink2,
-            modifier = Modifier.size(20.dp))
-        Column(modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                title + if (showCount) " · $count" else "",
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, lineHeight = 21.sp),
-                color = XiaoxuPalette.Ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.semantics { heading() }
-            )
-            if (expanded && (badge.isNotBlank() || note.isNotBlank())) {
-                Text(
-                    listOf(badge, note).filter { it.isNotBlank() }.joinToString(" · "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        Icon(
-            Icons.Outlined.ExpandMore,
-            contentDescription = null,
-            tint = XiaoxuPalette.Ink2,
-            modifier = Modifier.size(20.dp).rotate(chevronRotation)
-        )
-    }
+        title = title + if (showCount) " · $count" else "",
+        subtitle = if (expanded) listOf(badge, note).filter { it.isNotBlank() }.joinToString(" · ") else null,
+        leadingIcon = { Icon(icon, contentDescription = null) },
+        trailingContent = {
+            Icon(Icons.Outlined.ExpandMore, contentDescription = null,
+                modifier = Modifier.rotate(chevronRotation))
+        },
+        onClick = onClick
+    )
 }
 
 /**
@@ -2607,14 +2533,10 @@ private fun ConnectedTaskShell(
     Column(
         modifier = modifier.fillMaxWidth()
             .clip(corners)
-            .background(XiaoxuPalette.GlassCard)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         if (index > 0) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 14.dp),
-                thickness = 0.5.dp,
-                color = XiaoxuPalette.Line
-            )
+            SystemDivider(modifier = Modifier.padding(horizontal = 14.dp))
         }
         content()
     }

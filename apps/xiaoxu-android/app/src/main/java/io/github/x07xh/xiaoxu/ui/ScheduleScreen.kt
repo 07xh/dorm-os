@@ -55,6 +55,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.LiquidSegmentedControl
+import com.tyust.course.ui.system.SystemListItem
+import com.tyust.course.ui.system.SystemStatusBadge
+import com.tyust.course.ui.system.SystemTone
 import com.tyust.course.ui.system.SystemPicker
 import com.tyust.course.ui.system.SystemIconButton
 import com.tyust.course.ui.system.SystemCard
@@ -759,138 +763,47 @@ private fun DayLessonList(
  */
 @Composable
 private fun WeekdayStrip(counts: Map<Int, Int>, selected: Int, today: Int, onSelect: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        (1..7).forEach { day ->
-            DayCell(
-                weekday = day,
-                count = counts[day] ?: 0,
-                isSelected = day == selected,
-                isToday = day == today,
-                modifier = Modifier.weight(1f),
-                onClick = { onSelect(day) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun DayCell(
-    weekday: Int,
-    count: Int,
-    isSelected: Boolean,
-    isToday: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val background by animateColorAsState(
-        targetValue = when {
-            isSelected -> MaterialTheme.colorScheme.primary
-            isToday -> MaterialTheme.colorScheme.primaryContainer
-            else -> MaterialTheme.colorScheme.surface
-        },
-        animationSpec = MotionSpecs.tabTransition(),
-        label = "day-bg"
-    )
-    val labelColor by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = MotionSpecs.tabTransition(),
-        label = "day-label"
-    )
-    Column(
-        modifier = modifier
-            .heightIn(min = 64.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(background)
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp)
-            .semantics {
-                role = Role.Tab
-                selected = isSelected
-                contentDescription = weekdayLong(weekday) +
-                    (if (isToday) "，今天" else "") + "，$count 个课块"
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = WEEKDAY_SHORT[weekday - 1],
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = if (isSelected || isToday) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else labelColor
-        )
-        Spacer(Modifier.height(4.dp))
-        if (count > 0) {
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                repeat(minOf(count, 4)) {
-                    Box(
-                        Modifier
-                            .size(4.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.primary
-                            )
-                    )
-                }
+    LiquidSegmentedControl(
+        options = WEEKDAY_SHORT,
+        selectedIndex = (selected - 1).coerceIn(0, 6),
+        onSelect = { onSelect(it + 1) },
+        modifier = Modifier.fillMaxWidth(),
+        height = 64.dp,
+        labelContent = { index, _, color ->
+            val day = index + 1
+            val count = counts[day] ?: 0
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.semantics {
+                    contentDescription = weekdayLong(day) +
+                        (if (day == today) "，今天" else "") + "，$count 个课块"
+                }) {
+                Text(WEEKDAY_SHORT[index], color = color, style = MaterialTheme.typography.titleMedium)
+                Text(if (day == today) "今 · $count" else count.toString(),
+                    color = color, style = MaterialTheme.typography.labelSmall)
             }
-        } else {
-            Box(Modifier.height(4.dp))
         }
-    }
+    )
 }
 
 @Composable
 private fun WeekdaySideBar(counts: Map<Int, Int>, selected: Int, today: Int, onSelect: (Int) -> Unit) {
-    Column(
-        modifier = Modifier.width(200.dp).padding(end = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
+    Column(modifier = Modifier.width(200.dp).padding(end = 4.dp)) {
         (1..7).forEach { day ->
-            val isSelected = day == selected
-            val background by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface,
-                animationSpec = MotionSpecs.tabTransition(),
-                label = "side-bg-$day"
+            SystemListItem(
+                modifier = Modifier.semantics {
+                    role = Role.Tab
+                    this.selected = day == selected
+                    contentDescription = weekdayLong(day) + (if (day == today) "，今天" else "") +
+                        "，${counts[day] ?: 0} 个课块"
+                },
+                title = weekdayLong(day),
+                subtitle = "${counts[day] ?: 0} 个课块",
+                trailingContent = {
+                    if (day == selected || day == today)
+                        SystemStatusBadge(if (day == selected) "已选" else "今天", tone = SystemTone.Info)
+                },
+                onClick = { onSelect(day) }
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 52.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(background)
-                    .clickable { onSelect(day) }
-                    .padding(horizontal = 14.dp)
-                    .semantics {
-                        role = Role.Tab
-                        // 必须显式 this.：外层参数 selected: Int 会遮蔽 semantics 的 selected: Boolean。
-                        this.selected = isSelected
-                        this.contentDescription = weekdayLong(day) +
-                            (if (day == today) "，今天" else "") + "，${counts[day] ?: 0} 个课块"
-                    },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = weekdayLong(day),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                    )
-                    Text(
-                        text = "${counts[day] ?: 0} 个课块",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (day == today) {
-                    Text(
-                        text = "今天",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
         }
     }
 }

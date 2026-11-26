@@ -44,6 +44,8 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemLoadingState
+import androidx.compose.material3.OutlinedTextField
 import com.tyust.course.ui.system.SystemTopBar
 import com.tyust.course.ui.system.SystemIconButton
 import com.tyust.course.ui.system.SystemSegmentedControl
@@ -384,12 +386,12 @@ fun MessageCenterPanel(
 
                 if (!showWechat) {
                     when (phase) {
-                        MessagePhase.Loading -> items(count = 3) { MessageSkeleton() }
+                        MessagePhase.Loading -> item { MessageSkeleton() }
                         MessagePhase.NotConnected -> item {
                             MessageBanner(
                                 icon = Icons.Outlined.Info,
                                 text = "尚未成功读取官方公告。可以点击右上角“刷新”；学校公开公告无需登录校序云端。",
-                                container = XiaoxuPalette.GlassCard,
+                                container = MaterialTheme.colorScheme.surface,
                                 ink = XiaoxuPalette.Ink2
                             )
                         }
@@ -637,64 +639,18 @@ private fun SourceSectionHeader(
 /** 白底圆角搜索条：与海报一致的填充样式，触控高度 ≥52dp。 */
 @Composable
 private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
-    TextField(
+    OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 52.dp)
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
-                RoundedCornerShape(XiaoxuRadius.tile))
-            .semantics { contentDescription = "搜索官方公告：标题或日期" },
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "搜索官方公告：标题或日期" },
         singleLine = true,
-        placeholder = {
-            Text(
-                text = "搜索官方公告标题或日期",
-                style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink3
-            )
-        },
-        leadingIcon = {
-            Icon(
-                Icons.Outlined.Search,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = XiaoxuPalette.Ink3
-            )
-        },
+        placeholder = { Text("搜索官方公告标题或日期") },
+        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
         trailingIcon = {
             if (query.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = { onQueryChange("") }, role = Role.Button)
-                        .semantics { contentDescription = "清空搜索" },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = XiaoxuPalette.Ink2
-                    )
-                }
+                SystemIconButton(Icons.Outlined.Close, "清空搜索", { onQueryChange("") }, chip = false)
             }
-        },
-        textStyle = MaterialTheme.typography.bodyMedium,
-        shape = RoundedCornerShape(XiaoxuRadius.tile),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = XiaoxuPalette.GlassCard,
-            unfocusedContainerColor = XiaoxuPalette.GlassCard,
-            disabledContainerColor = XiaoxuPalette.GlassCard,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            focusedTextColor = XiaoxuPalette.Ink,
-            unfocusedTextColor = XiaoxuPalette.Ink,
-            cursorColor = XiaoxuPalette.Brand
-        )
+        }
     )
 }
 
@@ -839,7 +795,7 @@ private fun MessageEmptyHint(query: String?) {
         icon = Icons.Outlined.Search,
         text = if (query == null) "该筛选下没有已成功读取的官方公告。微信候选不在官方公告里，请切到“微信审核”查看。"
         else "没有匹配“" + query.trim() + "”的官方公告；搜索只覆盖官方公告，不搜索微信候选。",
-        container = XiaoxuPalette.GlassCard,
+        container = MaterialTheme.colorScheme.surface,
         ink = XiaoxuPalette.Ink2
     )
 }
@@ -851,19 +807,13 @@ private fun MessageBanner(
     container: Color,
     ink: Color
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(container)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = ink)
-        Spacer(Modifier.width(10.dp))
-        Text(text = text, style = MaterialTheme.typography.bodySmall, color = ink)
+    SystemCard(backgroundColor = container,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(icon, contentDescription = null, tint = ink)
+            Spacer(Modifier.width(10.dp))
+            Text(text = text, style = MaterialTheme.typography.bodySmall, color = ink)
+        }
     }
 }
 
@@ -920,13 +870,6 @@ private fun MessageErrorCard(message: String, onRefresh: () -> Unit, openWebsite
 
 @Composable
 private fun MessageSkeleton() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(76.dp)
-            .clip(CardShape)
-            .background(XiaoxuPalette.GlassTrack)
-            .semantics { contentDescription = "正在读取官方公告" }
-    )
+    SystemLoadingState(text = "正在读取官方公告", modifier = Modifier.fillMaxWidth())
 }
 
