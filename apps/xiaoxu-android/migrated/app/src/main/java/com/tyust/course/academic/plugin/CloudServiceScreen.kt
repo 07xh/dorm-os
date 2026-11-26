@@ -16,6 +16,17 @@ import io.github.x07xh.xiaoxu.data.AcademicNotice
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudTask
 import io.github.x07xh.xiaoxu.data.CloudUiState
+import io.github.x07xh.xiaoxu.data.MESSAGE_FILTERS
+import io.github.x07xh.xiaoxu.data.MSG_FILTER_ALL
+import io.github.x07xh.xiaoxu.data.MSG_FILTER_EXAM
+import io.github.x07xh.xiaoxu.data.MSG_FILTER_NOTICE
+import io.github.x07xh.xiaoxu.data.MSG_FILTER_WECHAT
+import io.github.x07xh.xiaoxu.data.MessagePhase
+import io.github.x07xh.xiaoxu.data.deriveMessagePhase
+import io.github.x07xh.xiaoxu.data.filterNotices
+import io.github.x07xh.xiaoxu.data.noticeCategoryLabel
+import io.github.x07xh.xiaoxu.data.pendingWechatLabel
+import io.github.x07xh.xiaoxu.data.pendingWechatShortLabel
 import io.github.x07xh.xiaoxu.data.WechatCandidate
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -43,11 +54,12 @@ internal fun CloudServiceScreen(
     }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
+    var noticeFilter by remember { mutableStateOf(MSG_FILTER_ALL) }
     var pendingAction by remember { mutableStateOf<JSONObject?>(null) }
 
     LaunchedEffect(client) { client.refreshOnForeground() }
 
-    val page = remember(state) { buildCloudMessagePage(state) }
+    val page = remember(state, noticeFilter) { buildCloudMessagePage(state, noticeFilter) }
     val blocks = remember(page.toString()) { layout.order(page) }
     val hidden = remember(page.getString("pageId")) { layout.hidden(page.getString("pageId")) }
 
@@ -79,6 +91,10 @@ internal fun CloudServiceScreen(
                     val ok = client.signIn(passphrase)
                     if (!ok) message = client.state.authMessage
                 }
+            }
+            "message.filter" -> {
+                val next = action.optJSONObject("params")?.optString("filterKey").orEmpty()
+                noticeFilter = next.takeIf { it in setOf(MSG_FILTER_ALL, MSG_FILTER_NOTICE, MSG_FILTER_EXAM, MSG_FILTER_WECHAT) } ?: MSG_FILTER_ALL
             }
             "cloud.logout", "wechat.candidate.accept", "wechat.candidate.dismiss", "wechat.task.toggle" ->
                 pendingAction = JSONObject(action.toString())
@@ -180,7 +196,10 @@ internal fun CloudServiceScreen(
     }
 }
 
-internal fun buildCloudMessagePage(state: CloudUiState): JSONObject {
+internal fun buildCloudMessagePage(
+    state: CloudUiState,
+    filterKey: String = MSG_FILTER_ALL
+): JSONObject {
     val blocks = JSONArray()
     blocks.put(JSONObject()
         .put("id", "message_overview")
@@ -215,7 +234,7 @@ internal fun buildCloudMessagePage(state: CloudUiState): JSONObject {
             .put("columns", 3)
             .put("items", JSONArray()
                 .put(metric(state.notices.size.toString(), "学校公告"))
-                .put(metric(state.pendingWechatCount?.toString() ?: "—", "待审核候选"))
+                .put(metric(pendingWechatShortLabel(state.pendingWechatCount, state.authenticated, state.wechatError), "待审核候选"))
                 .put(metric(wechatTasks.count { it.status != "done" }.toString(), "微信待办"))))
         blocks.put(JSONObject()
             .put("id", "cloud_status")
@@ -246,21 +265,53 @@ internal fun buildCloudMessagePage(state: CloudUiState): JSONObject {
         blocks.put(noticeBlock("public_error", it, "warning"))
     }
 
-    if (state.notices.isNotEmpty()) {
-        val items = JSONArray()
-        state.notices.take(60).forEach { notice ->
-            items.put(JSONObject()
-                .put("title", notice.title)
-                .put("subtitle", listOf(notice.category, notice.dateLabel).filter { it.isNotBlank() }.joinToString(" · "))
-                .put("action", JSONObject()
-                    .put("type", "action")
-                    .put("actionId", "notice.open")
-                    .put("params", JSONObject().put("url", notice.url))))
+    blocks.put(JSONObject()
+        .put("id", "message_filters")
+        .put("type", "actions")
+        .put("title", "消息筛选")
+        .put("items", JSONArray().apply {
+            MESSAGE_FILTERS.forEach { option ->
+                put(actionItem(
+                    (if (filterKey == option.key) "✓ " else "") + option.label,
+                    "message.filter",
+                    JSONObject().put("filterKey", option.key)
+                ))
+            }
+            put(actionItem(
+                (if (filterKey == MSG_FILTER_WECHAT) "✓ " else "") + "微信待审核",
+                "message.filter",
+                JSONObject().put("filterKey", MSG_FILTER_WECHAT)
+            ))
+        }))
+
+    if (filterKey != MSG_FILTER_WECHAT) {
+        val filtered = filterNotices(state.notices, "", filterKey)
+        if (filtered.isNotEmpty()) {
+            val items = JSONArray()
+            filtered.take(60).forEach { notice ->
+                items.put(JSONObject()
+                    .put("title", notice.title)
+                    .put("subtitle", listOf(noticeCategoryLabel(notice.category), notice.dateLabel).filter { it.isNotBlank() }.joinToString(" · "))
+                    .put("action", JSONObject()
+                        .put("type", "action")
+                        .put("actionId", "notice.open")
+                        .put("params", JSONObject().put("url", notice.url))))
+            }
+            blocks.put(listBlock("school_notices", "学校公告", items))
+        } else if (state.notices.isNotEmpty()) {
+            blocks.put(noticeBlock("notice_filter_empty", "当前筛选条件下没有符合的学校公告。", "positive"))
+        } else {
+            when (val phase = deriveMessagePhase(state)) {
+                MessagePhase.Loading -> blocks.put(noticeBlock("notice_phase", "正在读取官方学校公告…", "warning"))
+                MessagePhase.NotConnected -> blocks.put(noticeBlock("notice_phase", "尚未取得官方公告读取证据；不能把未读取误报为零条。", "warning"))
+                is MessagePhase.Failed -> Unit
+                MessagePhase.Empty -> blocks.put(noticeBlock("notice_phase", "官方公告读取已核验，当前没有公告。", "positive"))
+                is MessagePhase.Content -> Unit
+            }
         }
-        blocks.put(listBlock("school_notices", "学校公告", items))
     }
 
-    if (state.authenticated && state.chaoxingInbox.isNotEmpty()) {
+    if (state.authenticated && filterKey == MSG_FILTER_ALL && state.chaoxingInbox.isNotEmpty()) {
         val items = JSONArray()
         state.chaoxingInbox.take(50).forEach { row ->
             items.put(JSONObject()
@@ -271,7 +322,12 @@ internal fun buildCloudMessagePage(state: CloudUiState): JSONObject {
         blocks.put(listBlock("chaoxing_inbox", "学习通收件箱", items))
     }
 
-    if (state.authenticated) {
+    if (state.authenticated && filterKey in setOf(MSG_FILTER_ALL, MSG_FILTER_WECHAT)) {
+        blocks.put(noticeBlock(
+            "wechat_count_semantics",
+            pendingWechatLabel(state.pendingWechatCount, state.authenticated, state.wechatError),
+            if (state.wechatError != null || state.pendingWechatCount == null) "warning" else "positive"
+        ))
         val wechatTasks = state.tasks.filter { it.provider == "wechat" }.take(80)
         if (wechatTasks.isNotEmpty()) {
             val items = JSONArray()
