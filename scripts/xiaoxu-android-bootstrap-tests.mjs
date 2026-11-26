@@ -1700,13 +1700,13 @@ assert.match(main, /label = "profileTimetableChild"/,
   '我的到课表设置继续使用原生子页面宿主');
 assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
   '五个主页面仅组合当前标签内容并保留边界裁剪');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\s*\.testTag\("xiaoxu_page_\$\{page\.name\}"\)\) \{\s*when \(page\)/,
+assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\s*\.testTag\("xiaoxu_page_\$\{page\.name\}"\)\) \{\s*when \(page\)/,
   '主标签切换时以完整不透明页面绘制，旧页面内容不得穿透');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置二级页须保持方向明确的推进与返回');
 assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
   '设置转场必须裁剪页边界，防止滑动时文字越界');
-assert.match(profileSettings, /Column\(\s*modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
+assert.match(profileSettings, /Column\(\s*modifier = Modifier\.fillMaxSize\(\),/,
   '每个设置二级页必须自行绘制不透明背景，不能透出上一页');
 assert.match(profileSettings, /horizontalAlignment = Alignment\.CenterHorizontally/,
   '设置内容在平板居中对齐，不应再出现整页偏左的宽屏布局');
@@ -1718,11 +1718,11 @@ assert.match(v2SettingsIndex, /"其他"/,
   '关于校序必须保留在「其他」分组，不占据设置首页首屏');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置仍走同一二级页宿主');
-assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{/,
+assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\) \{/,
   '课表设置子页面必须用整页背景阻断旧卡片重影');
 assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "academicChild"/,
   '教务子页面转场必须裁剪边界');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\),\s*verticalArrangement = Arrangement\.spacedBy\(8\.dp\)/,
+assert.match(main, /modifier = Modifier\.fillMaxSize\(\),\s*verticalArrangement = Arrangement\.spacedBy\(8\.dp\)/,
   '教务详情需全幅不透明背景，避免切页文字叠印');
 assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
   '不允许恢复主导航文字重影交叉淡入');
@@ -2817,3 +2817,10 @@ assert.match(profileSettings, /val groups = settingsHomeGroups/);
 assert.match(workspace, /val progressByRoot = remember\(taskSteps\) \{[\s\S]*?executionProgressIndex\(taskSteps\)/);
 assert.match(workspace, /resolveExecution\(row\)\?\.let \{ progressByRoot\[it\] \}/);
 assert.match(workspace, /val authenticatedOwnerId = state\.ownerId\.takeIf \{ state\.authenticated \}/);
+
+// A single window-sized background avoids a visible seam across system insets.
+assert.match(v2Shell, /BoxWithConstraints\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/);
+assert.doesNotMatch(main, /\.background\(XiaoxuPalette\.PageGradient\)/);
+assert.doesNotMatch(profileSettings, /\.background\(XiaoxuPalette\.PageGradient\)/);
+assert.match(profileSettings, /targetContentEnter togetherWith ExitTransition\.None/);
+assert.equal((main.match(/targetContentEnter togetherWith ExitTransition\.None/g) || []).length, 2);
