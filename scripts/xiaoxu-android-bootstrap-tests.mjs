@@ -1190,8 +1190,10 @@ assert.match(readContracts, /lessons = lessons,/);
 assert.match(schedulePanel, /AppNotice\(localImportedScheduleView\(lessons\)\.sourceLabel\)/);
 assert.match(readContracts, /sourceLabel = "华水青果 · 本机导入（待本人核对）"/,
   "课表仍需明确来源与核对状态，界面不得强制重复显示课块统计");
-assert.match(panels, /enabled = id != "ncwu"/,
-  '青果的旧服务器课表同步不可被当做成绩同步');
+assert.match(panels, /actions\.syncAuthorizedSchool\("second_class"\)/,
+  '仅保留第二课堂的授权同步入口');
+assert.doesNotMatch(panels, /actions\.syncAuthorizedSchool\((?!\s*"second_class"\s*\))/,
+  '青果旧服务器课表同步不可被当做成绩同步，其他平台不得复用第二课堂入口');
 
 
 const localSourceTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/LocalTimetableSourceTest.kt');
