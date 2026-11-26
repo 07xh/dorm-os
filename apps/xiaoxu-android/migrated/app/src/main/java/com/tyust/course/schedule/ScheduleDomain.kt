@@ -4,7 +4,7 @@ import java.security.MessageDigest
 import java.text.Normalizer
 import java.util.Locale
 
-const val ScheduleMaxWeeks = 25
+const val ScheduleMaxWeeks = 35
 
 data class ParsedWeeks(val weeks: Set<Int>, val valid: Boolean) {
     fun visibleIn(week: Int): Boolean = !valid || week in weeks
