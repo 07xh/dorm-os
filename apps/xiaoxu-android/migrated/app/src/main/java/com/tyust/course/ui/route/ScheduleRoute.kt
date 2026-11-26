@@ -69,6 +69,11 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.Calendar
 import com.tyust.course.utils.ICalExporter
+import com.tyust.course.xiaoxu.XiaoxuLocalScheduleAdapter
+import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
+import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import java.time.ZoneId
 
 private const val ScheduleRouteSnapshotMaxAgeMs = 5 * 60 * 1000L
 
@@ -117,7 +122,13 @@ fun ScheduleRoute(isActive: Boolean = true) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isDemoMode = remember { UserManager.getInstance().isDemoMode }
-    val routeAccountKey = remember { UserManager.getInstance().currentAccountStorageKey }
+    val userManager = UserManager.getInstance()
+    // Local-only 校序 schedule data uses the existing app preferences when no
+    // official school account is selected. It never attempts a school write.
+    val isXiaoxuLocalMode = !isDemoMode && userManager.currentSchool == null
+    val routeAccountKey = remember { userManager.currentAccountStorageKey.ifBlank { XiaoxuLocalScheduleAdapter.ACCOUNT_KEY } }
+    var localScheduleRevision by remember { mutableIntStateOf(0) }
+    var localCalendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
     val browsingSession = rememberSaveable(routeAccountKey) { java.util.UUID.randomUUID().toString() }
     val sessions = UserManager.getInstance().sessionState
     val syncModel: ScheduleSyncViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
@@ -158,7 +169,11 @@ fun ScheduleRoute(isActive: Boolean = true) {
     val displayStore = remember(context, browsingSession) {
         ScheduleDisplayStore(context.getSharedPreferences("schedule_display", android.content.Context.MODE_PRIVATE), browsingSession)
     }
-    var displayPreferences by remember(routeAccountKey) { mutableStateOf(displayStore.read(routeAccountKey)) }
+    var displayPreferences by remember(routeAccountKey) {
+        mutableStateOf(displayStore.read(routeAccountKey).let { saved ->
+            if (isXiaoxuLocalMode) saved.copy(dayView = LocalSemesterConfigStore.loadViewMode(context) == "day") else saved
+        })
+    }
     var selectedDay by rememberSaveable(routeAccountKey) {
         mutableIntStateOf(displayStore.position(routeAccountKey, restoredSnapshot?.termId.orEmpty())?.day
             ?: (Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7 + 1)
@@ -191,15 +206,43 @@ fun ScheduleRoute(isActive: Boolean = true) {
         ScheduleCacheStore(context.getSharedPreferences("schedule_cache", android.content.Context.MODE_PRIVATE))
     }
     val scheduleRepository = remember(context) { ScheduleRepository(context) }
-    val routeSchoolId = UserManager.getInstance().currentSchool?.id.orEmpty()
-    val actualTermId = if (isDemoMode) DemoData.currentTerm.id else scheduleCache.currentTerm(routeAccountKey, routeSchoolId).id
+    val routeSchoolId = userManager.currentSchool?.id
+        ?: if (isXiaoxuLocalMode) XiaoxuLocalScheduleAdapter.SCHOOL_ID else ""
+    val actualTermId = when {
+        isDemoMode -> DemoData.currentTerm.id
+        isXiaoxuLocalMode -> XiaoxuLocalScheduleAdapter.termId(localCalendar?.firstMonday?.toString())
+        else -> scheduleCache.currentTerm(routeAccountKey, routeSchoolId).id
+    }
     val savedPosition = remember(routeAccountKey, resolvedTermId) { displayStore.position(routeAccountKey, resolvedTermId) }
     val reminderScheduler = remember(context) { ScheduleReminderScheduler.get(context) }
     val customRevision = settingsManager.revision
-    val customCourses = remember(customRevision, routeAccountKey) { settingsManager.getCustomCourses(routeAccountKey) }
+    val customCourses = remember(customRevision, localScheduleRevision, routeAccountKey, isXiaoxuLocalMode) {
+        if (isXiaoxuLocalMode) LocalScheduleStore.load(context).map(XiaoxuLocalScheduleAdapter::toEditorCourse)
+        else settingsManager.getCustomCourses(routeAccountKey)
+    }
     var editingStudyKind by remember { mutableStateOf<ScheduleStudyKind?>(null) }
     val remindersRevision = reminderScheduler.revision
     val settingsTerm = settingsTermOverride ?: resolvedTermId
+    LaunchedEffect(isXiaoxuLocalMode, localCalendar) {
+        if (isXiaoxuLocalMode && localCalendar != null) {
+            val calendar = localCalendar ?: return@LaunchedEffect
+            if (settingsManager.semesterStartDate <= 0L) {
+                settingsManager.semesterStartDate = calendar.firstMonday.atStartOfDay(ZoneId.systemDefault())
+                    .toInstant().toEpochMilli()
+            }
+            val configuredTimes = settingsManager.getPeriodTimes(routeAccountKey)
+            if (configuredTimes.none { it.startTime.isNotBlank() || it.endTime.isNotBlank() } && calendar.sectionTimes.isNotEmpty()) {
+                settingsManager.savePeriodTimes(calendar.sectionTimes.toSortedMap().map { (period, time) ->
+                    ScheduleSettingsManager.PeriodTime(period, time.start.toString(), time.end.toString())
+                })
+            }
+            val requiredPeriods = maxOf(
+                LocalSemesterConfigStore.loadSections(context),
+                calendar.sectionTimes.keys.maxOrNull() ?: 12
+            ).coerceIn(ScheduleSettingsManager.PERIOD_COUNT_MIN, ScheduleSettingsManager.PERIOD_COUNT_MAX)
+            if (settingsManager.periodCount < requiredPeriods) settingsManager.periodCount = requiredPeriods
+        }
+    }
     // 早/晚自习与课表共用一份数据，并且按「账号 + 当前浏览的学期」隔离：
     // 设置页改完课表要立刻跟着变，同账号切到下学期也不能覆盖本学期。
     val studyBlocks = remember(customRevision, routeAccountKey, settingsTerm) {
@@ -270,6 +313,9 @@ fun ScheduleRoute(isActive: Boolean = true) {
     }
 
     fun reloadCustomCourses(currentList: List<ScheduleCourseUi>): List<ScheduleCourseUi> {
+        if (isXiaoxuLocalMode) {
+            return XiaoxuLocalScheduleAdapter.toUi(LocalScheduleStore.load(context), courseColors)
+        }
         val existing = currentList.associateBy { it.id }
         return ScheduleRepository.mergeCustom(currentList.map { it.record() }, settingsManager.getCustomCourses(routeAccountKey)).map { c ->
             if (!c.custom) existing.getValue(c.id) else ScheduleCourseUi(c.name, c.teacher, c.location, c.day,
@@ -281,6 +327,28 @@ fun ScheduleRoute(isActive: Boolean = true) {
     // Paint local data first. Network work lives in the Activity ViewModel across tab transitions.
     val loadSchedule = remember(isNextSemester, session.token) {
         fun(manual: Boolean) {
+            if (isXiaoxuLocalMode) {
+                localCalendar = LocalSemesterConfigStore.load(context)
+                val localLessons = LocalScheduleStore.load(context)
+                resolvedTermId = XiaoxuLocalScheduleAdapter.termId(localCalendar?.firstMonday?.toString())
+                isNextSemester = false
+                courses = XiaoxuLocalScheduleAdapter.toUi(localLessons, courseColors)
+                hasLocalSchedule = localLessons.isNotEmpty()
+                hasInitializedRoute = true
+                loadIssue = null
+                val requiredPeriods = maxOf(
+                    LocalSemesterConfigStore.loadSections(context),
+                    localLessons.maxOfOrNull { it.endSection } ?: 12
+                ).coerceIn(ScheduleSettingsManager.PERIOD_COUNT_MIN, ScheduleSettingsManager.PERIOD_COUNT_MAX)
+                periodCount = maxOf(settingsManager.periodCount, requiredPeriods)
+                periodTimes = settingsManager.getPeriodTimes(routeAccountKey).map {
+                    PeriodTimeUi(it.period, it.startTime, it.endTime)
+                }
+                isLoading = false
+                backgroundRefreshing = false
+                reminderScheduler.updateSnapshot(routeAccountKey, resolvedTermId, courses.map { it.record() })
+                return
+            }
             if (isDemoMode) {
                 resolvedTermId = (if (isNextSemester) DemoData.currentTerm.next() else DemoData.currentTerm).id
                 courses = reloadCustomCourses(DemoData.scheduleCourses())
@@ -488,7 +556,11 @@ fun ScheduleRoute(isActive: Boolean = true) {
         firstWeekDate = displayedTimeBase?.firstWeekDate,
         weekRequestKey = "${appliedCalendar.orEmpty()}|today:$todayRequest",
         displayPreferences = displayPreferences,
-        onDisplayPreferences = { displayPreferences = it; displayStore.write(routeAccountKey, it) },
+        onDisplayPreferences = {
+            displayPreferences = it
+            displayStore.write(routeAccountKey, it)
+            if (isXiaoxuLocalMode) LocalSemesterConfigStore.saveViewMode(context, if (it.dayView) "day" else "week")
+        },
         selectedDay = selectedDay,
         onDayChange = { selectedDay = it },
         onTodayClick = { isNextSemester = false; pendingToday = true },
@@ -536,8 +608,8 @@ fun ScheduleRoute(isActive: Boolean = true) {
                 }
             }
         },
-        isNextSemester = isNextSemester,
-        onToggleSemester = { isNextSemester = !isNextSemester }
+        isNextSemester = isNextSemester && !isXiaoxuLocalMode,
+        onToggleSemester = { if (!isXiaoxuLocalMode) isNextSemester = !isNextSemester }
     )
     }
     if (deletedCourseJson != null) {
@@ -549,7 +621,22 @@ fun ScheduleRoute(isActive: Boolean = true) {
                     if (System.currentTimeMillis() < undoDeadline) {
                         val record = deletedCourseJson?.let { ReminderJson.course(JSONObject(it)) }
                         if (record != null) {
-                            restoreDeletedCustomCourse(settingsManager, reminderScheduler, routeAccountKey, record, deletedRemindersJson)
+                            if (isXiaoxuLocalMode) {
+                                runCatching {
+                                    val current = LocalScheduleStore.load(context)
+                                    val restored = LocalScheduleEditor.upsert(
+                                        current, null, XiaoxuLocalScheduleAdapter.fromRecord(record, resolvedTermId)
+                                    )
+                                    LocalScheduleStore.saveEdited(context, restored)
+                                    localScheduleRevision++
+                                    courses = reloadCustomCourses(courses)
+                                    hasLocalSchedule = restored.isNotEmpty()
+                                    reminderScheduler.restoreUndo(deletedRemindersJson)
+                                    reminderScheduler.updateSnapshot(routeAccountKey, resolvedTermId, courses.map { it.record() })
+                                }.onFailure { GlassToaster.show(it.message ?: "恢复课程失败") }
+                            } else {
+                                restoreDeletedCustomCourse(settingsManager, reminderScheduler, routeAccountKey, record, deletedRemindersJson)
+                            }
                         }
                     }
                     deletedCourseJson = null
@@ -576,7 +663,7 @@ fun ScheduleRoute(isActive: Boolean = true) {
                 reminderTerm = settingsTerm,
                 reminderSummary = reminderScheduler.semesterSummary(routeAccountKey, settingsTerm,
                     if (settingsTerm == resolvedTermId) courses.map { it.record() } else emptyList()),
-                canChangeReminders = !isDemoMode && !isLoading && settingsTerm.isNotBlank() &&
+                canChangeReminders = !isXiaoxuLocalMode && !isDemoMode && !isLoading && settingsTerm.isNotBlank() &&
                     settingsTerm == resolvedTermId && courses.isNotEmpty() && session.token.accountStorageKey == routeAccountKey,
                 onSemesterReminders = { enabled ->
                     if (!isLoading && settingsTerm == resolvedTermId && session.token.accountStorageKey == routeAccountKey &&
@@ -585,13 +672,17 @@ fun ScheduleRoute(isActive: Boolean = true) {
                     }
                 },
                 displayPreferences = displayPreferences,
-                onDisplayPreferences = { displayPreferences = it; displayStore.write(routeAccountKey, it) },
+                onDisplayPreferences = {
+                    displayPreferences = it
+                    displayStore.write(routeAccountKey, it)
+                    if (isXiaoxuLocalMode) LocalSemesterConfigStore.saveViewMode(context, if (it.dayView) "day" else "week")
+                },
                 periodTimesOverride = periodTimesFor(termTimeBase),
                 presetAccountKey = routeAccountKey,
                 onApplyTimePreset = { timing ->
-                    if (settingsTerm.isBlank() || routeAccountKey.isBlank() ||
+                    if (!isXiaoxuLocalMode && (settingsTerm.isBlank() || routeAccountKey.isBlank() ||
                         UserManager.getInstance().currentAccountStorageKey != routeAccountKey ||
-                        (!isDemoMode && session.token.accountStorageKey != routeAccountKey)) {
+                        (!isDemoMode && session.token.accountStorageKey != routeAccountKey))) {
                         false
                     } else {
                         com.tyust.course.schedule.applyScheduleTimingToTerm(settingsManager, timing,
@@ -648,6 +739,7 @@ fun ScheduleRoute(isActive: Boolean = true) {
                 onClose = {
                     periodCount = settingsManager.periodCount
                     periodTimes = periodTimesFor(displayedTimeBase).map { PeriodTimeUi(it.period, it.startTime, it.endTime) }
+                    if (isXiaoxuLocalMode) LocalSemesterConfigStore.saveSections(context, periodCount.coerceIn(1, 24))
                     close()
                 }
             )
@@ -703,7 +795,19 @@ fun ScheduleRoute(isActive: Boolean = true) {
                 deletedCourseJson = ReminderJson.course(course.record()).toString()
                 deletedRemindersJson = reminderScheduler.encodeUndo(reminderScheduler.removeCourse(routeAccountKey, course.id))
                 undoDeadline = System.currentTimeMillis() + 5000L
-                settingsManager.removeCustomCourse(course.customId, routeAccountKey)
+                if (isXiaoxuLocalMode && course.customId.isNotBlank()) {
+                    runCatching {
+                        val current = LocalScheduleStore.load(context)
+                        val updated = LocalScheduleEditor.delete(current, course.customId)
+                        LocalScheduleStore.saveEdited(context, updated)
+                        localScheduleRevision++
+                        courses = reloadCustomCourses(courses)
+                        hasLocalSchedule = updated.isNotEmpty()
+                        reminderScheduler.updateSnapshot(routeAccountKey, resolvedTermId, courses.map { it.record() })
+                    }.onFailure { GlassToaster.show(it.message ?: "删除课程失败") }
+                } else {
+                    settingsManager.removeCustomCourse(course.customId, routeAccountKey)
+                }
                 detailId = null
                 detailSourceBounds = null
                 notificationCourseJson = null
@@ -734,9 +838,27 @@ fun ScheduleRoute(isActive: Boolean = true) {
         com.tyust.course.ui.system.GlassSubpage(onDismiss = { editingId = null }) { close ->
             com.tyust.course.ui.screen.ScheduleCourseEditor(initial, courses, periodCount,
                 isNew = customCourses.none { it.id == id }, onClose = close, onSave = { saved ->
-                    settingsManager.updateCustomCourse(saved, routeAccountKey)
-                    reminderScheduler.updateCustomCourse(routeAccountKey, ScheduleCourseRecord("custom:${saved.id}", saved.name,
-                        saved.teacher, saved.location, saved.day, saved.startPeriod, saved.endPeriod, saved.weeks, true))
+                    if (isXiaoxuLocalMode) {
+                        val saveResult = runCatching {
+                            val current = LocalScheduleStore.load(context)
+                            val existing = current.singleOrNull { it.id == id }
+                            val replacement = XiaoxuLocalScheduleAdapter.fromEditor(saved, existing, resolvedTermId)
+                            val updated = LocalScheduleEditor.upsert(current, existing?.id, replacement)
+                            LocalScheduleStore.saveEdited(context, updated)
+                            localScheduleRevision++
+                            courses = reloadCustomCourses(courses)
+                            hasLocalSchedule = updated.isNotEmpty()
+                            reminderScheduler.updateSnapshot(routeAccountKey, resolvedTermId, courses.map { it.record() })
+                        }
+                        if (saveResult.isFailure) {
+                            GlassToaster.show(saveResult.exceptionOrNull()?.message ?: "保存课程失败")
+                            return@ScheduleCourseEditor
+                        }
+                    } else {
+                        settingsManager.updateCustomCourse(saved, routeAccountKey)
+                        reminderScheduler.updateCustomCourse(routeAccountKey, ScheduleCourseRecord("custom:${saved.id}", saved.name,
+                            saved.teacher, saved.location, saved.day, saved.startPeriod, saved.endPeriod, saved.weeks, true))
+                    }
                     notificationCourse?.key?.storageId?.let { reminderScheduler.findById(it) }?.let {
                         notificationCourseJson = ReminderJson.reminder(it).toString()
                     }
