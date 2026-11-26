@@ -1,0 +1,25 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/manager/AppThemeCoordinator.kt",
+      "blob": "0b98ecb99f05dca3be9bba0c1e381e7a67873c10"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/manager/AppThemeMode.kt",
+      "blob": "48289e74c9473d5cf458d10190ed1085a07b97e4"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/manager/AppearanceSettingsManager.kt",
+      "blob": "ad1df5d6fae416bf784384efb60a28d7be348803"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/manager/WallpaperImageStore.kt",
+      "blob": "582169a386b5d7031ed9e11f217ff303e233a4b8"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/manager/WallpaperToneMap.kt",
+      "blob": "db5d45e3bc55ae63ec17612178af59d9bbce6f14"
+    }
+  ]
+}
