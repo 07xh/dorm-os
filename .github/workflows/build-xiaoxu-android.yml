@@ -290,6 +290,9 @@ jobs:
           copied_files=$(find "$TARGET" -type f | wc -l | tr -d ' ')
           test "$copied_files" = "$EXPECTED_FILES"
           diff -qr --exclude=.git "$source_dir" "$TARGET"
+          (cd "$source_dir" && find . -type f -printf "%P %m\n" | sort) > "$RUNNER_TEMP/upstream-file-modes.txt"
+          (cd "$TARGET" && find . -type f -printf "%P %m\n" | sort) > "$RUNNER_TEMP/copied-file-modes.txt"
+          diff -u "$RUNNER_TEMP/upstream-file-modes.txt" "$RUNNER_TEMP/copied-file-modes.txt"
 
           # Remove the one-shot request marker so it cannot become a standing build trigger.
           git rm -f --ignore-unmatch "$IMPORT_MARKER" || true
