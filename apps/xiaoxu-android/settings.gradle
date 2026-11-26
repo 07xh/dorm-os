@@ -15,3 +15,7 @@ dependencyResolutionManagement {
 rootProject.name = 'XiaoxuAcademicAndroid'
 include ':app'
 include ':benchmark'
+
+include ':north-ui'
+project(':north-ui').projectDir = file('vendor/north-ui-v1.0.83/validation')
+project(':north-ui').buildFileName = 'build-app-module.gradle'

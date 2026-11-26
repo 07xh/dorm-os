@@ -18,6 +18,17 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tyust.course.NorthPrimaryHost
+import com.tyust.course.xiaoxuNavigationItems
+import com.tyust.course.manager.AppearanceSettingsManager
+import com.tyust.course.ui.system.GlassRuntimeGuard
+import com.tyust.course.ui.system.LocalAppOverlayBottomInset
+import com.tyust.course.ui.system.PageDataViewModel
+import com.tyust.course.ui.theme.CourseSelectorTheme
+import io.github.x07xh.xiaoxu.ui.PrimaryTabs
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
@@ -40,8 +51,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -54,7 +63,6 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -97,13 +105,10 @@ import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
-import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.xiaoxuSettingsRouteTransition
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
-import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
-import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigationReserve
 import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
@@ -195,10 +200,12 @@ class MainActivity : ComponentActivity() {
         // The Compose shell should appear before reading/parsing the local timetable.
         // onResume loads the snapshot from IO without blocking cold start.
         receiveSchoolReturn(intent)
+        AppearanceSettingsManager.initialize(this)
+        GlassRuntimeGuard.initialize(this)
         setContent {
             // 统一主题入口（Issue #268）：颜色 / 字级 / 圆角只在 ui/XiaoxuDesignSystem.kt 定义一次。
-            XiaoxuTheme {
-                NativeShell(
+            CourseSelectorTheme(darkTheme = false) {
+                AcademicRouteHost(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
                     reminderTaskId = reminderTaskId,
@@ -467,7 +474,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NativeShell(
+private fun AcademicRouteHost(
     dao: LocalTaskDao,
     cloud: CloudClient,
     appLifecycle: Lifecycle,
@@ -597,39 +604,29 @@ private fun NativeShell(
         onDispose { appLifecycle.removeObserver(observer) }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val tabletLayout = maxWidth >= 700.dp
-        // Glass samples the actual current page, not the navigation chrome itself.
-        // Phone and tablet still share the one NativeShell and route state.
-        val navBackdrop = if (!tabletLayout && showPrimaryNavigation && Build.VERSION.SDK_INT >= 33) {
-            rememberLayerBackdrop()
-        } else null
-        Box(Modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize().then(
-                if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
-            ),
-            containerColor = Color.Transparent,
-            // Keep Scaffold measurements stable while switching tabs. HOME owns
-            // its own header within the animated page; other tabs already have headers.
-            topBar = {},
-            bottomBar = {
-                if (!tabletLayout && showPrimaryNavigation) {
-                    // Layout-only reserve. Actual dock sits outside the sampled subtree.
-                    PrimaryBottomNavigationReserve(glass = navBackdrop != null)
-                }
-            }
-        ) { contentPadding ->
-            Row(Modifier.fillMaxSize().padding(contentPadding)) {
-                if (tabletLayout && showPrimaryNavigation) {
-                    PrimarySideNavigation(selected = current) { selected ->
-                        current = selected
-                        profileSettingsRoute = "home"
-                        messagesOpen = false
-                    }
-                }
-                Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
-                    if (messagesOpen) {
+        val accountKey = cloud.state.ownerId?.toString() ?: "local"
+        val pageDataModel: PageDataViewModel = viewModel()
+        val pageData = remember(accountKey, pageDataModel) { pageDataModel.forAccount(accountKey) }
+        val onSelect: (Int) -> Unit = { index ->
+            current = PrimaryTabs[index]
+            profileSettingsRoute = "home"
+            messagesOpen = false
+        }
+        NorthPrimaryHost(
+            items = xiaoxuNavigationItems,
+            selectedTab = PrimaryTabs.indexOf(current).coerceAtLeast(0),
+            onTabSelect = onSelect,
+            accountKey = accountKey,
+            pageData = pageData,
+            showNavigation = !tabletLayout && showPrimaryNavigation,
+            leadingContent = if (tabletLayout && showPrimaryNavigation) {
+                { PrimarySideNavigation(selected = current) { selected -> onSelect(PrimaryTabs.indexOf(selected)) } }
+            } else null,
+            contextContent = if (messagesOpen) {
+                {
+                    Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessageCenterPanel(cloud, openWebsite, openArticle,
                                 useStatusBarInset = false, onBack = { messagesOpen = false },
@@ -652,16 +649,17 @@ private fun NativeShell(
                                     profileSettingsRoute = "notifications"
                                 })
                         }
-                    } else {
-                    // Only one heavy tab is ever composed; no AnimatedContent overlap.
-                    // Keep per-tab SaveableStateProvider so filters/scroll survive.
-                    val page = current
-                    Box(Modifier.fillMaxSize().clipToBounds()) {
-                        pageStateHolder.SaveableStateProvider(page.name) {
-                        // Full-size opaque layers and bounds clipping prevent old
-                        // page labels from showing through while rapidly changing tabs.
-                        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
-                        when (page) {
+                    }
+                }
+            } else null
+        ) { index ->
+            val page = PrimaryTabs[index]
+            // Temporary adapter for legacy pages that do not yet read the upstream inset.
+            val insets = if (!tabletLayout && showPrimaryNavigation)
+                Modifier.padding(bottom = LocalAppOverlayBottomInset.current)
+            else Modifier.navigationBarsPadding()
+            Box(Modifier.fillMaxSize().statusBarsPadding().then(insets)) {
+                when (page) {
                             MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
                                 XiaoxuTopBar(
                                     title = "今日",
@@ -740,7 +738,7 @@ private fun NativeShell(
                                 ) { timetableChild ->
                                     // Each target child owns an opaque full-size layer. The
                                     // timetable/editor must not show settings text behind it.
-                                    Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
+                                    Box(Modifier.fillMaxSize()) {
                                     if (timetableChild) {
                                     // A native child of 我的/设置, not a switch to the timetable tab.
                                     // Keeping current == PROFILE avoids AnimatedContent rendering a
@@ -789,22 +787,7 @@ private fun NativeShell(
                                 }
                             }
                         }
-                        }
-                        }
-                    }
-                    }
-                }
             }
-        }
-        if (!tabletLayout && showPrimaryNavigation) {
-            Box(Modifier.align(Alignment.BottomCenter)) {
-                PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) { selected ->
-                    current = selected
-                    profileSettingsRoute = "home"
-                    messagesOpen = false
-                }
-            }
-        }
         }
     }
 }

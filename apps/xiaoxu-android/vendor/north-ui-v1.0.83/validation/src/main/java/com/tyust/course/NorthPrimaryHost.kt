@@ -27,7 +27,7 @@ import com.tyust.course.ui.theme.rememberAppWallpaperStyle
  * UI-only extraction from upstream MainActivity.kt, e3f2833a2fb1e184968724ee4c7f71ebc816a2dd.
  * Original capture order, optical anchors, scrolling and navigation motion are retained.
  * The caller supplies business pages and account state; no upstream school/session logic.
- * This adapter is compiled in the isolated validation project, not yet in the existing app.
+ * This adapter is shared by the validation project and the app module.
  */
 @Composable
 fun NorthPrimaryHost(
@@ -38,6 +38,8 @@ fun NorthPrimaryHost(
     pageData: PageDataState,
     showNavigation: Boolean = true,
     notice: FloatingNotice? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
+    contextContent: (@Composable () -> Unit)? = null,
     pageContent: @Composable (Int) -> Unit
 ) {
     val appWallpaper = rememberAppWallpaperStyle()
@@ -217,15 +219,20 @@ fun NorthPrimaryHost(
             }
 
 
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f).nestedScroll(navBarScrollConnection)) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                leadingContent?.invoke()
+                Box(Modifier.weight(1f).fillMaxHeight().nestedScroll(navBarScrollConnection)) {
                     key(accountKey) {
                         val savedPages = rememberSaveableStateHolder()
-                        NavigationPages(navigationMotion, modifier = Modifier.fillMaxSize().graphicsLayer {
-                            translationX = -6.dp.toPx() * dialogHostState.pageProgress
-                            alpha = 1f - 0.03f * dialogHostState.pageProgress
-                        }) { page ->
-                            savedPages.SaveableStateProvider(items[page].route) { pageContent(page) }
+                        if (contextContent != null) {
+                            contextContent()
+                        } else {
+                            NavigationPages(navigationMotion, modifier = Modifier.fillMaxSize().graphicsLayer {
+                                translationX = -6.dp.toPx() * dialogHostState.pageProgress
+                                alpha = 1f - 0.03f * dialogHostState.pageProgress
+                            }) { page ->
+                                savedPages.SaveableStateProvider(items[page].route) { pageContent(page) }
+                            }
                         }
                     }
                 }
