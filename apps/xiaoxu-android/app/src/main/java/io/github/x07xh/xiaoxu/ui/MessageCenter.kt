@@ -1,7 +1,5 @@
 package io.github.x07xh.xiaoxu.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,10 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -69,8 +64,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -130,14 +123,6 @@ val MESSAGE_FILTERS = listOf(
     MessageFilterOption(MSG_FILTER_NOTICE, "通知公告"),
     MessageFilterOption(MSG_FILTER_EXAM, "考试安排")
 )
-
-/** pill 图标：只表达筛选维度，不表达查看状态或数量。 */
-private fun messageFilterIcon(key: String): ImageVector = when (key) {
-    MSG_FILTER_NOTICE -> Icons.Outlined.MailOutline
-    MSG_FILTER_EXAM -> Icons.Outlined.DateRange
-    MSG_FILTER_WECHAT -> Icons.Outlined.PersonOutline
-    else -> Icons.Outlined.Inbox
-}
 
 fun noticeCategoryLabel(category: String): String =
     if (category == "exam") "考试安排" else "通知公告"

@@ -817,33 +817,6 @@ private fun Content(
 }
 
 @Composable
-private fun CompactPageHeading(
-    title: String,
-    onMessages: () -> Unit,
-    onRefresh: (() -> Unit)? = null,
-    refreshing: Boolean = false
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.headlineSmall,
-            color = XiaoxuPalette.Ink)
-        if (onRefresh != null) {
-            IconButton(onClick = onRefresh, enabled = !refreshing) {
-                Icon(Icons.Outlined.Refresh, contentDescription = "刷新数据",
-                    tint = XiaoxuPalette.Ink2)
-            }
-        }
-        IconButton(onClick = onMessages) {
-            Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
-                tint = XiaoxuPalette.Ink2)
-        }
-    }
-}
-
-@Composable
 private fun AcademicPage(
     selected: AcademicDestination,
     select: (AcademicDestination) -> Unit,

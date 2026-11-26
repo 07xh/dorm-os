@@ -81,8 +81,7 @@ assert.match(messageUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/
 assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/, '页面不得残留重复宽度实现');
 
 // Interaction regressions: no dark, unbounded ripple; shared sheet dim.
-assert.match(designSystem, /LocalIndication provides ripple\(bounded = true/,
-  '默认按压反馈须使用共享受界浅色 ripple');
+assert.match(designSystem, /CourseSelectorTheme\(darkTheme = false, content = content\)/, '独立 Activity 也使用上游主题');
 assert.match(designSystem, /fun XiaoxuSoftIconButton\(/,
   '顶栏和设置图标应使用唯一柔和按压组件');
 assert.match(designSystem, /fun XiaoxuDialogDim\(/,
@@ -97,8 +96,7 @@ assert.match(designSystem, /val GlassSheen = Brush\.verticalGradient\(/,
   '通用卡片复用同一轻量玻璃高光材质');
 assert.match(scheduleUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
   '课表课程卡按压反馈须受圆角裁切');
-assert.match(messageUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
-  '通知卡不可重新引入深色点击灰块');
+assert.match(messageUi, /SystemListItem\(/, '公告使用原版列表项');
 
 assert.doesNotMatch(strings, /<string name="start_url"/, '已退役 TWA 默认主页');
 assert.match(manifest, /android:name="\.MainActivity"[\s\S]*?android:exported="true"/);
@@ -423,8 +421,7 @@ const secondClassPointsHeader = secondClassMain.slice(
   secondClassMain.indexOf('item(key = "metrics")'));
 assert.match(secondClassPointsHeader, /Text\("积分概览"/,
   '积分概览标题直接在第一行');
-assert.match(secondClassPointsHeader, /DropdownMenu\(/,
-  '学期下拉必须位于积分概览标题同行');
+assert.match(secondClassPointsHeader, /SystemPicker\(/, '学期选择器仍位于积分概览同行');
 assert.doesNotMatch(secondClassMain, /item\(key = "term_selector"\)/,
   '学期选择不再单独占据积分卡下方的一张大卡片');
 const secondClassBreakdown = secondClassMain.slice(
@@ -468,12 +465,10 @@ assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
 assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
  '活动类别须保留报名中筛选');
 assert.match(designSystem, /SystemSegmentedControl\(labels, selectedIndex, select/);
-assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeight = 26\.sp/,
- '一级页面共用20sp字级与26sp行高');
+assert.doesNotMatch(designSystem, /private val Xiaoxu(?:Typography|Shapes|ColorScheme)/, '不再保留旧 Material 主题定义');
 assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
  '课表标题从统一主题取得字级');
-assert.match(messageUi, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
- '消息标题从统一主题取得字级');
+assert.match(messageUi, /SystemTopBar\([\s\S]*?title = "消息中心"/, "消息标题使用原版顶栏");
 assert.match(workspace, /Text\("任务",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
  '任务页使用简短标题与统一主题字级');
 assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
@@ -669,8 +664,7 @@ assert.doesNotMatch(main, /onSettingsAction|timetable-action/,
 const courseEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt');
 assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(usePlatformDefaultWidth = false\)/,
   '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
-assert.match(courseEditor, /\.background\(XiaoxuPalette\.PageGradient\)/,
-  '课程编辑背景必须沿用现有课表设置背景');
+assert.match(courseEditor, /GlassWindowHost\s*\{[\s\S]*?GlassPageScaffold\(/, '课程编辑使用原版窗口宿主和容器');
 assert.match(courseEditor, /XiaoxuGroupedSection\(title = "课程信息"\)/,
   '课程信息必须复用同一玻璃分组组件');
 assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课时间"\)/,
@@ -934,14 +928,12 @@ assert.match(messageCenter, /未连接校序云端/);
 assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
 assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
 
-const messagePillSource = messageCenter.slice(
-  messageCenter.indexOf('private fun MessagePill('),
-  messageCenter.indexOf('private fun MessageCountLine('));
-assert.match(messagePillSource, /XiaoxuPalette\.GlassTrack/,
-  '官方消息筛选未选中态与导航共用轻玻璃材质');
-assert.match(messagePillSource, /XiaoxuSpacing\.glassStroke/,
-  '官方消息筛选不可恢复旧1dp灰色硬描边');
-
+const messageFilterSource = messageCenter.slice(messageCenter.indexOf('private fun FilterRow('), messageCenter.indexOf('private fun MessageCountLine('));
+assert.match(messageFilterSource, /SystemSegmentedControl\(/);
+assert.doesNotMatch(messageCenter, /fun MessagePill\(/);
+const northSelection = read(northRoot + 'app/src/main/java/com/tyust/course/ui/system/LiquidSelectionComponents.kt');
+assert.match(northSelection, /\.selectableGroup\(\)/);
+assert.match(northSelection, /role = Role\.Tab/);
 const skeletonSource = messageCenter.slice(
   messageCenter.indexOf('private fun MessageSkeleton('));
 assert.match(skeletonSource, /height\(76\.dp\)/,
@@ -1024,13 +1016,13 @@ assert.match(messageCenter, /WechatReviewPanel\(/);
 assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/);
 
 // 触控与读屏：筛选 48dp、单选组 + selected、窄屏内边距与可滚动详情。
-assert.match(messageCenter, /\.selectableGroup\(\)/);
-assert.match(messageCenter, /\.selectable\(\s*selected = isSelected,\s*role = Role\.Tab,/);
-assert.match(messageCenter, /\.heightIn\(min = 48\.dp\)/);
+assert.match(northSelection, /\.selectableGroup\(\)/);
+assert.match(northSelection, /role = Role\.Tab/);
+assert.match(messageFilterSource, /SystemSegmentedControl\(/);
 assert.match(messageCenter, /maxWidth < 380\.dp/);
 assert.match(designSystem, /verticalScroll\(rememberScrollState\(\)\)/,
   '统一底部弹层必须支持内容滚动');
-assert.match(messageCenter, /mergeDescendants = true/);
+assert.match(messageCenter, /SystemListItem\(/);
 assert.match(messageCenter, /rememberSaveable \{ mutableStateOf\(MSG_FILTER_ALL\) \}/);
 assert.match(messageCenter, /var openedId by rememberSaveable/);
 
@@ -1634,7 +1626,7 @@ assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwit
   '不允许恢复主导航文字重影交叉淡入');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
 assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
-assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
+assert.doesNotMatch(messageCenter, /fun MessagePill\(/);
 assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
 const primaryCardSource = design.slice(design.indexOf('fun XiaoxuCard('),
   design.indexOf('/** 同一个分段选择器', design.indexOf('fun XiaoxuCard(')));
@@ -1758,15 +1750,14 @@ assert.match(taskReadingLayout, /wrapContentWidth\(Alignment\.CenterHorizontally
 assert.match(taskReadingLayout, /widthIn\(max = 860\.dp\)/,
     '任务中心保持有界内容宽度');
 const academicReadingLayout = main.slice(main.indexOf('private fun Content('),
-    main.indexOf('private fun CompactPageHeading('));
+    main.indexOf('private fun AcademicPage('));
 assert.match(academicReadingLayout, /Box\(Modifier\.fillMaxSize\(\), contentAlignment = Alignment\.TopCenter\)/,
     '教务的阅读内容须与顶栏使用同一个居中基准');
 assert.match(academicReadingLayout, /widthIn\(max = 860\.dp\)\.fillMaxWidth\(\)\.fillMaxHeight\(\)/,
     '教务详情维持单一滚动栏，不新增嵌套滚动');
 const academicHeadingLayout = main.slice(main.indexOf('private fun AcademicPage('),
     main.indexOf('private fun AcademicEditorialSection('));
-assert.match(academicHeadingLayout, /Box\(Modifier\.fillMaxWidth\(\), contentAlignment = Alignment\.TopCenter\)/,
-    '教务顶栏应与平板内容栏水平对齐');
+assert.match(academicHeadingLayout, /GlassPageScaffold\(/);
 
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
 assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
@@ -2136,19 +2127,17 @@ assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\
 // 真实来源、审核事务与数据边界一律不动。
 assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
   '消息顶栏不再重复展示英文装饰标题');
-assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
+assert.match(messageCenter, /MESSAGE_FILTERS\.map \{ it.label \}/);
 assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
 assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
   '官方与微信来源使用共享原生分段组件');
-assert.match(messageCenter, /Box\(Modifier\.size\(7\.dp\)\.clip\(CircleShape\)/,
-  'B2 公告使用紧凑状态圆点，避免重复大图标造成视觉拥挤');
+assert.match(messageCenter, /SystemListItem\([\s\S]*?title = notice.title/);
 assert.match(messageCenter, /private fun SourceSectionHeader\(/,
   '保留列表内的来源标题与状态语义');
 assert.match(messageCenter, /private fun MessageHeader\(onRefresh:/,
   '消息统一使用紧凑页头');
-assert.match(messageCenter, /XiaoxuToolbarAction\(/,
-  '消息刷新及返回须复用工具按钮');
+assert.match(messageCenter, /SystemIconButton\(/);
 assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
 assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
   '海报里的智能摘要与未读红点不能写进真实消息页');
@@ -2163,8 +2152,7 @@ assert.match(profileSettings, /"connections" -> item \{/,
   '真实学校读取入口归属我的 → 数据连接二级页面，不回退独立首页容器');
 assert.match(panels, /title = "云端同步"/,
   '云端授权应继续收纳为独立可操作区域');
-assert.match(main, /private fun CompactPageHeading\(/,
-  '教务业务页仍复用紧凑标题，设置页标题由 ProfileSettingsPage 唯一维护');
+assert.doesNotMatch(main, /private fun CompactPageHeading\(/);
 assert.match(main, /NorthPrimaryHost\(/, '主窗口使用上游统一宿主');
 assert.match(main, /applyStatusBarInset = false/,
   '首页顶栏移动到页面内后应使用Scaffold既有状态栏内边距，不可重复下移');
