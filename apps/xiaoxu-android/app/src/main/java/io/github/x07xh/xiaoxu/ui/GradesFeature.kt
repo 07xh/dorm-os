@@ -290,12 +290,14 @@ private fun MeasuredGradesHeader(
     val wallpaperRegion = rememberWallpaperRegionState()
     val appearance = rememberWallpaperRegionAppearance(wallpaperRegion)
     val p = collapse.coerceIn(0f, 1f)
-    // RebuildShell owns status-bar insets; do not apply them twice.
-    val statusBar = 0.dp
+    val statusBar = 0.dp // RebuildShell owns the window insets.
     val effectiveBackdrop = backdrop?.takeIf { isBackdropSupported() }
     val layer = if (effectiveBackdrop != null) rememberLayerBackdrop() else null
     val controlBackdrop = if (effectiveBackdrop != null && layer != null)
         rememberCombinedBackdrop(effectiveBackdrop, layer) else null
+    val anchor = if (controlBackdrop != null) rememberGlassLensRegion("grades-chips", selected, refreshing,
+        (p * 8).toInt(), freshness = LocalPageGlassFreshness.current,
+        drawSource = { drawBackdropSource(controlBackdrop, density, it) }) else null
     val measurer = rememberTextMeasurer()
     val tabStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium)
     val minTabWidth = tabs.sumOf { label ->
@@ -303,13 +305,13 @@ private fun MeasuredGradesHeader(
     }
 
     ProvideWallpaperAppearance(appearance) {
-    Box(Modifier.fillMaxWidth().wallpaperRegion(wallpaperRegion).then(wallpaperHeaderScrim())) {
+    Box(Modifier.fillMaxWidth().wallpaperRegion(wallpaperRegion).glassLensAnchor(anchor).then(wallpaperHeaderScrim())) {
         Box(Modifier.matchParentSize().then(if (layer != null) Modifier.layerBackdrop(layer) else Modifier)) {
             StatusBarFrost(statusBar + 1.dp, p, effectiveBackdrop)
             HeaderGlassSlab(((p - 0.35f) / 0.65f).coerceIn(0f, 1f), effectiveBackdrop, 26.dp,
                 Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = statusBar + 6.dp, bottom = 4.dp))
         }
-        CompositionLocalProvider(LocalControlBackdrop provides controlBackdrop) {
+        CompositionLocalProvider(LocalControlBackdrop provides controlBackdrop, LocalGlassLensAnchor provides anchor) {
             Layout(modifier = Modifier.fillMaxWidth().testTag("grades-header"), content = {
                 Column(Modifier.testTag("grades-title").semantics { if (p > 0.95f) hideFromAccessibility() }) {
                     Text("成绩与考试", fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold,
@@ -321,14 +323,10 @@ private fun MeasuredGradesHeader(
                 LiquidSegmentedControl(tabs, selected, onSelect,
                     modifier = Modifier.testTag("grades-segments"), height = 52.dp - 4.dp * p,
                     refractLabels = false, stableLabelRefraction = true)
-                Row(Modifier.testTag("grades-actions")) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-                    }
-                    IconButton(onClick = onRefresh, enabled = !refreshing) {
-                        ActionLineIcon(Icons.Outlined.Refresh,
-                            if (refreshing) "正在刷新" else "刷新",
-                            Modifier.size(24.dp),
+                TopBarActionRail(modifier = Modifier.testTag("grades-actions")) {
+                    action(0, Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack)
+                    action(1, contentDescription = if (refreshing) "正在刷新" else "刷新", onClick = onRefresh, enabled = !refreshing) {
+                        AnimatedLineIcon(AnimatedIconSpec.Refresh, Modifier.size(TopBarLayoutMetrics.IconSize),
                             state = if (refreshing) IconVisualState.Running else IconVisualState.Idle)
                     }
                 }
@@ -490,18 +488,16 @@ private fun SemesterGradesContent(
                     onRefresh = onRefreshSemesters
                 )
 
-                AppNotice(snapshotLabel)
-                TextButton(onClick = onConnect) { Text("数据连接") }
                 when {
                     isLoading && grades.isEmpty() -> GlassLoadingState(text = "正在加载学期成绩…")
                     error.isNotBlank() && grades.isEmpty() -> SystemEmptyState(title = "学期成绩加载失败", message = error)
                     grades.isEmpty() -> SystemEmptyState(
                         title = "暂无学期成绩",
                         message = if (currentSemester.isBlank()) {
-                            "请选择学期查看成绩"
+                            "尚无已读取成绩，请刷新或检查数据连接。"
                         } else {
                             "$currentSemester 快照暂无成绩，不代表学校实时记录"
-                        }
+                        }, action = { TextButton(onClick = onConnect) { Text("数据连接") } }
                     )
                     else -> {
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -544,18 +540,19 @@ private fun ExamScheduleContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                AcademicTermPicker(semesters, currentSemester.takeIf { it.isNotBlank() }) { onSemesterChange(it.orEmpty()) }
-                AppNotice(syncStatus)
-                TextButton(onClick = onConnect) { Text("数据连接") }
-                if (error.isBlank() && !isLoading) SystemStatStrip(items = listOf("快照记录数" to exams.size.toString()))
-                SystemSectionHeader(title = "考试列表", subtitle = null)
+                if (semesters.isNotEmpty()) AcademicTermPicker(semesters, currentSemester.takeIf { it.isNotBlank() }) { onSemesterChange(it.orEmpty()) }
+                if (exams.isNotEmpty()) {
+                    SystemStatStrip(items = listOf("考试数" to exams.size.toString()))
+                    SystemSectionHeader(title = "考试列表", subtitle = null)
+                }
                 if (error.isNotBlank()) Text(error, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (exams.isEmpty()) item {
-            SystemEmptyState(title = if (isLoading) "正在同步考试安排" else "暂无考试安排",
-                message = error.ifBlank { "仅展示已读取快照，不代表学校没有考试。" })
+            SystemEmptyState(title = if (isLoading) "正在同步考试安排" else if (syncStatus == "尚无已保存快照" || syncStatus == "未连接云端账户") "尚未读取考试" else "暂无考试安排",
+                message = error.ifBlank { "仅展示已读取快照，不代表学校没有考试。" },
+                action = { TextButton(onClick = onConnect) { Text("数据连接") } })
         }
         items(exams, key = { it.recordId.ifBlank { it.courseName + it.examTime + it.examName } }) { exam ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
