@@ -1,1 +1,0 @@
-Reconcile the complete upstream mirror: force-add ignored files and require exact staged tree SHA.
