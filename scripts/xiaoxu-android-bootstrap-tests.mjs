@@ -92,8 +92,7 @@ assert.match(scheduleUi, /indication = null,\s*onClick = onEdit/,
   '课程详情长标题不允许绘制大面积矩形按压遮罩');
 assert.match(scheduleUi, /background\(XiaoxuPalette\.SheetSheen\)/,
   '课程详情共享轻量表面渐变，不增加实时模糊');
-assert.match(designSystem, /val GlassSheen = Brush\.verticalGradient\(/,
-  '通用卡片复用同一轻量玻璃高光材质');
+assert.doesNotMatch(designSystem, /val GlassSheen\b/, '旧卡片高光定义不再保留');
 assert.match(scheduleUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
   '课表课程卡按压反馈须受圆角裁切');
 assert.match(messageUi, /SystemListItem\(/, '公告使用原版列表项');
@@ -1559,8 +1558,7 @@ assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.74f\)/,
   '保留全局轻色描边作为普通卡片后备');
 assert.match(design, /val GlassRim = Brush\.linearGradient\(/,
   '悬浮控件使用同源光学高光而非深色外圈');
-assert.match(design, /val GlassModalFallback = Brush\.linearGradient\(/,
-  '独立窗口无法采样背景时保证可读的玻璃降级材质');
+assert.doesNotMatch(design, /val GlassModalFallback\b/, '旧弹窗材质不再保留');
 assert.match(design, /glassChrome: Boolean = false/,
   '不能对长列表内容卡默认叠加高成本玻璃');
 assert.match(design, /Brush\.linearGradient\(/,
@@ -1620,6 +1618,7 @@ assert.match(profileSettings, /SettingsEditorialSection\(title = "其他"\)/,
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置仍走同一二级页宿主');
 assert.doesNotMatch(main, /background\(XiaoxuPalette\.PageGradient\)/, '主页面不得覆盖原版壁纸');
+assert.doesNotMatch(design, /val PageGradient\b/, '删除已无引用的自研页面背景');
 assert.match(main, /val academicRoute = selected/, '教务子路由不再使用重复动画容器');
 assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.padding\(padding\)/, '校园消费上游页面安全区');
 assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,

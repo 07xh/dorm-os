@@ -113,15 +113,6 @@ object XiaoxuPalette {
     /** 页面背景 */
     val Bg = Color(0xFFF4F7FD)
 
-    /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
-    val PageGradient = Brush.linearGradient(
-        0.00f to Color(0xFFF2F8FF),
-        0.22f to Color(0xFFE4EEFF),
-        0.44f to Color(0xFFF2ECFF),
-        0.68f to Color(0xFFE7F4F4),
-        0.86f to Color(0xFFF5EEFC),
-        1.00f to Color(0xFFFAF8FF)
-    )
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
     val GlassCard = Color.White.copy(alpha = 0.95f)
@@ -129,10 +120,6 @@ object XiaoxuPalette {
     val GlassTrack = Color.White.copy(alpha = 0.48f)
     val GlassIndicator = Color.White.copy(alpha = 0.60f)
     val SheetSurface = Color(0xFFF9FAFF)
-    /** Local highlight gradients imitate fine surface reflections without runtime blur. */
-    val GlassSheen = Brush.verticalGradient(
-        listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.015f))
-    )
     val SheetSheen = Brush.verticalGradient(
         listOf(Color(0xFFFCFDFF), Color(0xFFF5F7FB), Color(0xFFFAF9FD))
     )
@@ -147,10 +134,6 @@ object XiaoxuPalette {
         0.34f to Color.White.copy(alpha = 0.65f),
         0.72f to Color.White.copy(alpha = 0.34f),
         1.00f to Color.White.copy(alpha = 0.78f)
-    )
-    /** 无可采样 Backdrop 的 Dialog 保持可读的静态模态材质。 */
-    val GlassModalFallback = Brush.linearGradient(
-        listOf(Color(0xFFFBFDFF), Color(0xFFF3F7FC), Color(0xFFF9F8FE))
     )
     val SheetInfoSurface = Color.White.copy(alpha = 0.58f)
 

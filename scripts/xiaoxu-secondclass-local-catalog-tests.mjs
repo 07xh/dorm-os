@@ -142,7 +142,8 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
   const header = page.slice(page.indexOf('item(key = "points_header")'),
     page.indexOf('item(key = "metrics")'));
   assert.match(header,/Text\("积分概览"/);
-  assert.match(header,/DropdownMenu\(/,'term selector stays in the overview title row');
+  assert.match(header,/SystemPicker\(/,'upstream term selector stays in the overview title row');
+  assert.match(header,/onSelect = \{ index -> termRows\.getOrNull\(index\)\?\.let \{ selectedTermTitle = it.title \}/,'only real term records can be selected');
   assert.doesNotMatch(page,/item\(key = "term_selector"\)/,
     'no separate term card beneath the summary');
   const breakdown = page.slice(page.indexOf('item(key = "term_breakdown")'),
