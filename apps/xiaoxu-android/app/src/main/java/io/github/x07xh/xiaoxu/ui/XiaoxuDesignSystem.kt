@@ -47,6 +47,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.theme.MotionSpecs
 import com.tyust.course.ui.system.SystemSegmentedControl
 import com.tyust.course.ui.system.SystemCompactSegmentedControl
 import com.tyust.course.ui.system.SystemDialog
@@ -118,24 +119,9 @@ object XiaoxuPalette {
     val GlassCard = Color.White.copy(alpha = 0.95f)
     val GlassBorder = Color.White.copy(alpha = 0.74f)
     val GlassTrack = Color.White.copy(alpha = 0.48f)
-    val GlassIndicator = Color.White.copy(alpha = 0.60f)
     val SheetSurface = Color(0xFFF9FAFF)
-    val SheetSheen = Brush.verticalGradient(
-        listOf(Color(0xFFFCFDFF), Color(0xFFF5F7FB), Color(0xFFFAF9FD))
-    )
     /** 北化式材质分工：仅悬浮控件带高光，普通内容卡仍使用稳定浅色底。 */
-    val GlassControlSurface = Brush.verticalGradient(
-        0f to Color.White.copy(alpha = 0.48f),
-        1f to Color.White.copy(alpha = 0.24f)
-    )
     /** 单条白色柔性边缘高光；不再叠加第二层深灰 Card 描边。 */
-    val GlassRim = Brush.linearGradient(
-        0.00f to Color.White.copy(alpha = 0.98f),
-        0.34f to Color.White.copy(alpha = 0.65f),
-        0.72f to Color.White.copy(alpha = 0.34f),
-        1.00f to Color.White.copy(alpha = 0.78f)
-    )
-    val SheetInfoSurface = Color.White.copy(alpha = 0.58f)
 
     /** Touch feedback is pale blue, never a default dark rectangular ripple. */
     val PressTint = Color(0xFF4D86D9).copy(alpha = 0.12f)
@@ -195,11 +181,6 @@ object XiaoxuSpacing {
     val glassStroke: Dp = 0.5.dp
 }
 
-/** Local selection and feedback only; full-screen route switches are immediate. */
-internal object XiaoxuMotion {
-    const val SelectionMs = 180
-    const val FeedbackMs = 120
-}
 
 /** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
 internal object XiaoxuPageLayout {
@@ -282,23 +263,20 @@ internal fun XiaoxuSoftIconButton(
     glassChrome: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val source = remember { MutableInteractionSource() }
-    Box(
-        modifier = modifier.size(48.dp).clip(CircleShape)
-            .background(backgroundColor)
-            // Capture-free glass fallback: only floating controls get this rim.
-            // Keep the click indicator after clipping to prevent square dark flashes.
-            .then(if (glassChrome) Modifier
-                .background(XiaoxuPalette.GlassControlSurface)
-                .border(0.5.dp, XiaoxuPalette.GlassRim, CircleShape)
-                else Modifier)
-            .clickable(
-                enabled = enabled, role = Role.Button, interactionSource = source,
-                indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.Center
-    ) { content() }
+    LiquidButton(
+        onClick = onClick,
+        modifier = modifier.size(48.dp),
+        enabled = enabled,
+        shape = CircleShape,
+        style = when {
+            backgroundColor != Color.Transparent -> LiquidButtonStyle.SolidTinted
+            glassChrome -> LiquidButtonStyle.Surface
+            else -> LiquidButtonStyle.SolidSurface
+        },
+        tint = if (backgroundColor != Color.Transparent) backgroundColor else Color.Unspecified,
+        horizontalPadding = 0.dp,
+        content = { content() }
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +412,7 @@ fun XiaoxuExpandableGlassRow(
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = MotionSpecs.tabTransition(),
         label = "glass-row-chevron"
     )
     XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {
@@ -866,7 +844,7 @@ fun QuickEntry(
             .heightIn(min = 88.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.tile))
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, RoundedCornerShape(XiaoxuRadius.tile))
+            .border(XiaoxuSpacing.glassStroke, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(XiaoxuRadius.tile))
             .clickable(onClick = onClick, role = Role.Button)
             .padding(vertical = 10.dp, horizontal = 4.dp)
             .semantics { contentDescription = label },

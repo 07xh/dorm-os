@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.theme.MotionSpecs
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -488,7 +489,7 @@ private fun PlatformStatusCard(
     var expanded by rememberSaveable(id) { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = MotionSpecs.tabTransition(),
         label = "platform-glass-chevron"
     )
     XiaoxuCard(contentPadding = 14.dp) {
@@ -556,10 +557,10 @@ private fun PlatformStatusCard(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
-                fadeIn(animationSpec = tween(XiaoxuMotion.SelectionMs)),
-            exit = shrinkVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
-                fadeOut(animationSpec = tween(XiaoxuMotion.SelectionMs))
+            enter = expandVertically(animationSpec = MotionSpecs.tabTransition()) +
+                fadeIn(animationSpec = MotionSpecs.tabTransition()),
+            exit = shrinkVertically(animationSpec = MotionSpecs.tabTransition()) +
+                fadeOut(animationSpec = MotionSpecs.tabTransition())
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (id != "chaoxing" && state.connectionsFresh && platform?.verified == true &&

@@ -202,7 +202,7 @@ private fun LocalTaskGraphNodeRow(
         modifier = Modifier.fillMaxWidth()
             .clip(shape)
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
+            .border(XiaoxuSpacing.glassStroke, MaterialTheme.colorScheme.outlineVariant, shape)
             .clickable(onClickLabel = "编辑任务“${task.title}”的前置关系") {
                 onEditTask(task.id)
             }

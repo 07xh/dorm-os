@@ -54,6 +54,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemPicker
+import com.tyust.course.ui.system.SystemIconButton
+import com.tyust.course.ui.system.SystemCard
+import com.tyust.course.ui.system.SystemDialog
+import com.tyust.course.ui.system.DialogPresentation
+import com.tyust.course.ui.theme.MotionSpecs
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -353,7 +359,6 @@ private fun ScheduleVerifiedContent(
     }
     var viewMode by rememberSaveable { mutableStateOf(LocalSemesterConfigStore.loadViewMode(context)) }
     var visibleSections by rememberSaveable { mutableStateOf(LocalSemesterConfigStore.loadSections(context)) }
-    var showWeekPicker by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(weekNumbers) {
         // 只允许具体教学周被用户选择；ALL_WEEKS 仅用于无有效周次的内部空态。
         if (weekNumbers.isNotEmpty() && selectedWeek !in weekNumbers) {
@@ -438,49 +443,25 @@ private fun ScheduleVerifiedContent(
             },
             onSettings = { onSettingsOpenChanged(true) }
         )
-        if (weekNumbers.size > 1 && showWeekPicker) {
-            WeekSelector(weeks = weekNumbers, selected = selectedWeek,
-                onSelect = { selectedWeek = it; showWeekPicker = false })
-        }
         if (weekNumbers.isNotEmpty()) {
-            // Without term settings, only imported weeks are selectable.
-            // Explicitly configured semesters also expose empty teaching weeks.
             val currentIndex = weekNumbers.indexOf(selectedWeek)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                    .background(XiaoxuPalette.GlassCard)
-                    .background(XiaoxuPalette.GlassControlSurface)
-                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim,
-                        RoundedCornerShape(XiaoxuRadius.tile))
-                    .padding(horizontal = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                XiaoxuSoftIconButton(
-                    onClick = { selectedWeek = weekNumbers[currentIndex - 1] },
-                    enabled = currentIndex > 0
-                ) {
-                    Icon(Icons.Outlined.ChevronLeft, contentDescription = "上一周")
-                }
-                TextButton(
-                    onClick = { showWeekPicker = !showWeekPicker },
-                    enabled = weekNumbers.size > 1,
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                ) {
-                    Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "选择周次 ▾",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = XiaoxuPalette.Ink)
-                }
-                XiaoxuSoftIconButton(
-                    onClick = { selectedWeek = weekNumbers[currentIndex + 1] },
-                    enabled = currentIndex < weekNumbers.lastIndex
-                ) {
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = "下一周")
-                }
+                SystemIconButton(Icons.Outlined.ChevronLeft, "上一周",
+                    { selectedWeek = weekNumbers[currentIndex - 1] }, enabled = currentIndex > 0)
+                SystemPicker(
+                    options = weekNumbers.map { "第 $it 周" },
+                    selectedIndex = currentIndex.takeIf { it >= 0 },
+                    onSelect = { index -> weekNumbers.getOrNull(index)?.let { selectedWeek = it } },
+                    modifier = Modifier.weight(1f),
+                    placeholder = "选择周次"
+                )
+                SystemIconButton(Icons.Outlined.ChevronRight, "下一周",
+                    { selectedWeek = weekNumbers[currentIndex + 1] },
+                    enabled = currentIndex >= 0 && currentIndex < weekNumbers.lastIndex)
             }
         }
         if (calendar != null && selectedWeek != ALL_WEEKS) {
@@ -776,77 +757,6 @@ private fun DayLessonList(
  * 当前课表仅标注本机导入，不使用云端新鲜度计算徽标。
  */
 @Composable
-private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
-    // The chosen teaching week may be outside the first visible chips
-    // (for example week 10 while the row is still displaying weeks 1–6).
-    val selectedIndex = weeks.indexOf(selected)
-    val weekListState = rememberLazyListState(
-        initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0)
-    )
-    LaunchedEffect(weeks, selected) {
-        if (selectedIndex >= 0) {
-            weekListState.scrollToItem((selectedIndex - 2).coerceAtLeast(0))
-        }
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = "周次",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(8.dp))
-        LazyRow(state = weekListState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(count = weeks.size, key = { index -> weeks[index] }) { index ->
-                val week = weeks[index]
-                SelectablePill(
-                    label = "$week",
-                    isSelected = selected == week,
-                    a11yLabel = "第 $week 周",
-                    onClick = { onSelect(week) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SelectablePill(
-    label: String,
-    isSelected: Boolean,
-    a11yLabel: String,
-    onClick: () -> Unit
-) {
-    val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surface,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
-        label = "pill-bg"
-    )
-    val foreground by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
-        label = "pill-fg"
-    )
-    Box(
-        modifier = Modifier
-            .heightIn(min = 44.dp)
-            .clip(RoundedCornerShape(50))
-            .background(background)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .semantics {
-                role = Role.Tab
-                selected = isSelected
-                contentDescription = a11yLabel
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = label, style = MaterialTheme.typography.labelLarge, color = foreground)
-    }
-}
-
-@Composable
 private fun WeekdayStrip(counts: Map<Int, Int>, selected: Int, today: Int, onSelect: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         (1..7).forEach { day ->
@@ -877,13 +787,13 @@ private fun DayCell(
             isToday -> MaterialTheme.colorScheme.primaryContainer
             else -> MaterialTheme.colorScheme.surface
         },
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = MotionSpecs.tabTransition(),
         label = "day-bg"
     )
     val labelColor by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = MotionSpecs.tabTransition(),
         label = "day-label"
     )
     Column(
@@ -940,7 +850,7 @@ private fun WeekdaySideBar(counts: Map<Int, Int>, selected: Int, today: Int, onS
             val background by animateColorAsState(
                 targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surface,
-                animationSpec = tween(XiaoxuMotion.SelectionMs),
+                animationSpec = MotionSpecs.tabTransition(),
                 label = "side-bg-$day"
             )
             Row(
@@ -1027,27 +937,7 @@ private fun NoLessonCard(selectedWeek: Int) {
 @Composable
 private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     val courseColor = xiaoxuCourseColor(lesson.colorKey)
-    val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.985f else 1f,
-        animationSpec = tween(XiaoxuMotion.FeedbackMs),
-        label = "course-press"
-    )
-    Card(
-        modifier = Modifier.fillMaxWidth()
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(XiaoxuRadius.list))
-            .clickable(
-                interactionSource = interaction,
-                indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
-                onClickLabel = "查看课程详情", role = Role.Button,
-                onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onOpen() }
-            ),
-        shape = RoundedCornerShape(XiaoxuRadius.list),
-        colors = CardDefaults.cardColors(containerColor = XiaoxuPalette.GlassCard)
-    ) {
+    SystemCard(onClick = onOpen, contentPadding = PaddingValues(0.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(4.dp).heightIn(min = XiaoxuSpacing.listRowMin)
                 .background(courseColor.accent))
@@ -1116,30 +1006,12 @@ private fun CourseDetailBottomSheet(
         if (granted && LocalCourseReminders.canNotify(context)) applyReminder(true)
         else Toast.makeText(context, "未获得通知权限，课程提醒保持关闭", Toast.LENGTH_SHORT).show()
     }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // The title keeps its edit gesture but never draws a rectangular pressed
     // overlay over long, wrapped course names.
     val titleInteraction = remember { MutableInteractionSource() }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = XiaoxuRadius.modal, topEnd = XiaoxuRadius.modal),
-        containerColor = XiaoxuPalette.SheetSurface,
-        scrimColor = XiaoxuPalette.ModalScrim,
-        dragHandle = {
-            Box(
-                Modifier.padding(top = 12.dp, bottom = 12.dp)
-                    .size(width = 48.dp, height = 5.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFDADFE9))
-            )
-        }
-    ) {
+    SystemDialog(onDismissRequest = onDismiss, presentation = DialogPresentation.Bottom) {
         Column(
-            modifier = Modifier.fillMaxWidth()
-                .background(XiaoxuPalette.SheetSheen)
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 20.dp),
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Row(verticalAlignment = Alignment.Top) {
@@ -1208,8 +1080,8 @@ private fun CourseDetailBottomSheet(
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(21.dp))
-                    .background(XiaoxuPalette.SheetInfoSurface)
-                    .border(0.5.dp, XiaoxuPalette.GlassRim, RoundedCornerShape(21.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(21.dp))
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1272,8 +1144,8 @@ private fun CourseDetailInfoCard(
 ) {
     Column(
         modifier = modifier.clip(RoundedCornerShape(18.dp))
-            .background(XiaoxuPalette.SheetInfoSurface)
-            .border(0.5.dp, XiaoxuPalette.GlassRim, RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {

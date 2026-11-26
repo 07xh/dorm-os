@@ -69,6 +69,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.LiquidSegmentedControl
+import com.tyust.course.ui.theme.MotionSpecs
 import com.tyust.course.ui.system.SystemActionMenu
 import com.tyust.course.ui.system.SystemMenuAction
 import com.tyust.course.ui.system.SystemPicker
@@ -1512,39 +1514,26 @@ fun RealAcademicTaskHub(
             }
         }
         item {
-            // One continuous status strip; values come from real saved tasks.
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.card))
-                    .background(XiaoxuPalette.GlassTrack)
-                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
-                        RoundedCornerShape(XiaoxuRadius.card))
-                    .padding(5.dp)
-                    .selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                TaskStatusTab(
-                    label = "可执行", count = nowCount,
-                    active = filter == "now", modifier = Modifier.weight(1f),
-                    onClick = { filter = "now" }
-                )
-                TaskStatusTab(
-                    label = "待完成", count = all.count(::isActionableWorkspaceTask),
-                    active = filter == "pending", modifier = Modifier.weight(1f),
-                    onClick = { filter = "pending" }
-                )
-                TaskStatusTab(
-                    label = "全部", count = all.size,
-                    active = filter == "all", modifier = Modifier.weight(1f),
-                    onClick = { filter = "all" }
-                )
-                TaskStatusTab(
-                    label = "已完成", count = all.count { considerCompleteInTaskList(it) },
-                    active = filter == "done", modifier = Modifier.weight(1f),
-                    onClick = { filter = "done"; onlyThisWeek = false }
-                )
-            }
+            val keys = listOf("now", "pending", "all", "done")
+            val labels = listOf("可执行", "待完成", "全部", "已完成")
+            val counts = listOf(nowCount, all.count(::isActionableWorkspaceTask), all.size,
+                all.count { considerCompleteInTaskList(it) })
+            LiquidSegmentedControl(
+                options = labels,
+                selectedIndex = keys.indexOf(filter).coerceAtLeast(0),
+                onSelect = { index ->
+                    keys.getOrNull(index)?.let { filter = it; if (it == "done") onlyThisWeek = false }
+                },
+                modifier = Modifier.padding(top = 6.dp),
+                height = 68.dp,
+                labelContent = { index, _, color ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(labels[index], style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
+                        Text(counts[index].toString(), style = MaterialTheme.typography.titleMedium,
+                            color = color, maxLines = 1)
+                    }
+                }
+            )
         }
         // Reviewable historical notices remain accessible in their collapsed
         // group, but do not compete with today's actionable tasks at the top.
@@ -2423,42 +2412,6 @@ internal fun WorkspaceTaskDetailSheet(
 }
 
 
-/** Three real-data statuses in a single container, sized through the shared typography. */
-@Composable
-private fun TaskStatusTab(
-    label: String, count: Int, active: Boolean, modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
-            .selectable(selected = active, role = Role.Tab, onClick = onClick)
-            .semantics { contentDescription = "$label，$count 条" }
-            .heightIn(min = 56.dp)
-            .padding(horizontal = 4.dp, vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-            maxLines = 1
-        )
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 18.sp, lineHeight = 24.sp, fontFeatureSettings = "tnum"
-            ),
-            fontWeight = FontWeight.SemiBold,
-            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink,
-            maxLines = 1
-        )
-    }
-}
-
 /** 轻量分组标题：一层布局保留真实来源及核验信息，不再套图标大卡与独立徽标。 */
 @Composable
 private fun TaskGroupHeader(
@@ -2479,7 +2432,7 @@ private fun TaskGroupHeader(
     ) else RoundedCornerShape(XiaoxuRadius.group)
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = MotionSpecs.tabTransition(),
         label = "task-group-chevron"
     )
     Row(
