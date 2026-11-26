@@ -71,6 +71,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemActionMenu
+import com.tyust.course.ui.system.SystemMenuAction
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1217,7 +1219,6 @@ fun RealAcademicTaskHub(
     var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
-    var taskMenuOpen by rememberSaveable { mutableStateOf(false) }
     var showDependencyGraph by rememberSaveable { mutableStateOf(false) }
     var showArchiveSheet by rememberSaveable { mutableStateOf(false) }
     // Default collapsed on first entry. Saveable state still restores a user's
@@ -1486,62 +1487,30 @@ fun RealAcademicTaskHub(
                     emphasized = true,
                     onClick = { showLocalComposer = true }
                 )
-                Box {
-                    XiaoxuToolbarAction(
-                        icon = Icons.Outlined.MoreVert,
-                        label = "更多任务操作",
-                        onClick = { taskMenuOpen = true }
-                    )
-                    DropdownMenu(
-                        expanded = taskMenuOpen,
-                        onDismissRequest = { taskMenuOpen = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("消息中心") },
-                            onClick = { taskMenuOpen = false; onMessages() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("刷新云端任务") },
-                            enabled = state.authenticated && !state.busy,
-                            onClick = {
-                                taskMenuOpen = false
-                                taskScope.launch { client.refreshPrivate() }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("管理本机任务") },
-                            onClick = { taskMenuOpen = false; filter = "all"; sourceFilter = "local"; onlyThisWeek = false; searchQuery = ""; showPersonalTasks = true }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("新增云端任务") },
-                            onClick = { taskMenuOpen = false; showCloudEditor = true }
-                        )
-                        DropdownMenuItem(text = { Text("备份与恢复") }, onClick = { taskMenuOpen = false; showTaskBackup = true })
-                        DropdownMenuItem(
-                            text = { Text("本机任务关系图") },
-                            onClick = { taskMenuOpen = false; showDependencyGraph = true }
-                        )
-                        val submitted = all.filter {
-                            it.storage == "cloud" && it.provider == "chaoxing" &&
-                                it.officialStatus in setOf("submitted", "graded")
-                        }
-                        DropdownMenuItem(
-                            text = { Text("清理已提交 (${submitted.size})") },
-                            enabled = submitted.isNotEmpty(),
-                            onClick = {
-                                taskMenuOpen = false
-                                archiveStore.archiveAll(submitted.map { it.key })
-                                Toast.makeText(context, "已从本机列表移出 ${submitted.size} 条",
-                                    Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("恢复已清理 (${archivedRows.size})") },
-                            enabled = archivedRows.isNotEmpty(),
-                            onClick = { taskMenuOpen = false; showArchiveSheet = true }
-                        )
-                    }
+                val submitted = all.filter {
+                    it.storage == "cloud" && it.provider == "chaoxing" &&
+                        it.officialStatus in setOf("submitted", "graded")
                 }
+                SystemActionMenu(
+                    description = "更多任务操作",
+                    actions = buildList {
+                        add(SystemMenuAction("消息中心", Icons.Outlined.MailOutline, { onMessages() }))
+                        if (state.authenticated && !state.busy) add(SystemMenuAction("刷新云端任务", Icons.Outlined.Refresh, {
+                            taskScope.launch { client.refreshPrivate() }
+                        }))
+                        add(SystemMenuAction("管理本机任务", Icons.Outlined.CheckBox, {
+                            filter = "all"; sourceFilter = "local"; onlyThisWeek = false; searchQuery = ""; showPersonalTasks = true
+                        }))
+                        add(SystemMenuAction("新增云端任务", Icons.Outlined.Add, { showCloudEditor = true }))
+                        add(SystemMenuAction("备份与恢复", Icons.Outlined.MenuBook, { showTaskBackup = true }))
+                        add(SystemMenuAction("本机任务关系图", Icons.Outlined.Tune, { showDependencyGraph = true }))
+                        if (submitted.isNotEmpty()) add(SystemMenuAction("清理已提交 (${submitted.size})", Icons.Outlined.CheckCircle, {
+                            archiveStore.archiveAll(submitted.map { it.key })
+                            Toast.makeText(context, "已从本机列表移出 ${submitted.size} 条", Toast.LENGTH_SHORT).show()
+                        }, destructive = true))
+                        if (archivedRows.isNotEmpty()) add(SystemMenuAction("恢复已清理 (${archivedRows.size})", Icons.Outlined.Refresh, { showArchiveSheet = true }))
+                    }
+                )
             }
         }
         item {

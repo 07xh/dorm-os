@@ -735,8 +735,8 @@ assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
   '节次时间使用滚动数字选择器而非圆形时钟盘');
 assert.doesNotMatch(timetableSettings, /\bTimePicker\(|rememberTimePickerState/,
   '不得回退到与参考图不一致的圆形时钟选择');
-assert.match(timetableTimeWheel, /NumberPicker\(context\)/,
-  '数字滚轮复用成熟 Android 原生控件，不手写滚动与回弹物理');
+assert.match(timetableTimeWheel, /GlassWheelColumn\(/,
+  '数字滚轮直接复用原版 GlassWheelColumn');
 assert.match(timetableTimeWheel, /HOUR_OPTIONS = \(0\.\.23\)\.toList\(\)/,
   '小时数字范围必须保持 00–23');
 assert.match(timetableTimeWheel, /MINUTE_OPTIONS = \(0\.\.59\)\.toList\(\)/,
@@ -753,7 +753,7 @@ assert.match(timetableSettings, /else weeks = selectedNumber\.toString\(\)/,
   '确认才更新学期周数草稿');
 assert.doesNotMatch(timetableSettings, /options\.forEach \{ number ->/,
   '旧学期/节数 35 行列表滚动实现应清理');
-assert.match(timetableTimeWheel, /setOnValueChangedListener/,
+assert.match(timetableTimeWheel, /onSelect = \{ index -> options\.getOrNull\(index\)/,
   '滚动数字必须更新对应的小时或分钟草稿');
 assert.match(timetableSettings, /LocalTime\.of\(pickedHour, pickedMinute\)/,
   '确认时间必须使用用户真实选取的数值');
@@ -1669,6 +1669,8 @@ assert.match(design, /fun XiaoxuSheet\(/, '任务和消息必须共用详情容�
 assert.match(design, /fun XiaoxuEmpty\(/, '保留实际使用的统一空态');
 assert.match(design, /fun XiaoxuStatePanel\(/, '复用统一空态容器');
 assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
+assert.match(design, /SystemTopBar\(title = title, subtitle = subtitle/);
+assert.match(workspace, /SystemActionMenu\(/);
 assert.match(design, /fun QuickEntry\(/, '快捷入口须是共享组件');
 assert.doesNotMatch(design, /WebView|HttpURLConnection|CookieManager/,
   '设计系统只画界面，不得触碰网络');
@@ -2180,7 +2182,7 @@ assert.match(main, /private fun CompactPageHeading\(/,
 assert.match(main, /NorthPrimaryHost\(/, '主窗口使用上游统一宿主');
 assert.match(main, /applyStatusBarInset = false/,
   '首页顶栏移动到页面内后应使用Scaffold既有状态栏内边距，不可重复下移');
-assert.match(design, /then\(if \(applyStatusBarInset\) Modifier\.statusBarsPadding\(\) else Modifier\)/,
+assert.match(design, /consumeWindowInsets\(WindowInsets\.statusBars\)/,
   '统一顶栏允许复用Scaffold安全区，同时保持原有独立顶栏默认行为');
 assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)/,
   '首页顶栏必须成为唯一一级页面内容，不影响其他页面的 Scaffold 几何');

@@ -55,6 +55,11 @@ import com.tyust.course.ui.system.SystemSegmentedControl
 import com.tyust.course.ui.system.SystemCompactSegmentedControl
 import com.tyust.course.ui.system.SystemDialog
 import com.tyust.course.ui.system.SystemPrimaryButton
+import com.tyust.course.ui.system.SystemTopBar
+import com.tyust.course.ui.system.SystemIconButton
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -907,24 +912,13 @@ internal fun XiaoxuToolbarAction(
     enabled: Boolean = true,
     emphasized: Boolean = false
 ) {
-    XiaoxuSoftIconButton(
-        modifier = Modifier.size(42.dp),
-        backgroundColor = if (emphasized) XiaoxuPalette.BrandSoft else Color.Transparent,
-        glassChrome = true,
+    SystemIconButton(
+        icon = icon,
+        contentDescription = label,
+        onClick = onClick,
         enabled = enabled,
-        onClick = onClick
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(20.dp),
-            tint = when {
-                !enabled -> XiaoxuPalette.Ink3
-                emphasized -> XiaoxuPalette.BrandDeep
-                else -> XiaoxuPalette.Ink2
-            }
-        )
-    }
+        tint = if (emphasized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    )
 }
 
 /** 统一顶栏：品牌标记 + 页面名 + 刷新。不用 TopAppBar，避免五个页面各调一次主题。 */
@@ -937,59 +931,19 @@ fun XiaoxuTopBar(
     onMessages: (() -> Unit)? = null,
     applyStatusBarInset: Boolean = true
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Transparent)
-            // A topBar-hosted header owns status inset; a page-hosted header is
-            // already positioned below Scaffold's contentWindowInsets.
-            .then(if (applyStatusBarInset) Modifier.statusBarsPadding() else Modifier)
-            .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = XiaoxuPalette.Ink,
-                maxLines = 1
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+    Box(Modifier.then(if (!applyStatusBarInset) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier)) {
+        SystemTopBar(title = title, subtitle = subtitle, actions = {
+            if (onMessages != null) {
+                SystemIconButton(Icons.Outlined.NotificationsNone, "打开消息中心", onMessages)
             }
-        }
-        if (onMessages != null) {
-            XiaoxuSoftIconButton(onClick = onMessages, glassChrome = true) {
-                Icon(
-                    imageVector = Icons.Outlined.NotificationsNone,
-                    contentDescription = "打开消息中心",
-                    tint = XiaoxuPalette.Ink2
-                )
-            }
-        }
-        if (onRefresh != null) {
-            XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing, glassChrome = true) {
+            if (onRefresh != null) {
                 if (refreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = XiaoxuPalette.Brand
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
-                    Icon(
-                        imageVector = Icons.Outlined.Refresh,
-                        contentDescription = "刷新云端与官方通知",
-                        tint = XiaoxuPalette.Ink2
-                    )
+                    SystemIconButton(Icons.Outlined.Refresh, "刷新云端与官方通知", onRefresh)
                 }
             }
-        }
+        })
     }
 }
 
