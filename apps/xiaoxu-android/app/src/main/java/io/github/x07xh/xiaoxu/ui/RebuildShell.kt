@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import com.tyust.course.ui.system.LocalAppOverlayBottomInset
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.material.icons.Icons
@@ -164,7 +165,7 @@ internal fun NativeShell(
 
     // MainActivity.kt upstream application host: one overlay/window, shared page state,
     // navigation timeline, scroll intent, and a dock outside the page subtree.
-    // Xiaoxu retains single-live-page semantics and existing physical inset reservation.
+    // The upstream overlay inset is the sole source of dock content spacing.
     val accountKey = if (data.cloud.authenticated) "cloud:" + data.cloud.ownerId.orEmpty() else "local"
     val pageData = remember(accountKey) { PageDataState() }
     DisposableEffect(pageData) { onDispose { pageData.close() } }
@@ -192,10 +193,19 @@ internal fun NativeShell(
                 }
             }
             LaunchedEffect(route, autoCollapse) { minimized = false; intent.reset() }
-            BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
                 val wide = maxWidth >= 700.dp
                 val showPrimary = route.parent == null
-                Row(Modifier.fillMaxSize()) {
+                val phoneDock = !wide && showPrimary
+                // Upstream MainActivity supplies this value to the individual pages.
+                val navBarContentInset = if (phoneDock) NavBarMetrics.contentInset() else 0.dp
+                CompositionLocalProvider(LocalAppOverlayBottomInset provides navBarContentInset) {
+                Row(Modifier.fillMaxSize().then(
+                    if (phoneDock) Modifier.windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                    ).imePadding()
+                    else Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                )) {
                     if (wide) NavigationRail {
                         MainDestination.entries.forEach { dest ->
                             NavigationRailItem(selected = route.primary == dest,
@@ -210,7 +220,6 @@ internal fun NativeShell(
                             val savedPages = rememberSaveableStateHolder()
                             NavigationPages(navigationMotion,
                                 modifier = Modifier.fillMaxSize()
-                                    .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)
                                     .nestedScroll(scroll),
                                 activePage = route.ordinal, retainOutgoing = false) { index ->
                                 val pageRoute = AppRoute.entries[index]
@@ -227,13 +236,14 @@ internal fun NativeShell(
                                 }
                             }
                         }
-                        if (!wide && showPrimary) RebuildCapsuleDock(
+                        if (phoneDock) RebuildCapsuleDock(
                             selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
                             tier = if (wallpaperBackdrop != null) tier else NavigationMaterialTier.Opaque,
                             backdrop = wallpaperBackdrop, modifier = Modifier.align(Alignment.BottomCenter),
                             minimized = autoCollapse && minimized, onExpandRequest = { minimized = false; intent.reset() }
                         )
                     }
+                }
                 }
             }
         }

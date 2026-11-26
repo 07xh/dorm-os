@@ -23,14 +23,15 @@
 
 - Android UI 的唯一后续开发线为现有 `refactor/android-ui-clean-rebuild` / PR #475。main 仍为生产事实基线，#473 保留业务整合候选，不再扩展旧 UI；禁止创建竞争性 UI 分支或将旧 UI 复制回重构分支。
 - 固定上游 `znjhahaha/zhengfang-apk@bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed`。同功能成熟源码优先原样移植，必要差异明确记录：包名、数据契约、可访问性、设备能力和授权边界。不能因文件改名即声称复用或因同名即声称逐行一致。
-- 唯一应用路由由 `RebuildShell` / `AppRoute` 管理；`GlassWindowHost`、`GlassPageScaffold`、`AppPageFrame`、`CourseSelectorTheme`、`RebuildCapsuleDock` 为窗口与公共组件链。普通业务子页不新建背景、系统栏或独立页面框架；保留上游课表/成绩专用布局与必要的授权 WebView 边界。
+- 唯一应用路由由 `RebuildShell` / `AppRoute` 管理；`GlassWindowHost`、`GlassPageScaffold`、`CourseSelectorTheme`、`RebuildCapsuleDock` 为窗口与公共组件链。普通业务子页不新建背景、系统栏或独立页面框架；保留上游课表/成绩专用布局与必要的授权 WebView 边界。
+- 禁止恢复 AppPageFrame 自研页面容器和 RebuildDockMetrics 自研占位；业务页面直接使用上游 GlassPageScaffold，底栏留白来自 NavBarMetrics.contentInset 与 LocalAppOverlayBottomInset。
 - 批量修改完成后按精确 head 执行 CI、JVM、仪器源码编译、QA APK 打包、模拟器及真机验收。只修有证据的问题，不反复提交导致构建取消；真机未测试、许可未审查、业务未整合时保持 Draft，不正式发布。
 
 ## 唯一 App 与视觉边界
 
 - 产品主入口是 `apps/xiaoxu-android` 现有 Kotlin/Compose 五页 App；「我的 → 数据连接」集中处理各来源连接、状态、刷新与独立重连。网站作为共享后端/辅助管理和兼容入口，不要求先重建网站再做 App。
 - 保留北化课表风格及已有液态玻璃导航，不重新发明底栏或恢复网页插入式页面。用用户提供的截图/APK及一加 Ace 6 Android 16 实机核对字体、弹层、灰边、滚动、切页和拖拽回弹；未实测不称像素级复刻。
-- MainActivity/NativeShell（RebuildShell.kt）管唯一主导航和返回；RebuildTheme 桥接上游 CourseSelectorTheme；GlassWindowHost / GlassPageScaffold / AppPageFrame 管共享窗口与页面布局；RebuildCapsuleDock 负责手机导航，平板沿用同一 Shell。
+- MainActivity/NativeShell（RebuildShell.kt）管唯一主导航和返回；RebuildTheme 桥接上游 CourseSelectorTheme；GlassWindowHost / GlassPageScaffold 管共享窗口与页面布局；RebuildCapsuleDock 负责手机导航，平板沿用同一 Shell。
 - 消息是现有二级页，保留来源页/系统返回；任务首次进入不自动展开来源组，完整筛选结果不再固定截断前 80 条。
 - 课表保留已确认的星期选择、配色、课程详情和统一弹层；周/日视图与默认视图在原课表设置内独立持久化，不恢复正文上方重复切换栏。
 - 渐进替换旧 UI；不得因页面重构删除 CloudClient、Room、任务审核、学校回跳、备份和真实快照。

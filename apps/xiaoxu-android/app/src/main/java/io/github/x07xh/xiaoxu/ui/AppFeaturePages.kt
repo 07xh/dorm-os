@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import com.tyust.course.ui.system.LocalAppOverlayBottomInset
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -63,7 +65,8 @@ internal fun AppFeaturePage(
     }
     if (route == AppRoute.SCHEDULE) {
         GlassPageScaffold(title = route.title, topBar = {}) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+            val dockSpacing = if (LocalAppOverlayBottomInset.current > 0.dp) 16.dp else 0.dp
+            Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).padding(bottom = dockSpacing),
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
                 ScheduleFeature(data, actions, reminderLessonId, consumeLesson)
             }
@@ -75,9 +78,16 @@ internal fun AppFeaturePage(
             onBack = { if (back != null) back() else actions.navigate(AppRoute.ACADEMIC) })
         return
     }
-    AppPageFrame(title = route.title, onBack = back,
-        compactHeader = route in setOf(AppRoute.CONNECTIONS, AppRoute.SECOND_CLASS, AppRoute.SECOND_CLASS_SETTINGS),
-        wideContent = route == AppRoute.HOME || route == AppRoute.TASKS || route == AppRoute.MESSAGES) {
+    // Use the upstream page scaffold directly. Business pages only supply content.
+    GlassPageScaffold(title = route.title, onBack = back) { padding ->
+        val dockSpacing = if (LocalAppOverlayBottomInset.current > 0.dp) 16.dp else 0.dp
+        val wideContent = route == AppRoute.HOME || route == AppRoute.TASKS || route == AppRoute.MESSAGES
+        Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+            .wrapContentWidth(Alignment.CenterHorizontally)
+            .widthIn(max = if (wideContent) AppSpacing.workspaceMaxWidth else AppSpacing.formMaxWidth)
+            .fillMaxWidth().padding(horizontal = AppSpacing.pageHorizontal, vertical = 0.dp)
+            .padding(bottom = dockSpacing),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
             AppRoute.MESSAGES -> MessageCenterFeature(data, actions)
@@ -109,6 +119,7 @@ internal fun AppFeaturePage(
             AppRoute.REMINDER_SETTINGS -> ReminderSettingsFeature(data)
             AppRoute.TASK_BACKUP -> LazyColumn { item { LocalTaskBackupPanel() } }
             AppRoute.LICENSES -> LazyColumn { item { OpenSourceCreditsPanel() } }
+        }
         }
     }
 }

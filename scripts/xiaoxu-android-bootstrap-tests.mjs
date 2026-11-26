@@ -87,13 +87,13 @@ const messageUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xi
 // Current UI uses a single upstream layout/theme/window host. The old fixed
 // XiaoxuPalette geometry is intentionally retired; device comparison remains
 // independently required by the unchanged Ace6 visual QA evidence checks.
-assert.match(sharedFrame, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/);
+assert.match(settingsRoutes, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/);
 assert.match(settingsIndex, /widthIn\(max = AppSpacing\.formMaxWidth\)/);
 assert.match(settingsRoutes, /wideContent = route == AppRoute\.HOME \|\| route == AppRoute\.TASKS \|\| route == AppRoute\.MESSAGES/);
 assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/);
 assert.match(uiTheme, /CourseSelectorTheme\(content = content\)/);
 assert.match(systemUi, /fun SystemTopBar\(/);
-assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = if \(compactHeader\) 1f else lift/);
+assert.match(pageScaffold, /SystemTopBar\(/);
 assert.match(pageScaffold, /GlassWindowHost\(modifier\)/);
 assert.match(windowHost, /LocalGlassWindowOwner\.current === view && !isolatePage/);
 assert.match(dialogHost, /window\?\.setDimAmount\(DialogScrimAlpha\)/);
@@ -482,7 +482,7 @@ assert.match(taskWorkspaceForComposerGate, /TextButton\(enabled = !saving,[\s\S]
 assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/, "仅经核验学习通官方截止参与排序");
 assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/, "不能将旧云端日期冒充官方截止");
 assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/, '不恢复旧多层管理栏');
-assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = if \(compactHeader\) 1f else lift/);
+assert.match(pageScaffold, /SystemTopBar\(/);
 assert.match(secondClassMain, /fun refresh\(\)/, '授权读取仍有效');
 assert.match(secondClassMain, /if \(catalogTime != null && catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
@@ -1107,7 +1107,7 @@ assert.match(rebuildShell, /activePage = route\.ordinal, retainOutgoing = false/
 assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/, "按路由保存状态");
 assert.match(rebuildShell, /val accountKey = if \(data\.cloud\.authenticated\) "cloud:" \+ data\.cloud\.ownerId\.orEmpty\(\) else "local"/, "账号隔离");
 assert.match(rebuildShell, /val showPrimary = route\.parent == null/, "子页隐藏底栏");
-assert.match(rebuildShell, /\.padding\(bottom = if \(!wide && showPrimary\) RebuildDockMetrics\.contentReserve\(\) else 0\.dp\)/, "导航占位同步");
+assert.match(rebuildShell, /NavBarMetrics\.contentInset\(\)/, "导航占位来自上游");
 assert.match(rebuildShell, /if \(!wide && showPrimary\) RebuildCapsuleDock\(/, "唯一手机底栏");
 assert.match(rebuildShell, /if \(wide\) NavigationRail/, "宽屏侧栏");
 assert.match(navDock, /NavBarMetrics\.blockPadding\(\) \* 2 \+ NavBarMetrics\.trackHeight\(\)/, "导航与内容占位一致");
@@ -1115,8 +1115,8 @@ assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/, "上
 assert.match(navDock, /haptics\.performHapticFeedback\(HapticFeedbackType\.ContextClick\)/, "真实切换触觉反馈");
 assert.match(navDock, /else iconPlayback\.replay\(index\)/, "重复点击仅重播图标");
 assert.match(navDock, /private fun FallbackNavigationBar\(/, "设备不支持时降级");
-assert.match(sharedFrame, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/, "统一内容宽度");
-assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = if \(compactHeader\) 1f else lift/, "同源顶栏");
+assert.match(settingsRoutes, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/, "统一内容宽度");
+assert.match(pageScaffold, /SystemTopBar\(/, "同源顶栏");
 assert.match(settingsRoutes, /private fun HomeFeature\(/, "首页真实入口");
 assert.match(settingsRoutes, /if \(maxWidth >= 680\.dp\)/, "响应式双栏");
 assert.match(settingsRoutes, /homeCoursePreview\(lessons\.filter \{ it\.weekday == day && week in it\.weeks \}\.sortedBy \{ it\.startSection \}\)/, "按实际本机课程日期过滤");
@@ -1704,10 +1704,17 @@ assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,
 // Preserve the upstream inset contract and reuse the same window on standalone entries.
 assert.match(pageScaffold, /contentWindowInsets = WindowInsets\.safeDrawing\.only\(WindowInsetsSides\.Bottom\)/);
 assert.match(secondClassHome, /GlassWindowHost\s*\{/);
-assert.match(secondClassHome, /AppPageFrame\(title = "第二课堂"/);
+assert.match(secondClassHome, /GlassPageScaffold\(title = "第二课堂"/);
 assert.doesNotMatch(secondClassHome, /Surface\(Modifier\.fillMaxSize\(\)/);
 const upstreamBarTheme = read('apps/xiaoxu-android/app/src/main/java/com/tyust/course/ui/theme/Theme.kt');
 assert.match(upstreamBarTheme, /window\.isNavigationBarContrastEnforced = false/);
 
 // A local reminder adapter must delegate row chrome to the shared upstream group.
 assert.match(profileSettings, /private fun ReminderToggleRow\([\s\S]*?\) \{\s*InsetGroupedRow\([\s\S]*?trailing = \{ LiquidSwitch\(/);
+
+// The upstream Scaffold is used directly; don't reintroduce an independent page host or dock reserve.
+assert.doesNotMatch(sharedFrame, /fun AppPageFrame\(/);
+assert.match(settingsRoutes, /GlassPageScaffold\(title = route\.title, onBack = back\)/);
+assert.match(rebuildShell, /LocalAppOverlayBottomInset provides navBarContentInset/);
+assert.doesNotMatch(rebuildShell, /RebuildDockMetrics/);
+assert.match(pageScaffold, /if \(LocalDialogHost\.current == null\)/);

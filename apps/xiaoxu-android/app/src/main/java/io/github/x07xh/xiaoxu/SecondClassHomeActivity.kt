@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import io.github.x07xh.xiaoxu.ui.AppPageFrame
+import io.github.x07xh.xiaoxu.ui.GlassPageScaffold
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.ui.GlassWindowHost
 import androidx.compose.ui.Modifier
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
@@ -52,7 +57,9 @@ class SecondClassHomeActivity : ComponentActivity() {
             XiaoxuTheme {
                 GlassWindowHost {
                     Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                        AppPageFrame(title = "第二课堂", onBack = { finish() }, compactHeader = true) {
+                        GlassPageScaffold(title = "第二课堂", onBack = { finish() }) { padding ->
+                        Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+                            .padding(horizontal = 20.dp)) {
                         SecondClassPage(
                             connectOnOpen = true,
                             onRefreshResult = { success ->
@@ -64,6 +71,7 @@ class SecondClassHomeActivity : ComponentActivity() {
                             },
                             modifier = Modifier.weight(1f)
                         )
+                        }
                         }
                     }
                 }

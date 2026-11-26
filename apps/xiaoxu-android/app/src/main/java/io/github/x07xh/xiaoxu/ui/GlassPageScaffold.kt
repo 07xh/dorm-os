@@ -2,8 +2,10 @@ package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
 // Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassPageScaffold.kt
-// Original authors and contributors; use upstream bottom-inset policy.
-// Parent-consumed insets are excluded automatically by Compose.
+// Original authors and contributors. Package and available icon-button binding adapted.
+import com.tyust.course.ui.system.LocalAppOverlayBottomInset
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,9 +18,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import com.tyust.course.ui.system.LocalAppOverlayBottomInset
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,5 +56,9 @@ fun GlassPageScaffold(
                 ))
             }
     }
-    GlassWindowHost(modifier) { page() }
+    if (LocalDialogHost.current == null) {
+        GlassWindowHost(modifier) { page() }
+    } else {
+        Box(modifier.fillMaxSize()) { page() }
+    }
 }

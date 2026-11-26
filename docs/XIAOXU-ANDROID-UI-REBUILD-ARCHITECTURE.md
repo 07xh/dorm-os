@@ -239,3 +239,8 @@ R36 完整上游主题及壁纸源码迁移的编译门禁 45585128446 已全部
 | `io/github/x07xh/xiaoxu/ui/UpstreamTimetable.kt` | 无同名 | 课表 TimetableLayout / TimetableBackground / CourseCard |
 | `io/github/x07xh/xiaoxu/ui/WechatTaskLinkActions.kt` | 无同名 | 待复核来源或校序专用适配 |
 | `io/github/x07xh/xiaoxu/ui/WorkspaceTaskLogic.kt` | 无同名 | 待复核来源或校序专用适配 |
+
+
+## 2026-11-26 上游页面及底栏架构纠偏
+
+固定上游 bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed 的 ui/system/GlassPageScaffold.kt 原文重新移植（包名、现有返回图标 API 绑定外保持原逻辑），业务页面与第二课堂兼容 Activity 直接调用，删除 AppPageFrame 自研滚动折叠及布局函数，保留文件中业务展示小组件/间距常量供其他页面使用。按上游 MainActivity 的 NavBarMetrics.contentInset / LocalAppOverlayBottomInset 接法，移除 RebuildDockMetrics 和 Shell 统一物理扣高；普通业务与课表增加 16dp 兼容留白（上游 contentInset 扣除 16dp 供页面补充），设置原有 24dp 留白保留。一级手机页面的系统底栏由上游导航自身 Insets 处理，二级页和平板仍保持现有安全区，键盘继续使用 Compose imePadding。保留学校业务回调、账号状态、原五入口及平板适配。尚未完成上游 MainActivity 完整逐行移植、玻璃采样差异和全部页面组件审计；须以本提交 CI 及真机验收确认，不声明 1:1。

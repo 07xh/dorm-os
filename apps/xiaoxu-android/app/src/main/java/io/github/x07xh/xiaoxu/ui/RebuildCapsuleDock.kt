@@ -1249,10 +1249,6 @@ internal fun rememberNavigationMaterialTier(): NavigationMaterialTier {
 }
 
 
-internal object RebuildDockMetrics {
-    @Composable fun contentReserve(): Dp = NavBarMetrics.blockPadding() * 2 + NavBarMetrics.trackHeight()
-}
-
 @Composable
 internal fun RebuildCapsuleDock(
     selected: MainDestination, onSelect: (MainDestination) -> Unit,
