@@ -26,11 +26,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemListItem
+import com.tyust.course.ui.system.SystemCard
+import com.tyust.course.ui.system.SystemPrimaryButton
+import com.tyust.course.ui.system.SystemSecondaryButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -226,18 +228,17 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
     }
 
     if (selected != null && state.authenticated) {
-        val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = {
+        XiaoxuBottomSheet(
+            title = "核对微信候选",
+            onDismiss = {
                 if (!reviewing) {
                     pendingDecision = null
                     selectedId = null
                 }
             },
-            sheetState = sheet,
-            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            containerColor = XiaoxuPalette.SheetSurface,
-            scrimColor = Color.Black.copy(alpha = 0.26f)
+            dismissEnabled = !reviewing,
+            guardDismiss = true,
+            showCancel = false
         ) {
             Column(
                 modifier = Modifier
@@ -245,11 +246,6 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                     .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "核对微信候选",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = XiaoxuPalette.Ink
-                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     SourceBadge(
                         text = wechatKindLabel(selected.kind),
@@ -388,65 +384,20 @@ private fun WechatCandidateRow(
     onClick: () -> Unit
 ) {
     val tone = wechatKindTone(item.kind)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(XiaoxuRadius.card))
-            .background(XiaoxuPalette.Surface)
-            .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.card))
-            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
-            .padding(horizontal = 13.dp, vertical = 13.dp)
-            .semantics(mergeDescendants = true) {
+    val metadata = (item.chatLabel ?: "群聊未标注") + " · " + wechatKindLabel(item.kind) +
+        " · " + sentTime(item.sentAt) + "\n" + dueLabel(item)
+    SystemCard(contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+        SystemListItem(
+            modifier = Modifier.semantics(mergeDescendants = true) {
                 contentDescription = wechatKindLabel(item.kind) + "：" + item.title +
                     "。打开可逐条核对，不会自动加入任务"
             },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(tone.containerColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = wechatKindIcon(item.kind),
-                contentDescription = null,
-                modifier = Modifier.size(17.dp),
-                tint = tone.contentColor
-            )
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleSmall,
-                color = XiaoxuPalette.Ink,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = (item.chatLabel ?: "群聊未标注") + " · " + wechatKindLabel(item.kind) +
-                    " · " + sentTime(item.sentAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = dueLabel(item),
-                style = MaterialTheme.typography.labelSmall,
-                color = tone.contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Spacer(Modifier.width(6.dp))
-        Icon(
-            Icons.Outlined.ChevronRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = XiaoxuPalette.Ink3
+            title = item.title,
+            subtitle = metadata,
+            leadingIcon = { Icon(wechatKindIcon(item.kind), contentDescription = null,
+                tint = tone.contentColor) },
+            trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
+            onClick = if (enabled) onClick else null
         )
     }
 }
@@ -461,38 +412,13 @@ private fun ActionBox(
     icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
-    val container = if (filled) XiaoxuPalette.Brand else Color.Transparent
-    val ink = if (filled) Color.White else XiaoxuPalette.Ink2
-    Box(
-        modifier = modifier
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (enabled) container else container.copy(alpha = 0.5f))
-            .border(
-                width = if (filled) 0.dp else 1.dp,
-                color = XiaoxuPalette.Line,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .clickable(enabled = enabled, onClick = onClick, role = Role.Button),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = ink
-                )
-                Spacer(Modifier.width(6.dp))
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = ink,
-                fontWeight = if (filled) FontWeight.SemiBold else FontWeight.Medium
-            )
-        }
+    val leading: (@Composable () -> Unit)? = icon?.let { image ->
+        { Icon(image, contentDescription = null) }
+    }
+    if (filled) {
+        SystemPrimaryButton(label, onClick, modifier, enabled, leadingIcon = leading)
+    } else {
+        SystemSecondaryButton(label, onClick, modifier, enabled, leadingIcon = leading)
     }
 }
 

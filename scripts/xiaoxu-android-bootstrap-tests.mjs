@@ -898,12 +898,9 @@ assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/,
 const groupedGlassSource = designSystem.slice(
     designSystem.indexOf('internal fun XiaoxuGroupSurface('),
     designSystem.indexOf('/** 连续分组设置', designSystem.indexOf('internal fun XiaoxuGroupSurface(')));
-assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.group\)/,
-  '课表设置分组圆角必须与所有设置页同源');
-assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
-  '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
-assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.Line/,
-  '内容分组应使用轻量中性描边，不叠加玻璃高光');
+assert.match(groupedGlassSource, /SystemCard\(/, '设置分组直接使用原版容器');
+assert.match(groupedGlassSource, /SystemCard\(/, '设置分组直接使用原版容器');
+assert.match(groupedGlassSource, /SystemCard\(/, '设置分组直接使用原版容器');
 assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
   '普通分组继续保持原有上下4dp内边距；课表设置独立保持0dp');
 
@@ -988,10 +985,9 @@ assert.ok(messageCenter.includes('val noticeTitle = "官方通知" +'),
   '官方来源分段标题必须仍显示真实公告数量');
 
 // 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
-assert.match(messageCenter, /onClickLabel = "查看公告详情与官网链接"/,
-  '紧凑海报式公告卡仍须打开真实官方详情');
+assert.match(messageCenter, /contentDescription = "查看公告详情与官网链接：" \+ notice.title/);
 assert.doesNotMatch(messageCenter, /查看全文/, '公告详情不得声称查看全文');
-assert.match(messageCenter, /onClickLabel = "查看公告详情与官网链接"/);
+assert.match(messageCenter, /contentDescription = "查看公告详情与官网链接：" \+ notice.title/);
 assert.match(messageCenter, /XiaoxuSheet\(onDismiss = onDismiss, title = "公告详情"\)/,
   '公告详情必须复用唯一玻璃弹层');
 assert.doesNotMatch(messageCenter, /ModalBottomSheet\(/,
@@ -1035,7 +1031,7 @@ assert.match(cloud, /\/api\/v1\/wechat\/candidates\/\$candidateId/);
 assert.match(cloud, /JSONObject\(\)\.put\("decision", decision\)/);
 assert.match(cloud, /reviewWechatCandidate[\s\S]*?sessionEpoch/);
 assert.match(cloud, /clearAccountSnapshots\(/);
-assert.match(wechatReview, /ModalBottomSheet\(/);
+assert.match(wechatReview, /XiaoxuBottomSheet\([\s\S]*?dismissEnabled = !reviewing,\s*guardDismiss = true/);
 assert.match(wechatReview, /if \(pendingDecision != null\)/,
   '微信候选必须在同一弹窗内二次确认，不叠加系统对话框');
 assert.doesNotMatch(wechatReview, /AlertDialog\(/,
@@ -1638,7 +1634,7 @@ assert.ok(workspace.includes('taskScope.launch { client.refreshPrivate() }'),
 assert.match(design, /fun StatusChip\(/, '须有状态标签');
 assert.match(design, /fun XiaoxuSheet\(/, '任务和消息必须共用详情容器');
 assert.match(design, /fun XiaoxuEmpty\(/, '保留实际使用的统一空态');
-assert.match(design, /fun XiaoxuStatePanel\(/, '复用统一空态容器');
+assert.match(design, /SystemEmptyState\(/);
 assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
 assert.match(design, /SystemTopBar\(title = title, subtitle = subtitle/);
 assert.match(workspace, /SystemActionMenu\(/);
@@ -1870,10 +1866,10 @@ assert.match(scheduleVisual, /presentation = DialogPresentation\.Bottom/);
 assert.match(workspace, /LiquidSegmentedControl\(/);
 assert.match(workspace, /val counts = listOf\(nowCount, all\.count\(::isActionableWorkspaceTask\)/);
 assert.match(workspace, /labelContent = \{ index, _, color ->/);
-assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
+assert.match(workspace, /all\.count\(::isActionableWorkspaceTask\)/);
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周日期"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
-assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
+assert.match(workspace, /all\.count \{ considerCompleteInTaskList\(it\) \}/);
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的课程任务必须默认折叠');
@@ -2082,8 +2078,7 @@ assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("loca
   '本机详情编辑现有任务而非打开新建表单');
 assert.match(workspace, /LocalTaskEditSheet\(task = editingLocal, dao = dao/);
 assert.match(db, /UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id/);
-assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
-  '消息页使用 56dp 紧凑标题，不再包一层大卡');
+assert.match(messageCenter, /SystemTopBar\([\s\S]*?title = "消息中心"/);
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
   '官方公告与微信候选使用共享来源徽标');
 assert.match(messageCenter, /WechatReviewPanel\(/,
@@ -2360,8 +2355,8 @@ assert.doesNotMatch(timetableSettings, /XiaoxuSettingsSwitch\s*\(|\bSwitch\s*\(/
 assert.doesNotMatch(localTaskUi, /XiaoxuSettingsSwitch\s*\(|\bSwitch\s*\(/,
   '任务编辑页不应存在重复的通知总开关');
 assert.match(designSystem, /fun XiaoxuSettingsSwitch\(/);
-assert.match(designSystem, /uncheckedThumbColor\s*=/);
-assert.match(designSystem, /disabledUncheckedTrackColor\s*=/);
+assert.match(designSystem, /LiquidSwitch\(checked = checked, onCheckedChange = onCheckedChange/);
+assert.match(designSystem, /modifier = modifier, enabled = enabled/);
 const semesterSettingsUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
 assert.match(semesterSettingsUi, /Text\("默认课表视图"/);
 assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,

@@ -746,6 +746,9 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
         .filter { it.isNotBlank() }.joinToString(" · ")
     SystemCard(contentPadding = PaddingValues(0.dp)) {
         SystemListItem(
+            modifier = Modifier.heightIn(min = 64.dp).semantics {
+                contentDescription = "查看公告详情与官网链接：" + notice.title
+            },
             title = notice.title,
             subtitle = meta,
             leadingIcon = {

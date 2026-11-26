@@ -42,11 +42,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.LiquidSwitch
+import com.tyust.course.ui.system.SystemSectionHeader
+import com.tyust.course.ui.system.SystemStatusBadge
+import com.tyust.course.ui.system.SystemTone
+import com.tyust.course.ui.system.SystemEmptyState
+import com.tyust.course.ui.system.SystemSecondaryButton
 import com.tyust.course.ui.theme.MotionSpecs
 import com.tyust.course.ui.system.SystemSegmentedControl
 import com.tyust.course.ui.system.SystemCompactSegmentedControl
@@ -313,26 +317,8 @@ fun XiaoxuSettingsSwitch(
     enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    Switch(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        enabled = enabled,
-        modifier = modifier,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = Color.White,
-            checkedTrackColor = XiaoxuPalette.Brand,
-            checkedBorderColor = XiaoxuPalette.Brand,
-            uncheckedThumbColor = Color(0xFF526781),
-            uncheckedTrackColor = Color(0xFFE8EEF7),
-            uncheckedBorderColor = Color(0xFFA6B6CD),
-            disabledCheckedThumbColor = Color.White,
-            disabledCheckedTrackColor = Color(0xFF8BAEF2),
-            disabledCheckedBorderColor = Color(0xFF8BAEF2),
-            disabledUncheckedThumbColor = Color(0xFF8492A7),
-            disabledUncheckedTrackColor = Color(0xFFE3E9F2),
-            disabledUncheckedBorderColor = Color(0xFFB2BFD1)
-        )
-    )
+    LiquidSwitch(checked = checked, onCheckedChange = onCheckedChange,
+        modifier = modifier, enabled = enabled)
 }
 
 /** 同一个分段选择器供课表设置、二课、成绩与任务筛选使用；不持有业务状态。 */
@@ -371,14 +357,9 @@ internal fun XiaoxuGroupSurface(
     verticalPadding: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(XiaoxuRadius.group)
-    Column(
-        modifier = modifier.fillMaxWidth().clip(shape)
-            .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line, shape)
-            .padding(vertical = verticalPadding),
-        content = content
-    )
+    SystemCard(modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = verticalPadding),
+        content = content)
 }
 
 /** 连续分组设置：只管理展示与布局，业务回调仍属于对应页面。 */
@@ -558,84 +539,30 @@ fun SectionHeader(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = XiaoxuPalette.Ink,
-                modifier = Modifier.semantics { heading() }
-            )
-            if (caption != null) {
-                Text(
-                    text = caption,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3
-                )
-            }
-        }
-        if (actionLabel != null && onAction != null) {
-            Box(
-                Modifier
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = actionLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = XiaoxuPalette.Brand,
-                    maxLines = 1
-                )
-            }
-        }
+    Box(modifier.fillMaxWidth().semantics { heading() }) {
+        SystemSectionHeader(title = title, subtitle = caption, actionLabel = actionLabel,
+            onActionClick = onAction)
     }
+}
+
+private fun XiaoxuTone.toSystemTone(): SystemTone = when (this) {
+    XiaoxuTone.Brand -> SystemTone.Info
+    XiaoxuTone.Success -> SystemTone.Success
+    XiaoxuTone.Warning -> SystemTone.Warning
+    XiaoxuTone.Danger -> SystemTone.Danger
+    XiaoxuTone.Neutral -> SystemTone.Neutral
 }
 
 /** 来源徽标：只回答"从哪来"，不表达任何核验结论。 */
 @Composable
 fun SourceBadge(text: String, tone: XiaoxuTone = XiaoxuTone.Neutral) {
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(tone.containerColor)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = tone.contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    SystemStatusBadge(text = text, tone = tone.toSystemTone())
 }
 
 /** 状态标签：带圆点，用于截止状态、连接状态等结论性标签。 */
 @Composable
 fun StatusChip(text: String, tone: XiaoxuTone = XiaoxuTone.Neutral) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(XiaoxuRadius.pill))
-            .background(tone.containerColor)
-            .padding(horizontal = 9.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(5.dp).clip(CircleShape).background(tone.contentColor))
-        Spacer(Modifier.width(5.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = tone.contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    SystemStatusBadge(text = text, tone = tone.toSystemTone())
 }
 
 /**
@@ -710,66 +637,6 @@ fun XiaoxuSheet(
 
 /** 实际使用的统一空态；其他状态由真实数据页面按官方来源处理。 */
 @Composable
-private fun XiaoxuStatePanel(
-    icon: ImageVector,
-    title: String,
-    message: String,
-    tone: XiaoxuTone,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
-) {
-    XiaoxuCard(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(tone.containerColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = tone.contentColor,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = XiaoxuPalette.Ink
-                )
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2
-                )
-            }
-        }
-        if (actionLabel != null && onAction != null) {
-            Box(
-                Modifier
-                    .heightIn(min = 44.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                    .background(tone.containerColor)
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = actionLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = tone.contentColor
-                )
-            }
-        }
-    }
-}
-
-
-@Composable
 fun XiaoxuEmpty(
     title: String,
     message: String,
@@ -777,11 +644,11 @@ fun XiaoxuEmpty(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null
 ) {
-    XiaoxuStatePanel(
-        icon = Icons.Outlined.Inbox, title = title, message = message,
-        tone = XiaoxuTone.Neutral, modifier = modifier,
-        actionLabel = actionLabel, onAction = onAction
-    )
+    SystemEmptyState(title = title, message = message, modifier = modifier,
+        icon = Icons.Outlined.Inbox,
+        action = if (actionLabel != null && onAction != null) {
+            { SystemSecondaryButton(actionLabel, onAction) }
+        } else null)
 }
 
 
