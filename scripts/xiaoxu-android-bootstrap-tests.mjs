@@ -967,8 +967,7 @@ assert.doesNotMatch(noticeDetailSource, /background\(XiaoxuPalette\.BrandSoft\)/
   '官方公告玻璃抽屉不再额外嵌套实心标题卡片');
 assert.match(designSystem, /internal fun XiaoxuDialogPrimaryButton\(/,
   '弹窗主按钮必须由统一设计系统维护');
-assert.match(designSystem, /XiaoxuDialogPrimaryButton\(onClick = onDismiss\)/,
-  '完成按钮必须复用统一胶囊主按钮');
+assert.match(designSystem, /SystemPrimaryButton\(dismissLabel, onDismiss/, '完成按钮直接复用原版主按钮');
 assert.match(noticeDetailSource, /XiaoxuDialogPrimaryButton\(/,
   '官网原文按钮必须复用完成按钮的胶囊组件');
 assert.match(noticeDetailSource, /onClick = \{ openArticle\(notice\.url\) \}/,
@@ -1583,9 +1582,8 @@ assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计�
 assert.match(northHost, /NavigationPages\(navigationMotion/, '主导航使用原版页面切换宿主');
 assert.doesNotMatch(main, /targetState = current,/,
   '主导航不能恢复 AnimatedContent 的双屏叠加');
-assert.match(main, /label = "academicChild"/, '教务总览和详情必须共用整页转场宿主');
-assert.match(main, /if \(initialState == AcademicDestination\.OVERVIEW\) "home" else "detail"/,
-  '教务详情返回必须识别逆向滑动，不能直接替换页面');
+assert.match(main, /GlassPageScaffold\(/, '校园使用原版页面容器');
+assert.match(main, /onBack = if \(academicRoute != AcademicDestination\.OVERVIEW\)/, '保留教务详情返回入口');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置必须进入二级页面动画，不可直接换掉设置宿主');
 assert.match(main, /if \(timetableChild\)/,
@@ -1610,38 +1608,28 @@ assert.match(pageMotion, /sizeTransform = null/,
 assert.doesNotMatch(pageMotion, /fadeIn|fadeOut|slideIn|slideOut|scaleIn|scaleOut|spring\(|tween\(/,
   '禁用页面级动效以恢复即时切换性能');
 assert.match(northHost, /savedPages\.SaveableStateProvider\(items\[page\]\.route\)/, '各主页面的滚动和筛选状态由原版宿主保存');
-assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
-  '设置页不得直接替换内容丢失过渡');
+assert.match(profileSettings, /GlassPageScaffold\(/, '设置使用原版页面容器');
 assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
   '课表设置也必须使用同一无位移动效');
-assert.match(main, /label = "academicChild"/,
-  '教务多个二级页保留其单独的内容转场宿主');
+assert.match(main, /GlassPageScaffold\(/, '校园使用原版页面容器');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的到课表设置继续使用原生子页面宿主');
 assert.match(northHost, /NavigationPages\(navigationMotion/, '主页面统一使用原版导航宿主');
 assert.match(northHost, /Canvas\([\s\S]*?layerBackdrop\(wallpaperBackdrop\)/, '全局壁纸和页面内容由原版采样宿主管理');
-assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
-  '设置二级页须保持方向明确的推进与返回');
-assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
-  '设置转场必须裁剪页边界，防止滑动时文字越界');
-assert.match(profileSettings, /Column\(\s*modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
-  '每个设置二级页必须自行绘制不透明背景，不能透出上一页');
-assert.match(profileSettings, /horizontalAlignment = Alignment\.CenterHorizontally/,
-  '设置内容在平板居中对齐，不应再出现整页偏左的宽屏布局');
-assert.match(profileSettings, /modifier = Modifier\.weight\(1f\)\.xiaoxuPageWidth\(\)/,
-  '设置二级页面复用统一内容宽度');
+assert.match(profileSettings, /GlassPageScaffold\(/, '设置使用原版页面容器');
+assert.match(profileSettings, /Box\(Modifier\.fillMaxSize\(\)\.padding\(padding\)/, '设置消费原版页面安全区');
+assert.doesNotMatch(profileSettings, /background\(XiaoxuPalette\.PageGradient\)/, '设置不得重复绘制根壁纸');
+assert.match(profileSettings, /contentAlignment = Alignment\.TopCenter/, '设置内容保持居中');
+assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.xiaoxuPageWidth\(\)/, '设置保留宽屏阅读约束');
 assert.doesNotMatch(profileSettings, /SettingsEntry\("校序 Academic OS"/,
   '设置首页不应保留重复品牌入口');
 assert.match(profileSettings, /SettingsEditorialSection\(title = "其他"\)/,
   '关于校序必须保留在「其他」分组，不占据设置首页首屏');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置仍走同一二级页宿主');
-assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{/,
-  '课表设置子页面必须用整页背景阻断旧卡片重影');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "academicChild"/,
-  '教务子页面转场必须裁剪边界');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\),\s*verticalArrangement = Arrangement\.spacedBy\(8\.dp\)/,
-  '教务详情需全幅不透明背景，避免切页文字叠印');
+assert.doesNotMatch(main, /background\(XiaoxuPalette\.PageGradient\)/, '主页面不得覆盖原版壁纸');
+assert.match(main, /val academicRoute = selected/, '教务子路由不再使用重复动画容器');
+assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.padding\(padding\)/, '校园消费上游页面安全区');
 assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
   '不允许恢复主导航文字重影交叉淡入');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
@@ -2133,8 +2121,8 @@ assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
 assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
-assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
-assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
+assert.match(workspace, /SystemPicker\(/, '来源筛选使用原版选择器');
+assert.doesNotMatch(workspace, /sourceMenuOpen/, '选择器展开状态由原版持有');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
 assert.match(workspace, /filter = "pending"/,
   '待完成统计卡应真实切换过滤器');
