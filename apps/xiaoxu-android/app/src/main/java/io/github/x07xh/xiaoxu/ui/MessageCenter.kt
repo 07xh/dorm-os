@@ -320,7 +320,15 @@ fun MessageCenterPanel(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 item {
-                    MessageHeader(onRefresh = refresh, onBack = onBack)
+                    XiaoxuTopBar(
+                        title = "消息中心",
+                        applyStatusBarInset = false,
+                        embedded = true,
+                        onBack = onBack
+                    ) {
+                        XiaoxuToolbarAction(Icons.Outlined.Refresh,
+                            "刷新官方公告与待审核数量", refresh)
+                    }
                 }
                 item {
                     LocalReminderSummary(
@@ -575,36 +583,6 @@ private fun NoticeTabletDetailPane(
 // ---------------------------------------------------------------------------
 // 头部：统一紧凑标题；来源计数由 Tab 呈现，不再堆叠摘要卡
 // ---------------------------------------------------------------------------
-
-/** 紧凑统一页头；来源计数归入来源标签，不重复堆叠摘要卡片。 */
-@Composable
-private fun MessageHeader(onRefresh: () -> Unit, onBack: (() -> Unit)?) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .padding(top = 4.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (onBack != null) {
-            XiaoxuToolbarAction(
-                icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                label = "返回原页面",
-                onClick = onBack
-            )
-        }
-        Text(
-            text = "消息中心",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = XiaoxuPalette.Ink,
-            modifier = Modifier.weight(1f).semantics { heading() }
-        )
-        XiaoxuToolbarAction(
-            icon = Icons.Outlined.Refresh,
-            label = "刷新官方公告与待审核数量",
-            onClick = onRefresh
-        )
-    }
-}
 
 /**
  * 来源分区标题：把"哪一份数据"写在列表前面，避免混合页面被当成同一个来源。
