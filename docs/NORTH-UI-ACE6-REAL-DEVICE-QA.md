@@ -30,7 +30,7 @@ adb devices -l
 同包名且已由 CI 验证固定证书的候选包：
 
 ```powershell
-$apk = ".\Xiaoxu-1.0.135.apk" # 将 CI 签名校验通过的 universal APK 复制到此文件名
+$apk = ".\Xiaoxu-1.0.135-PLQ110-arm64.apk" # 将 CI 签名校验通过的 Ace 6 ARM64 APK 原样复制到此文件名
 adb install -r $apk
 node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu --apk $apk --commit <CI提交SHA>
 ```
@@ -38,7 +38,7 @@ node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu --apk 
 如果没有可用的同包名签名候选包，只做隔离 UI 预览：
 
 ```powershell
-$apk = ".\app-debug.apk" # CI 的 ARM/手机 Debug 预览 APK
+$apk = ".\app-debug.apk" # CI 的 ARM/手机 Debug 预览 APK（隔离包，不读取旧版本机数据）
 adb install $apk
 node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu.northui --apk $apk --commit <CI提交SHA>
 ```

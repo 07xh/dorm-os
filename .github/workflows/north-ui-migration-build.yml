@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     name: Compile original pages with 校序 data adapter
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -143,9 +143,32 @@ jobs:
           (cd "$apk_dir" && sha256sum *.apk > SHA256SUMS)
           if [[ "$SIGNING_ENABLED" == true ]]; then
             echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Release candidate signature: verified against the pinned certificate." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Release candidate is unsigned; do not use it to update the installed app." >> "$GITHUB_STEP_SUMMARY"
           fi
+          ace6_apk=$(find "$apk_dir" -maxdepth 1 -type f -iname '*arm64*.apk' | sort | head -n 1)
+          if [[ -z "$ace6_apk" ]]; then
+            ace6_apk=$(find "$apk_dir" -maxdepth 1 -type f -iname '*universal*.apk' | sort | head -n 1)
+          fi
+          if [[ -z "$ace6_apk" ]]; then
+            ace6_apk="${apks[0]}"
+          fi
+          cp "$ace6_apk" "$RUNNER_TEMP/Xiaoxu-1.0.135-PLQ110-arm64.apk"
+          sha256sum "$RUNNER_TEMP/Xiaoxu-1.0.135-PLQ110-arm64.apk" > "$RUNNER_TEMP/Xiaoxu-1.0.135-PLQ110-arm64.apk.sha256"
+          echo "Ace 6 install candidate source: $(basename "$ace6_apk")" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Ace 6 ARM64 install candidate
+        if: ${{ always() && steps.verify-release-candidate.outcome == 'success' && steps.verify-release-candidate.outputs.signed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-north-ui-ace6-arm64-signed-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/Xiaoxu-1.0.135-PLQ110-arm64.apk
+            ${{ runner.temp }}/Xiaoxu-1.0.135-PLQ110-arm64.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload same-package release candidate
         if: ${{ always() && steps.release-candidate.outcome == 'success' }}
@@ -187,6 +210,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           disable-animations: true
           script: |
             set -euo pipefail

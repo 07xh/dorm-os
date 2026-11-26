@@ -23,6 +23,7 @@ import com.tyust.course.MainActivity
 import com.tyust.course.R
 import com.tyust.course.manager.UserManager
 import com.tyust.course.manager.ScheduleSettingsManager
+import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,7 +77,13 @@ class ScheduleReminderScheduler private constructor(
         }
     }
 
-    private fun activeAccount(): String = activeScheduleAccount().orEmpty()
+    private fun activeAccount(): String {
+        activeScheduleAccount()?.let { return it }
+        // The original schedule detail UI can manage reminders for 校序's
+        // device-local timetable without requiring a school login.
+        if (LocalScheduleStore.load(context).isEmpty()) return ""
+        return UserManager.getInstance().currentAccountStorageKey.ifBlank { "default" }
+    }
 
     internal fun hasScheduledReminders(): Boolean = scheduledPlans().isNotEmpty()
 
