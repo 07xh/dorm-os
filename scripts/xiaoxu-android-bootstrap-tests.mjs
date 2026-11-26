@@ -1284,7 +1284,7 @@ assert.match(workspace, /"pending", "now" -> isActionableWorkspaceTask\(task\)/,
   '待完成不能包含学习通未知或未关联的旧通知');
 assert.match(workspace, /"verify" -> requiresChaoxingVerification\(task\)/,
   '历史未知学校状态必须保留人工核对筛选');
-assert.match(workspace, /label = "待完成", count = all\.count\(::isActionableWorkspaceTask\)/,
+assert.match(workspace, /XiaoxuSegmentOption\("pending", "待完成 \$\{all\.count\(::isActionableWorkspaceTask\)\}/,
   '任务中心待完成数量须与可执行待办一致');
 assert.match(workspace, /val pending = all\.count\(::isActionableWorkspaceTask\)/,
   '首页待完成数量不得包含未核对旧通知');
