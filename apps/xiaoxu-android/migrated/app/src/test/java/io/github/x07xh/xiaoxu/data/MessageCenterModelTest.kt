@@ -45,6 +45,6 @@ class MessageCenterModelTest {
         assertEquals("至少 30 条待审核候选（接口单次只返回前 30 条）",
             pendingWechatLabel(30, authenticated = true))
         assertEquals("无待审核", pendingWechatShortLabel(0, authenticated = true))
-        assertEquals("4（快照)", pendingWechatShortLabel(4, authenticated = true, wechatError = "stale"))
+        assertEquals("4（快照）", pendingWechatShortLabel(4, authenticated = true, wechatError = "stale"))
     }
 }
