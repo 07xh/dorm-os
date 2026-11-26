@@ -132,10 +132,19 @@ internal fun UpstreamCourseDetailSheet(course: ScheduleCourseUi, allCourses: Lis
                                 Text(if (lead == 0) "上课时通知" else "提前 $lead 分钟",
                                     style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                             }
-                            Switch(reminderSelected, onCheckedChange = { enable ->
+                            LiquidSwitch(checked = reminderSelected, onCheckedChange = { enable ->
                                 if (!enable || LocalCourseReminders.canNotify(context)) applyReminder(enable)
-                                else if (Build.VERSION.SDK_INT >= 33) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                else Toast.makeText(context, "请在系统设置中开启通知权限", Toast.LENGTH_SHORT).show()
+                                else if (Build.VERSION.SDK_INT >= 33 &&
+                                    androidx.core.content.ContextCompat.checkSelfPermission(context,
+                                        Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    val settings = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    runCatching { context.startActivity(settings) }.onFailure {
+                                        Toast.makeText(context, "请在系统设置中开启通知权限", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             })
                         }
                         if (timeRange.isBlank()) Text("尚未配置完整节次时间，提醒可能无法调度。",
