@@ -24,6 +24,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install 'platforms;android-37.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'

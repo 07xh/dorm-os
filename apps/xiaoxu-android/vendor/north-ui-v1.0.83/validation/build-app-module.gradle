@@ -5,7 +5,7 @@ plugins {
 }
 android {
     namespace 'com.tyust.course'
-    compileSdk 36
+    compileSdkVersion 'android-37.0'
     defaultConfig { minSdk 26 }
     buildFeatures { compose true; buildConfig true }
     compileOptions {

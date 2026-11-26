@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'io.github.x07xh.xiaoxu.benchmark'
-    compileSdk 36
+    compileSdkVersion 'android-37.0'
 
     defaultConfig {
         // Baseline Profile 只对 API 28+ 有意义：更低版本系统会做全量 AOT 编译。
