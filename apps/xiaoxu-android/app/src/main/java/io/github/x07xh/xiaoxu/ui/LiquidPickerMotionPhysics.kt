@@ -1,10 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
-import com.tyust.course.ui.system.*
-
 // SPDX-License-Identifier: GPL-3.0-only
-// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/glass/LiquidPickerMotionPhysics.kt
-// Original authors and contributors. Package adaptation only.
+// Upstream: znjhahaha/zhengfang-apk@bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, app/src/main/java/com/tyust/course/ui/system/glass/LiquidPickerMotionPhysics.kt.
+// Original authors and contributors. See upstream license and attribution.
 
 /**
  * Two-degree-of-freedom mass-spring model for the liquid picker.

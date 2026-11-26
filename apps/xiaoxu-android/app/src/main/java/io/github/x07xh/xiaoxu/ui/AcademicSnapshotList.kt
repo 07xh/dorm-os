@@ -19,19 +19,18 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun AcademicTermPicker(terms: List<String>, selected: String?, allLabel: String = "全部学期",
     onSelect: (String?) -> Unit) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
     val options = listOf(allLabel) + terms
     val index = (selected?.let { terms.indexOf(it) } ?: -1) + 1
-    TextButton(onClick = { expanded = true }, enabled = terms.isNotEmpty()) {
-        Text(selected ?: allLabel)
-    }
-    if (expanded && terms.isNotEmpty()) {
-        GlassOptionWheelDialog(options, index,
-            onConfirm = { choice ->
-                onSelect(terms.getOrNull(choice - 1))
-                expanded = false
-            }, onDismiss = { expanded = false }, title = "学期")
-    }
+    SystemPicker(
+        options = options,
+        selectedIndex = index,
+        onSelect = { choice -> onSelect(terms.getOrNull(choice - 1)) },
+        modifier = Modifier.fillMaxWidth(),
+        label = "学期",
+        enabled = terms.isNotEmpty(),
+        maxLabelLines = 2,
+        maxSelectedLabelLines = 1
+    )
 }
 
 @Composable
