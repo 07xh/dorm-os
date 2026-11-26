@@ -12,7 +12,7 @@ data class ScheduleTiming(val count: Int, val times: List<PeriodTime>) {
     /** Old editor state is a restore snapshot, even if its clocks overlap or are malformed. */
     fun snapshotError(): String? {
         if (count !in ScheduleSettingsManager.PERIOD_COUNT_MIN..ScheduleSettingsManager.PERIOD_COUNT_MAX)
-            return "每天节数应为 8–16 节"
+            return "每天节数应为 8–24 节"
         if (times.map { it.period } != (1..count).toList()) return "请按顺序设置每一节课"
         return null
     }
