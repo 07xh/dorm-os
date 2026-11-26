@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -525,6 +526,46 @@ internal fun XiaoxuGroupSurface(
             .padding(vertical = verticalPadding),
         content = content
     )
+}
+
+/** Individually lazy rows share one surface. The heading keeps its outline,
+ * while the rows use hairline separators instead of stacked gray borders.
+ */
+@Composable
+internal fun XiaoxuConnectedListRow(
+    index: Int,
+    total: Int,
+    modifier: Modifier = Modifier,
+    standalone: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val groupRadius = XiaoxuRadius.group
+    val rowRadius = XiaoxuRadius.list
+    // Only exposed outer edges are rounded; joined rows have no inter-row "bubbles".
+    val corners = when {
+        standalone && total == 1 -> RoundedCornerShape(rowRadius)
+        standalone && index == 0 -> RoundedCornerShape(
+            topStart = rowRadius, topEnd = rowRadius, bottomStart = 0.dp, bottomEnd = 0.dp)
+        index == total - 1 -> RoundedCornerShape(
+            topStart = 0.dp, topEnd = 0.dp,
+            bottomStart = if (standalone) rowRadius else groupRadius,
+            bottomEnd = if (standalone) rowRadius else groupRadius)
+        else -> RoundedCornerShape(0.dp)
+    }
+    Column(
+        modifier = modifier.fillMaxWidth()
+            .clip(corners)
+            .background(XiaoxuPalette.GlassCard)
+    ) {
+        if (index > 0) {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 14.dp),
+                thickness = 0.5.dp,
+                color = XiaoxuPalette.Line
+            )
+        }
+        content()
+    }
 }
 
 /** 连续分组设置：只管理展示与布局，业务回调仍属于对应页面。 */
