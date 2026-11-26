@@ -1,0 +1,1 @@
+Create the full working copy from the exact upstream source snapshot and verify identical tree SHA before compiling it.
