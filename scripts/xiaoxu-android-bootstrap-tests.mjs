@@ -1609,8 +1609,7 @@ assert.match(pageMotion, /sizeTransform = null/,
   '禁用动画期间的容器尺寸调整');
 assert.doesNotMatch(pageMotion, /fadeIn|fadeOut|slideIn|slideOut|scaleIn|scaleOut|spring\(|tween\(/,
   '禁用页面级动效以恢复即时切换性能');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
-  '无动画切页须保留每栏滚动与筛选状态');
+assert.match(northHost, /savedPages\.SaveableStateProvider\(items\[page\]\.route\)/, '各主页面的滚动和筛选状态由原版宿主保存');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置页不得直接替换内容丢失过渡');
 assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
@@ -1619,10 +1618,8 @@ assert.match(main, /label = "academicChild"/,
   '教务多个二级页保留其单独的内容转场宿主');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的到课表设置继续使用原生子页面宿主');
-assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
-  '五个主页面仅组合当前标签内容并保留边界裁剪');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,
-  '主标签切换时以完整不透明页面绘制，旧页面内容不得穿透');
+assert.match(northHost, /NavigationPages\(navigationMotion/, '主页面统一使用原版导航宿主');
+assert.match(northHost, /Canvas\([\s\S]*?layerBackdrop\(wallpaperBackdrop\)/, '全局壁纸和页面内容由原版采样宿主管理');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置二级页须保持方向明确的推进与返回');
 assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
