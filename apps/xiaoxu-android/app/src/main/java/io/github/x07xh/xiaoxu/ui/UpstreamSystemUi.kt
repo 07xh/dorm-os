@@ -7,6 +7,7 @@ package io.github.x07xh.xiaoxu.ui
  // Wallpaper bindings use the current Material theme; Shell owns system insets.
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable

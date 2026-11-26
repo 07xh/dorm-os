@@ -59,7 +59,7 @@ internal fun MeasuredGradesHeader(
     val layer = if (effectiveBackdrop != null) rememberLayerBackdrop() else null
     val controlBackdrop = if (effectiveBackdrop != null && layer != null)
         rememberCombinedBackdrop(effectiveBackdrop, layer) else null
-    val anchor = if (controlBackdrop != null) rememberGlassLensRegion("grades-chips", selected, refreshing, showShare,
+    val anchor = if (controlBackdrop != null) rememberGlassLensRegion("grades-chips", selected, refreshing,
         (p * 8).toInt(), freshness = LocalPageGlassFreshness.current,
         drawSource = { drawBackdropSource(controlBackdrop, density, it) }) else null
     val measurer = rememberTextMeasurer()
@@ -98,7 +98,7 @@ internal fun MeasuredGradesHeader(
                     color = appearance.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { if (p < 0.95f) hideFromAccessibility() })
             }) { children, constraints ->
-                val inset = PagePadding.roundToPx()
+                val inset = AppSpacing.pageHorizontal.roundToPx()
                 val width = constraints.maxWidth
                 val innerWidth = (width - inset * 2).coerceAtLeast(1)
                 val gap = 10.dp.roundToPx()
