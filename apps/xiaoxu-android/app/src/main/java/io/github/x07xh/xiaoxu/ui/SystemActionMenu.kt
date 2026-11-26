@@ -44,7 +44,7 @@ fun SystemActionMenu(description: String, actions: List<SystemMenuAction>, modif
     val density = LocalDensity.current
     val reduced = rememberGlassAccessibilityMode().reduceMotion
     val motion = animateFloatAsState(if (isExpanded && space > 0f) 1f else 0f,
-        if (reduced) snap() else if (isExpanded) com.tyust.course.ui.theme.MotionProfile.iconSpring()
+        if (reduced) snap() else if (isExpanded) MotionProfile.iconSpring()
         else tween(ModuleMotion.ExitMillis, easing = MotionEasing.Accelerate), label = "actionMenu")
     val progress = motion.value.coerceIn(0f, 1f)
     LaunchedEffect(isExpanded) {

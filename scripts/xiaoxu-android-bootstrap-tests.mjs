@@ -729,7 +729,9 @@ assert.match(bottomActions, /host\.show\(onDismiss = \{ currentDismiss\(\) \}\)/
 assert.match(bottomActions, /host\.dismiss\(handle, notify = false\)/, "退出释放弹窗");
 assert.match(bottomActions, /semantics \{ paneTitle = "对话框" \}/, "读屏对话框语义");
 assert.match(localTaskUi, /private fun LocalTaskSourcePicker\(/, "任务分类唯一选择器");
-assert.match(localTaskUi, /TASK_SOURCES\.forEach \{ option ->/, "真实分类");
+assert.match(localTaskUi, /options = listOf\("不标注"\) \+ TASK_SOURCES\.map \{ it\.label \}/, "真实分类");
+assert.match(localTaskUi, /selectedIndex = TASK_SOURCES\.indexOfFirst \{ it\.code == source \} \+ 1/, "恢复真实分类");
+assert.match(localTaskUi, /onSelect = \{ index -> onSelect\(TASK_SOURCES\.getOrNull\(index - 1\)\?\.code\) \}/, "保存真实分类编码");
 assert.match(localTaskUi, /dao\.insert\(LocalTask\(/, "本机写入");
 assert.match(localTaskUi, /onDismissRequest = \{ if \(!saving\) onDismiss\(\) \}/, "保存期间禁止关闭");
 assert.match(localTaskUi, /GlassDatePickerDialog\(/, "统一日期选择");
