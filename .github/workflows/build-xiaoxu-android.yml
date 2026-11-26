@@ -266,7 +266,7 @@ jobs:
           UPSTREAM_TREE: 9284dad51679829d1182f05b57b33490b464e611
           EXPECTED_FILES: '1222'
           TARGET: apps/xiaoxu-android/upstream/zhengfang-apk-v1.0.135
-          IMPORT_MARKER: .github/north-ui-source-import-requests/pending/v1.0.135.txt
+          IMPORT_MARKER: .github/north-ui-source-import-requests/pending/v1.0.135-reconcile.txt
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
@@ -296,16 +296,24 @@ jobs:
 
           # Remove the one-shot request marker so it cannot become a standing build trigger.
           git rm -f --ignore-unmatch "$IMPORT_MARKER" || true
-          git add -- "$TARGET"
+          git add -f -- "$TARGET"
+          index_tree=$(git write-tree)
+          staged_files=$(git ls-tree -r "$index_tree" -- "$TARGET" | wc -l | tr -d " ")
+          staged_tree=$(git rev-parse "$index_tree:$TARGET")
+          test "$staged_files" = "$EXPECTED_FILES"
+          test "$staged_tree" = "$UPSTREAM_TREE"
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "vendor(android): import complete upstream v1.0.135 source"
             git push origin "HEAD:refs/heads/$PR_HEAD_REF"
           fi
+          committed_tree=$(git rev-parse "HEAD:$TARGET")
+          test "$committed_tree" = "$UPSTREAM_TREE"
 
           {
             echo "## Complete upstream source import"
+            echo "- Committed source tree SHA: `$committed_tree`"
             echo "- Repository: https://github.com/znjhahaha/zhengfang-apk"
             echo "- Tag: v1.0.135"
             echo "- Commit: `$actual_commit`"
