@@ -1100,7 +1100,10 @@ assert.match(uiTheme, /CourseSelectorTheme\(content = content\)/, "直接上游�
 assert.match(dialogHost, /val shape = RoundedCornerShape\(28\.dp\)/, "弹层圆角");
 assert.match(windowHost, /LocalGlassWindowOwner\.current === view && !isolatePage/, "同窗口不重复创建背景");
 assert.match(windowHost, /rememberCombinedBackdrop\(wallpaper, page\)/, "弹窗共用背景");
-assert.match(windowHost, /page != null && dialogs\.hasBlockingSurface/, "仅需要时捕获页面");
+assert.match(windowHost, /if \(page != null\) Modifier\.layerBackdrop\(page\)/, "上游页面采样层");
+assert.match(windowHost, /LocalGlassLensAnchor provides controlAnchor/);
+assert.match(windowHost, /LocalGlassLensModalAnchor provides modalAnchor/);
+assert.match(windowHost, /LocalDialogHost provides dialogs\s*\n/);
 assert.match(windowHost, /DialogHost\(dialogs\)/, "唯一弹窗宿主");
 assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/, "边界裁剪");
 assert.match(motionHost, /alpha = if \(retainOutgoing\) frame\.alpha else 1f/, "不叠加旧页透明残影");
