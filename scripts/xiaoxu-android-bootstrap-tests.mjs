@@ -1097,7 +1097,7 @@ assert.match(glassKit, /\.clip\(GlassCardShape\)[\s\S]*?\.border\(0\.5\.dp, glas
 assert.match(glassKit, /internal fun glassSurfaceColor\(\): Color/, "统一壁纸可读材质");
 assert.match(glassKit, /rememberGlassAccessibilityMode\(\)\.highContrast/, "高对比度回退");
 assert.match(uiTheme, /CourseSelectorTheme\(content = content\)/, "直接上游主题");
-assert.match(dialogHost, /val shape = RoundedCornerShape\(28\.dp\)/, "弹层圆角");
+assert.match(dialogHost, /cornerRadius = GlassRecipe\.DialogCornerDp\.dp/, "上游弹层圆角");
 assert.match(windowHost, /LocalGlassWindowOwner\.current === view && !isolatePage/, "同窗口不重复创建背景");
 assert.match(windowHost, /rememberCombinedBackdrop\(wallpaper, page\)/, "弹窗共用背景");
 assert.match(windowHost, /if \(page != null\) Modifier\.layerBackdrop\(page\)/, "上游页面采样层");
@@ -1726,3 +1726,8 @@ assert.doesNotMatch(rebuildShell, /RebuildDockMetrics/);
 assert.match(pageScaffold, /if \(LocalDialogHost\.current == null\)/);
 
 assert.match(rebuildShell, /val phoneDock = !wide && showPrimary/);
+
+assert.match(dialogHost, /private fun SystemDialogContent\(/);
+assert.match(dialogHost, /LocalGlassLensAnchor provides nestedLensAnchor/);
+assert.match(dialogHost, /LocalGlassLensModalAnchor\.current/);
+assert.doesNotMatch(dialogHost, /fun AppDialogBody\(/);
