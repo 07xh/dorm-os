@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -103,14 +106,24 @@ internal fun TaskExecutionPanel(
                             }
                             Text(note,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
                         }
-                        Box {
-                            IconButton(onClick={menu=true},enabled=!busy) {Icon(Icons.Outlined.MoreVert,contentDescription="步骤操作：${step.title}")}
-                            DropdownMenu(menu,onDismissRequest={menu=false}) {
-                                DropdownMenuItem(text={Text("上移")},enabled=steps.first().id!=step.id,onClick={menu=false;perform {dao.moveStep(root,step.id,-1)}})
-                                DropdownMenuItem(text={Text("下移")},enabled=steps.last().id!=step.id,onClick={menu=false;perform {dao.moveStep(root,step.id,1)}})
-                                DropdownMenuItem(text={Text("删除步骤")},onClick={menu=false;deleting=step})
-                            }
-                        }
+                        SystemActionMenu(
+                            description = "步骤操作：${step.title}",
+                            expanded = menu, onExpandedChange = { menu = it },
+                            trigger = { toggle ->
+                                SystemIconButton(Icons.Outlined.MoreVert, "步骤操作：${step.title}",
+                                    toggle, enabled = !busy, chip = false)
+                            },
+                            actions = listOf(
+                                SystemMenuAction("上移", Icons.Outlined.ArrowUpward,
+                                    { perform { dao.moveStep(root, step.id, -1) } },
+                                    enabled = !busy && steps.first().id != step.id),
+                                SystemMenuAction("下移", Icons.Outlined.ArrowDownward,
+                                    { perform { dao.moveStep(root, step.id, 1) } },
+                                    enabled = !busy && steps.last().id != step.id),
+                                SystemMenuAction("删除步骤", Icons.Outlined.Delete,
+                                    { deleting = step }, destructive = true, enabled = !busy)
+                            )
+                        )
                     }
                 }
             }

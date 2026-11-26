@@ -210,7 +210,8 @@ fun GlassDatePickerDialog(
     }
     if (dayIndex > daysInMonth - 1) dayIndex = daysInMonth - 1
 
-    WheelDialogHost(
+    AppDialog(
+        usePortal = true,
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -235,8 +236,8 @@ fun GlassDatePickerDialog(
                 },
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-    ) {
+        },
+        text = {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 中心行 systemFill 胶囊指示条
             Box(
@@ -276,7 +277,7 @@ fun GlassDatePickerDialog(
                 }
             }
         }
-    }
+    })
 }
 
 /**
@@ -335,7 +336,8 @@ fun GlassDateTimePickerDialog(
         mutableIntStateOf(initialCal.get(Calendar.MINUTE))
     }
 
-    WheelDialogHost(
+    AppDialog(
+        usePortal = true,
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -364,8 +366,8 @@ fun GlassDateTimePickerDialog(
                 },
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-    ) {
+        },
+        text = {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 中心行 systemFill 胶囊指示条
             Box(
@@ -407,7 +409,7 @@ fun GlassDateTimePickerDialog(
                 )
             }
         }
-    }
+    })
 }
 
 /**
@@ -439,7 +441,8 @@ fun GlassTimePickerDialog(
         mutableIntStateOf(nearestMinuteIndex(parseMinute(initialTime, 0), minuteValues))
     }
 
-    WheelDialogHost(
+    AppDialog(
+        usePortal = true,
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -462,8 +465,8 @@ fun GlassTimePickerDialog(
                 onClick = { onConfirm("%02d:%02d".format(hour, minuteValues[minute])) },
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-    ) {
+        },
+        text = {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 中心行 systemFill 胶囊指示条
             Box(
@@ -501,7 +504,7 @@ fun GlassTimePickerDialog(
                 )
             }
         }
-    }
+    })
 }
 
 /**
@@ -541,7 +544,8 @@ fun GlassTimeRangePickerDialog(
         mutableIntStateOf(nearestMinuteIndex(parseMinute(initialEnd, 45), minuteValues))
     }
 
-    WheelDialogHost(
+    AppDialog(
+        usePortal = true,
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -568,8 +572,8 @@ fun GlassTimeRangePickerDialog(
                 },
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-    ) {
+        },
+        text = {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -626,7 +630,7 @@ fun GlassTimeRangePickerDialog(
                 }
             }
         }
-    }
+    })
 }
 
 /**
@@ -647,7 +651,8 @@ fun GlassOptionWheelDialog(
         mutableIntStateOf(selectedIndex.coerceIn(0, options.lastIndex))
     }
 
-    WheelDialogHost(
+    AppDialog(
+        usePortal = true,
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -670,8 +675,8 @@ fun GlassOptionWheelDialog(
                 onClick = { onConfirm(index) },
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-    ) {
+        },
+        text = {
         Box(modifier = Modifier.fillMaxWidth()) {
             Box(
                 modifier = Modifier
@@ -688,7 +693,7 @@ fun GlassOptionWheelDialog(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-    }
+    })
 }
 
 private fun calendarDayOffset(base: Calendar, selected: Calendar): Int {
@@ -713,18 +718,4 @@ private fun nearestMinuteIndex(minute: Int, values: List<Int>): Int {
         if (abs(value - minute) < abs(values[best] - minute)) best = index
     }
     return best
-}
-
-// Reuse the existing shared AppDialog portal; do not introduce a second dialog renderer.
-@Composable
-private fun WheelDialogHost(
-    onDismissRequest: () -> Unit,
-    title: @Composable () -> Unit,
-    dismissButton: @Composable () -> Unit,
-    confirmButton: @Composable () -> Unit,
-    content: @Composable () -> Unit
-) {
-    AppDialog(onDismissRequest = onDismissRequest, title = title,
-        dismissButton = dismissButton, confirmButton = confirmButton,
-        text = content, usePortal = true)
 }

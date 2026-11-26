@@ -307,7 +307,11 @@ assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data,
   '已有真实授权面板应仅被复用于数据连接二级页');
 // 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
 assert.match(settingsRoutes, /AppRoute\.MESSAGES -> MessageCenterFeature\(data, actions\)/);
-assert.match(panels, /PasswordVisualTransformation/);
+const sharedPasswordForm = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassFormField.kt');
+assert.match(panels, /GlassFormField\(passphrase,[\s\S]*?password = true/,
+  '个人口令必须使用公共密码表单');
+assert.match(sharedPasswordForm, /if \(password && !reveal\) PasswordVisualTransformation\(\)/,
+  '公共密码表单必须默认遮挡口令');
 assert.match(panels, /internal fun ConnectionsFeature\(/);
 assert.match(panels, /internal fun AccountFeature\(/);
 assert.equal((panels.match(/header = "本机学校读取"/g) || []).length, 1);
