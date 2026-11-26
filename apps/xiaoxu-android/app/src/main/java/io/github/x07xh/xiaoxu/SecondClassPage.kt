@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.runtime.*
@@ -42,7 +43,7 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
     connectOnOpen: Boolean = false, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var attempted by rememberSaveable { mutableStateOf(false) }
-    var refreshing by remember { mutableStateOf(false) }
+    var refreshing by rememberSaveable { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         refreshing = false
@@ -73,13 +74,16 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
     LaunchedEffect(connectOnOpen) { if(connectOnOpen && !attempted) { attempted = true; refresh() } }
     val appContext = context.applicationContext
     val autoPrefs = remember(appContext) { appContext.getSharedPreferences(SecondClassAutoRefresh.SETTINGS, 0) }
-    var autoRevision by remember { mutableIntStateOf(0) }
+    var autoStatus by remember(autoPrefs) { mutableStateOf(SecondClassAutoRefresh.status(appContext)) }
     DisposableEffect(autoPrefs) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> autoRevision++ }
+        // Attempts, background check timestamps and other preference writes
+        // must not invalidate the entire visible activity list.
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+            if (changed == "status" || changed == null) autoStatus = SecondClassAutoRefresh.status(appContext)
+        }
         autoPrefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { autoPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
-    val autoStatus = remember(autoRevision) { SecondClassAutoRefresh.status(appContext) }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
         if (snapshot !is PageSnapshot.Ready) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             AcademicReadAction("手动读取", refreshing) { refresh() }
@@ -122,7 +126,9 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
             var detailKey by rememberSaveable(binding!!.details) { mutableStateOf<String?>(null) }
             val detail = (credits + activities + catalog).firstOrNull { it.kind + ":" + it.fingerprint == detailKey }
             val stampLabel = remember(stamp) { android.text.format.DateFormat.format("MM-dd HH:mm", stamp).toString() }
-             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
+            val listState = key(binding!!.details) { rememberLazyListState() }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "credits-overview") {
                     InsetGroupedSection(animateSize = false) {
@@ -176,12 +182,15 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                 else {
                     if (activities.isEmpty()) item(key = "activity-summary") { AppNotice("已确认暂无报名活动") }
                     items(activities, key = { "activity:${it.fingerprint}" }) { row ->
-                        val points = secondClassActivityPoints(row)
-                        val time = row.details.lineSequence().firstOrNull { it.startsWith("开始时间：") }
-                            ?.removePrefix("开始时间：")?.takeUnless { it == "学校未提供" }?.take(16)
-                        val settlement = row.details.lineSequence()
-                            .firstOrNull { it.startsWith("报名：") }
-                            ?.substringAfter("结算：", "")?.takeIf { it.isNotBlank() }
+                        val points = remember(row) { secondClassActivityPoints(row) }
+                        val time = remember(row) {
+                            row.details.lineSequence().firstOrNull { it.startsWith("开始时间：") }
+                                ?.removePrefix("开始时间：")?.takeUnless { it == "学校未提供" }?.take(16)
+                        }
+                        val settlement = remember(row) {
+                            row.details.lineSequence().firstOrNull { it.startsWith("报名：") }
+                                ?.substringAfter("结算：", "")?.takeIf { it.isNotBlank() }
+                        }
                         InsetGroupedSection(animateSize = false) {
                             InsetGroupedRow(title = row.title,
                                 subtitle = listOfNotNull(time, settlement).joinToString(" · ").ifBlank { "学校未提供活动状态" },
@@ -217,9 +226,10 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                             .onFailure { error = "无法打开学校官网" }
                     }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("学校官网") }
                     }
-                } else items(visibleCatalogActivities, key = { "${it.kind}:${it.fingerprint}" }) { row ->
-                    InsetGroupedSection {
-                        InsetGroupedRow(title = row.title, subtitle = row.details, showDivider = false,
+                } else items(visibleCatalogActivities, key = { "${it.kind}:${it.fingerprint}" }, contentType = { "catalog-activity" }) { row ->
+                    InsetGroupedSection(animateSize = false) {
+                        InsetGroupedRow(title = row.title, subtitle = "学校活动广场 · 已保存记录", showDivider = false,
+                            trailing = { Icon(androidx.compose.material.icons.Icons.Outlined.ChevronRight, contentDescription = null) },
                             onClick = { detailKey = row.kind + ":" + row.fingerprint })
                     }
                 }
