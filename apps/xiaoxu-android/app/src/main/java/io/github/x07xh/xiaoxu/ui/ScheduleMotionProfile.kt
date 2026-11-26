@@ -147,13 +147,13 @@ fun NavigationPages(state: NavigationMotionState, modifier: Modifier = Modifier,
         pages.forEach { page ->
             key(page) {
                 Box(Modifier.fillMaxSize().graphicsLayer {
-                    val frame = if (page == state.target || retainOutgoing) state.transform(page) else PageMotion()
+                    val frame = if (retainOutgoing) state.transform(page) else PageMotion()
                     translationX = with(density) { frame.x.dp.toPx() }
                     alpha = if (retainOutgoing) frame.alpha else 1f
                     scaleX = frame.scale
                     scaleY = frame.scale
                 }.then(if (retainOutgoing && page != state.target) Modifier.clearAndSetSemantics {} else Modifier)) {
-                    CompositionLocalProvider(LocalModuleEntrance provides remember(state, page, retainOutgoing) { { if (page == state.target || retainOutgoing) state.moduleProgress(page) else 1f } }) {
+                    CompositionLocalProvider(LocalModuleEntrance provides remember(state, page, retainOutgoing) { { if (retainOutgoing) state.moduleProgress(page) else 1f } }) {
                         content(page)
                     }
                     if (retainOutgoing && page != state.target) Box(Modifier.fillMaxSize().pointerInput(Unit) {
