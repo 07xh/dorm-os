@@ -93,7 +93,7 @@ assert.match(settingsRoutes, /wideContent = route == AppRoute\.HOME \|\| route =
 assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/);
 assert.match(uiTheme, /CourseSelectorTheme\(content = content\)/);
 assert.match(systemUi, /fun SystemTopBar\(/);
-assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = lift/);
+assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = if \(compactHeader\) 1f else lift/);
 assert.match(pageScaffold, /GlassWindowHost\(modifier\)/);
 assert.match(windowHost, /LocalGlassWindowOwner\.current === view && !isolatePage/);
 assert.match(dialogHost, /window\?\.setDimAmount\(DialogScrimAlpha\)/);
@@ -423,17 +423,17 @@ assert.match(secondClassMain, /LiquidSegmentedControl\(listOf\("报名中", "待
 assert.match(secondClassMain, /detail\?\.let \{ row ->\s*AppDialog\(/, '仅真实记录打开统一详情弹窗');
 assert.match(secondClassMain, /LazyColumn\(Modifier\.weight\(1f\)/, '单一惰性列表');
 assert.match(secondClassMain, /requestedTerm by rememberSaveable\(binding!!\.details\)/, '学期选择按已核验身份隔离');
-assert.match(secondClassMain, /item\(key = "credits-header"\)[\s\S]*?SystemSectionHeader\("积分概览"\)[\s\S]*?AcademicTermPicker\(terms\.map \{ it\.title \}/, '积分标题同行学期选择');
-assert.match(secondClassMain, /item\(key = "credits-detail"\)[\s\S]*?title = "积分明细"/, '积分明细只展示入口');
+assert.match(secondClassMain, /item\(key = "credits-overview"\)[\s\S]*?Text\("积分概览", Modifier\.weight\(1f\)[\s\S]*?AcademicTermPicker\(termTitles, selected/, '积分标题同行学期选择');
+assert.match(secondClassMain, /item\(key = "credits-overview"\)[\s\S]*?title = "积分明细"/, '积分明细只展示入口');
 assert.match(secondClassMain, /if \(row\.kind == "credits"\)[\s\S]*?secondClassCategories\(row\)/, '积分分类在真实详情弹窗显示');
 assert.match(secondClassMain, /secondClassPoints\(total\) \?: "—"/, '未知总积分不可伪造零');
-assert.match(secondClassMain, /if \(summary != null\) activities\.size\.toString\(\) else "—"/, '未核验活动列表不能推导数量');
+assert.match(secondClassMain, /if \(summary == null\) "未读取" else "\$\{activities\.size\} 项"/, '未核验活动列表不能推导数量');
 assert.match(secondClassMain, /it\.provider == "second_class" && it\.sourceHost == "dekt\.ncwu\.edu\.cn"/, '仅学校来源');
 assert.match(secondClassMain, /it\.details\.matches\(Regex\("\[a-f0-9\]\{64\}"\)\)/, '真实身份绑定');
 assert.match(secondClassMain, /capture != null && capture > 0 && binding\?\.capturedAt == capture/, '身份和积分同次读取');
 assert.match(secondClassMain, /it\.kind in setOf\("activity", "activity_summary"\) && it\.capturedAt == stamp/, '个人活动与积分读取时间一致');
 assert.match(secondClassMain, /personal\.filter \{ it\.kind == "activity" \}/, '汇总不是个人活动卡片');
-assert.match(secondClassMain, /AcademicReadAction\("手动读取积分", refreshing\) \{ refresh\(\) \}/, '唯一手动刷新入口');
+assert.match(secondClassMain, /AcademicReadAction\("手动读取", refreshing\) \{ refresh\(\) \}/, '唯一手动刷新入口');
 assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/, '授权读取复用原Activity');
 assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/, '学校读取限定第二课堂');
 assert.match(secondClassMain, /Text\("学校官网"\)/, '官网入口');
@@ -451,12 +451,22 @@ assert.match(secondClassMain, /"活动暂未获取"/, '未同步不能虚构暂�
 assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完成本机读取|个人已报名活动不是活动广场|TabRow\(|FilterChip\(/,
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
-assert.match(secondClassMain, /val visibleCatalogActivities = catalog\.filter/,
+assert.match(secondClassMain, /val visibleCatalogActivities = remember\(catalog, activeCatalogFilter\) \{ catalog\.filter/,
   '第二课堂活动广场必须读取本机已验证的非空目录记录');
 assert.match(secondClassMain, /onSelect = \{ catalogFilter = it \}/,
  '活动筛选继续保持所选官方目录类别');
 assert.match(secondClassMain, /val catalogKeys = listOf\("报名中", "待验证", "即将开始报名"\)/,
  '活动类别须保留报名中筛选');
+
+assert.doesNotMatch(rebuildShell, /\bInitialPageLoad\(/, '共享快照页面不等待异步挂载');
+assert.match(motionHost, /val frame = if \(retainOutgoing\) state\.transform\(page\) else PageMotion\(\)/, '即时页无额外位移');
+assert.match(rebuildShell, /LaunchedEffect\(route\) \{\s*if \(route == AppRoute\.SECOND_CLASS\) latestSecondClassRefresh\(\)/, '进入二课复用Activity读取');
+assert.match(main, /secondClassAutoJob\?\.isActive == true\) return/, '已有读取不重复启动');
+assert.match(main, /requestSecondClassRefresh = ::requestSecondClassRefresh/, '读取由Activity生命周期拥有');
+assert.doesNotMatch(main, /delay\(1_000\)/, '没有人为固定刷新延迟');
+assert.match(secondClassMain, /正在同步 · 保留当前数据/);
+assert.match(secondClassMain, /InsetGroupedSection\(animateSize = false\)/);
+
 const segmentControl = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamLiquidSegmentedControl.kt');
 assert.match(segmentControl, /height: Dp = 48\.dp/, "上游分段控件默认48dp");
 assert.match(segmentControl, /\/ optionCount\)\.coerceAtLeast\(1f\)/, "按分段数量平均分配宽度");
@@ -472,7 +482,7 @@ assert.match(taskWorkspaceForComposerGate, /TextButton\(enabled = !saving,[\s\S]
 assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/, "仅经核验学习通官方截止参与排序");
 assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/, "不能将旧云端日期冒充官方截止");
 assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/, '不恢复旧多层管理栏');
-assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = lift/);
+assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = if \(compactHeader\) 1f else lift/);
 assert.match(secondClassMain, /fun refresh\(\)/, '授权读取仍有效');
 assert.match(secondClassMain, /if \(catalogTime != null && catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
@@ -1106,7 +1116,7 @@ assert.match(navDock, /haptics\.performHapticFeedback\(HapticFeedbackType\.Conte
 assert.match(navDock, /else iconPlayback\.replay\(index\)/, "重复点击仅重播图标");
 assert.match(navDock, /private fun FallbackNavigationBar\(/, "设备不支持时降级");
 assert.match(sharedFrame, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/, "统一内容宽度");
-assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = lift/, "同源顶栏");
+assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = if \(compactHeader\) 1f else lift/, "同源顶栏");
 assert.match(settingsRoutes, /private fun HomeFeature\(/, "首页真实入口");
 assert.match(settingsRoutes, /if \(maxWidth >= 680\.dp\)/, "响应式双栏");
 assert.match(settingsRoutes, /homeCoursePreview\(lessons\.filter \{ it\.weekday == day && week in it\.weeks \}\.sortedBy \{ it\.startSection \}\)/, "按实际本机课程日期过滤");
