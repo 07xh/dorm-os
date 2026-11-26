@@ -325,6 +325,5 @@ jobs:
         working-directory: apps/xiaoxu-android/upstream/zhengfang-apk-v1.0.135
         run: |
           set -euo pipefail
-          chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --no-parallel --max-workers=2 --console=plain
+          bash ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --no-parallel --max-workers=2 --console=plain
 
