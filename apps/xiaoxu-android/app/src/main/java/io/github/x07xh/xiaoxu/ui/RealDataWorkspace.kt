@@ -1578,21 +1578,12 @@ fun RealAcademicTaskHub(
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink2)
         }
-        if (showSearch) item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it.take(100) },
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                singleLine = true,
-                label = { Text("搜索任务标题或来源") },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                trailingIcon = if (searchQuery.isNotEmpty()) {
-                    {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Outlined.Close, contentDescription = "清除搜索")
-                        }
-                    }
-                } else null
+        if (showSearch) item(key = "task:search") {
+            XiaoxuSearchField(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it.take(100) },
+                hint = "搜索任务标题或来源",
+                modifier = Modifier.padding(top = 12.dp)
             )
         }
 
