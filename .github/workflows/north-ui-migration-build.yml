@@ -47,6 +47,7 @@ jobs:
         run: |
           node --check scripts/xiaoxu-ace6-visual-qa.mjs
           node scripts/xiaoxu-ace6-visual-qa.mjs --help > /dev/null
+          grep -Fq 'uipreview' scripts/xiaoxu-ace6-visual-qa.mjs
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

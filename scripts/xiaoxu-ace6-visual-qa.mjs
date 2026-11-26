@@ -16,7 +16,7 @@ const help = argv.includes('--help') || argv.includes('-h');
 if (help) {
   console.log([
     '用法: node scripts/xiaoxu-ace6-visual-qa.mjs [选项]',
-    '  --package <id>  默认 io.github.x07xh.xiaoxu（同包名候选）；调试隔离包使用 .northui',
+    '  --package <id>  默认 io.github.x07xh.xiaoxu（同包名候选）；Ace 6 隔离预览包使用 .uipreview',
     '  --serial <id>   多台 adb 设备时指定真实手机序列号',
     '  --apk <file>    验证本机 QA APK 与手机实际安装 APK 的 SHA256，不会自动安装',
     '  --commit <sha>  记录与截图对应的 GitHub 源码提交',
@@ -43,8 +43,8 @@ const apkPath = option('--apk');
 const referencePackage = option('--reference-package');
 const referenceSceneNames = ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '07-navigation-transitions', '08-scroll-performance'];
 const referenceSceneSet = new Set(referenceSceneNames);
-if (!/^io\.github\.x07xh\.xiaoxu(?:\.(?:unifiedqa|northui))?$/.test(packageName)) {
-  throw new Error('只能采集校序正式包、North UI 隔离包或统一 UI 隔离 QA 包');
+if (!/^io\.github\.x07xh\.xiaoxu(?:\.(?:unifiedqa|northui|uipreview))?$/.test(packageName)) {
+  throw new Error('只能采集校序正式包、North UI 隔离包、Ace 6 UI 预览包或统一 UI 隔离 QA 包');
 }
 if (referencePackage && (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(referencePackage) || referencePackage === packageName)) {
   throw new Error('参考应用包名格式错误，或与当前校序包名相同');

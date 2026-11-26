@@ -12,10 +12,11 @@
 
 ## 选择正确的 APK
 
-CI 提供两种不同用途的包：
+CI 提供三种不同用途的包：
 
 1. **同包名 Release 候选包**：包名为 `io.github.x07xh.xiaoxu`。只有 CI 明确报告使用仓库固定证书签名成功时，才能作为现有校序的覆盖安装包。它会使用相同应用身份，正常升级安装可保留应用数据。
-2. **隔离 Debug 预览包**：包名为 `io.github.x07xh.xiaoxu.northui`，可以与当前校序并排安装，但它有独立数据目录，不会读取现有校序的本机课表数据。
+2. **Ace 6 UI 预览包**：包名为 `io.github.x07xh.xiaoxu.uipreview`，由 Android Debug 证书签名、仅包含 arm64 原生库，可以与当前校序并排安装，但它有独立数据目录，不会读取现有校序的本机课表数据。
+3. **普通 Debug 包**：CI 用于编译验证，不作为用户安装包分发。
 
 如果 Release 候选包未签名，或证书 SHA-256 与仓库固定证书不一致，**不要尝试覆盖安装，也不要卸载当前校序**。应先解决签名问题。
 
@@ -35,12 +36,12 @@ adb install -r $apk
 node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu --apk $apk --commit <CI提交SHA>
 ```
 
-如果没有可用的同包名签名候选包，只做隔离 UI 预览：
+如果没有可用的同包名签名候选包，使用 CI 的 Ace 6 UI 预览 APK：
 
 ```powershell
-$apk = ".\app-debug.apk" # CI 的 ARM/手机 Debug 预览 APK（隔离包，不读取旧版本机数据）
+$apk = ".\app-uiPreview.apk" # CI Artifact 中的 arm64 UI 预览包
 adb install $apk
-node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu.northui --apk $apk --commit <CI提交SHA>
+node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu.uipreview --apk $apk --commit <CI提交SHA>
 ```
 
 脚本不会替用户安装 APK。`adb install -r` 只应用于包名和签名均已验证的同包名候选包；签名不匹配时停止，不要卸载旧应用绕过检查。
