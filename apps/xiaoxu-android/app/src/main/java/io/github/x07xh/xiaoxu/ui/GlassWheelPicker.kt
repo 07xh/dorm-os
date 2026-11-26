@@ -1,8 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
-// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassWheelPicker.kt
-// Original authors and contributors. See upstream license.
+// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, app/src/main/java/com/tyust/course/ui/system/GlassWheelPicker.kt.
+// Original authors and contributors; package and existing host/business contracts adapted.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,9 +21,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -213,8 +210,7 @@ fun GlassDatePickerDialog(
     }
     if (dayIndex > daysInMonth - 1) dayIndex = daysInMonth - 1
 
-    AppDialog(
-        usePortal = true,
+    WheelDialogHost(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -225,14 +221,22 @@ fun GlassDatePickerDialog(
             )
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+            SystemSecondaryButton(
+                text = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
-            Button(onClick = {
+            SystemPrimaryButton(
+                text = "确定",
+                onClick = {
                     onConfirm(java.time.LocalDate.of(years[yearIndex], monthIndex + 1, dayIndex + 1))
-                }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
-        },
-        text = {
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 中心行 systemFill 胶囊指示条
             Box(
@@ -272,7 +276,7 @@ fun GlassDatePickerDialog(
                 }
             }
         }
-    })
+    }
 }
 
 /**
@@ -331,8 +335,7 @@ fun GlassDateTimePickerDialog(
         mutableIntStateOf(initialCal.get(Calendar.MINUTE))
     }
 
-    AppDialog(
-        usePortal = true,
+    WheelDialogHost(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -343,18 +346,26 @@ fun GlassDateTimePickerDialog(
             )
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+            SystemSecondaryButton(
+                text = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
-            Button(onClick = {
+            SystemPrimaryButton(
+                text = "确定",
+                onClick = {
                     val cal = baseCalendar.clone() as Calendar
                     cal.add(Calendar.DAY_OF_YEAR, dayIndex)
                     cal.set(Calendar.HOUR_OF_DAY, hourIndex)
                     cal.set(Calendar.MINUTE, minuteIndex)
                     onConfirm(cal.timeInMillis)
-                }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
-        },
-        text = {
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 中心行 systemFill 胶囊指示条
             Box(
@@ -396,7 +407,7 @@ fun GlassDateTimePickerDialog(
                 )
             }
         }
-    })
+    }
 }
 
 /**
@@ -428,8 +439,7 @@ fun GlassTimePickerDialog(
         mutableIntStateOf(nearestMinuteIndex(parseMinute(initialTime, 0), minuteValues))
     }
 
-    AppDialog(
-        usePortal = true,
+    WheelDialogHost(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -440,12 +450,20 @@ fun GlassTimePickerDialog(
             )
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+            SystemSecondaryButton(
+                text = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
-            Button(onClick = { onConfirm("%02d:%02d".format(hour, minuteValues[minute])) }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
-        },
-        text = {
+            SystemPrimaryButton(
+                text = "确定",
+                onClick = { onConfirm("%02d:%02d".format(hour, minuteValues[minute])) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 中心行 systemFill 胶囊指示条
             Box(
@@ -483,7 +501,7 @@ fun GlassTimePickerDialog(
                 )
             }
         }
-    })
+    }
 }
 
 /**
@@ -523,8 +541,7 @@ fun GlassTimeRangePickerDialog(
         mutableIntStateOf(nearestMinuteIndex(parseMinute(initialEnd, 45), minuteValues))
     }
 
-    AppDialog(
-        usePortal = true,
+    WheelDialogHost(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -535,20 +552,24 @@ fun GlassTimeRangePickerDialog(
             )
         },
         dismissButton = {
-            Row {
-                if (onClear != null) TextButton(onClick = onClear) { Text("清除") }
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("取消") }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onClear != null) androidx.compose.material3.TextButton(onClick = onClear) { Text("清除") }
+                SystemSecondaryButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
             }
         },
         confirmButton = {
-            Button(onClick = {
+            SystemPrimaryButton(
+                text = "保存",
+                onClick = {
                     onConfirm(
                         "%02d:%02d".format(startHour, minuteValues[startMinute]),
                         "%02d:%02d".format(endHour, minuteValues[endMinute])
                     )
-                }, modifier = Modifier.fillMaxWidth()) { Text("保存") }
-        },
-        text = {
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -605,7 +626,7 @@ fun GlassTimeRangePickerDialog(
                 }
             }
         }
-    })
+    }
 }
 
 /**
@@ -626,8 +647,7 @@ fun GlassOptionWheelDialog(
         mutableIntStateOf(selectedIndex.coerceIn(0, options.lastIndex))
     }
 
-    AppDialog(
-        usePortal = true,
+    WheelDialogHost(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -638,12 +658,20 @@ fun GlassOptionWheelDialog(
             )
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+            SystemSecondaryButton(
+                text = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
-            Button(onClick = { onConfirm(index) }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
-        },
-        text = {
+            SystemPrimaryButton(
+                text = "确定",
+                onClick = { onConfirm(index) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Box(
                 modifier = Modifier
@@ -660,7 +688,7 @@ fun GlassOptionWheelDialog(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-    })
+    }
 }
 
 private fun calendarDayOffset(base: Calendar, selected: Calendar): Int {
@@ -685,4 +713,18 @@ private fun nearestMinuteIndex(minute: Int, values: List<Int>): Int {
         if (abs(value - minute) < abs(values[best] - minute)) best = index
     }
     return best
+}
+
+// Reuse the existing shared AppDialog portal; do not introduce a second dialog renderer.
+@Composable
+private fun WheelDialogHost(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    content: @Composable () -> Unit
+) {
+    AppDialog(onDismissRequest = onDismissRequest, title = title,
+        dismissButton = dismissButton, confirmButton = confirmButton,
+        text = content, usePortal = true)
 }
