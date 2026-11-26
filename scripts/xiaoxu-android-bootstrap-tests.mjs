@@ -1205,21 +1205,17 @@ assert.match(localSourceTest, /replacingImportDoesNotMergeStaleLocalLessons/);
 assert.doesNotMatch(schedulePanel, /sealed interface ScheduleUiState|fun deriveScheduleUiState\(/,
   'Retired cloud timetable display logic must not return');
 
-// 课表视觉只检查仍然渲染的本机页面，停止约束旧海报/云端样式。
-const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-assert.match(scheduleVisual, /XiaoxuCard\(/);
-assert.match(scheduleVisual, /private fun SchedulePageHeading\([\s\S]*?Text\(\s*"我的课表"/,
-  '本机课表空态与有课程态须使用同一标题组件');
-assert.doesNotMatch(scheduleVisual, /label = "重新导入课表"/);
-assert.match(timetableSettings, /title = "导入课表"/);
-assert.match(scheduleVisual, /XiaoxuToolbarAction\(/, '课表工具操作和其他原生页面必须共用组件');
-assert.doesNotMatch(scheduleVisual, /SchedulePageHeading\(onMessages\)\s*Text\(/,
-  "课表顶部不得恢复重复的操作文字栏");
-assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/);
-assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/);
-assert.match(scheduleVisual, /WeekSelector\(/);
-assert.match(scheduleVisual, /ModalBottomSheet\(/);
-
+// Verify the active upstream schedule components, not the retired ScheduleScreen.
+assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt', import.meta.url)), false,
+  '已退役的课表页面不得恢复');
+assert.match(schedulePanel, /WeekHeaderCompact\(/, '统一课表周选择');
+assert.match(scheduleUi, /fun WeekHeaderCompact\(/, '周选择复用公共课表头');
+assert.match(scheduleUi, /fun TimetableLayout\(/, '课表使用上游布局');
+assert.match(scheduleUi, /fun CourseCard\(/, '课块使用上游实现');
+assert.match(scheduleUi, /ModalBottomSheet\(onDismissRequest = onClose/, '详情使用既有底部弹窗');
+assert.match(timetableSettings, /title = "导入课表"/, '保留课表导入入口');
+assert.doesNotMatch(scheduleUi, /XiaoxuCard\(|XiaoxuToolbarAction\(|SchedulePageHeading\(/,
+  '旧课表设计系统不得重新引入');
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
@@ -1787,9 +1783,13 @@ function verifyRetiredUi(dir) {
     const child = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir);
     if (entry.isDirectory()) verifyRetiredUi(child);
     else if (entry.name.endsWith('.kt')) {
-      assert.doesNotMatch(readFileSync(child, 'utf8'), /\bxiaoxuSettingsRouteTransition\b|\bAppEntry\s*\(/, 'retired UI reference: ' + child.pathname);
+      assert.doesNotMatch(readFileSync(child, 'utf8'), /\bxiaoxuSettingsRouteTransition\b|\bAppEntry\s*\(|\bInitialPageLoad\s*\(|\bReportInitialPageReady\s*\(/, 'retired UI reference: ' + child.pathname);
     }
   }
 }
 verifyRetiredUi(retiredUiSourceRoot);
 assert.equal(existsSync(new URL('main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt', retiredUiSourceRoot)), false);
+
+// CI reference inventory found no external use of the abandoned deferred-mount path.
+assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/InitialPageLoad.kt', import.meta.url)), false,
+  '已退役的延迟页面挂载组件不得恢复');
