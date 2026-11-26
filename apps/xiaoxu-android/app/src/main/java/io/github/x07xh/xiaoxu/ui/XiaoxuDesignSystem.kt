@@ -1063,7 +1063,7 @@ fun XiaoxuTopBar(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
                 color = XiaoxuPalette.Ink,
                 maxLines = 1,
                 modifier = Modifier.semantics { heading() }
