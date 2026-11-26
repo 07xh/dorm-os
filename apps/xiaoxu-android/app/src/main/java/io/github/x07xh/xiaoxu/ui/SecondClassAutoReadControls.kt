@@ -22,27 +22,6 @@ fun SecondClassAutoReadControls() {
     }
     val enabled = remember(revision) { SecondClassAutoRefresh.enabled(c) }
     val background = remember(revision) { SecondClassAutoRefresh.background(c) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text("自动读取", style = MaterialTheme.typography.bodyMedium)
-            Text("回到 App 时检查，10分钟内复用已保存数据",
-                style = MaterialTheme.typography.labelSmall)
-        }
-        LiquidSwitch(checked = enabled, onCheckedChange = {
-            SecondClassAutoRefresh.configure(c, it, background)
-        })
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text("后台定期检查", style = MaterialTheme.typography.bodyMedium)
-            Text("约30分钟检查一次，系统可能延迟", style = MaterialTheme.typography.labelSmall)
-        }
-        LiquidSwitch(checked = background, enabled = enabled, onCheckedChange = {
-            SecondClassAutoRefresh.configure(c, enabled, it)
-        })
-    }
     val status = remember(revision) { SecondClassAutoRefresh.status(c) }
     val message = when (status) {
         "reading" -> "正在自动读取…"
@@ -51,7 +30,6 @@ fun SecondClassAutoReadControls() {
         "failed" -> "自动读取未完成，已保留上次数据"
         else -> null
     }
-    if (message != null) Text(message, style = MaterialTheme.typography.labelSmall)
     val success = remember(revision) { SecondClassAutoRefresh.lastSuccess(c) }
     val checked = remember(revision) { SecondClassAutoRefresh.lastBackgroundCheck(c) }
     val backgroundSuccess = remember(revision) { SecondClassAutoRefresh.lastSuccessWasBackground(c) }
@@ -61,5 +39,20 @@ fun SecondClassAutoReadControls() {
         checked > 0 -> "最近后台检查：" + android.text.format.DateFormat.format("MM-dd HH:mm", checked)
         else -> null
     }
-    if (recent != null) Text(recent, style = MaterialTheme.typography.labelSmall)
+    InsetGroupedSection(header = "自动同步", animateSize = false,
+        footer = "仅同步本人已授权记录；后台执行时间可能因系统省电策略而延迟。") {
+        InsetGroupedRow(title = "返回应用时自动读取", subtitle = "10 分钟内使用已保存数据",
+            trailing = { LiquidSwitch(checked = enabled, onCheckedChange = {
+                SecondClassAutoRefresh.configure(c, it, background)
+            }) })
+        InsetGroupedRow(title = "后台定期检查", subtitle = "约每 30 分钟检查一次",
+            enabled = enabled, showDivider = false,
+            trailing = { LiquidSwitch(checked = background, enabled = enabled, onCheckedChange = {
+                SecondClassAutoRefresh.configure(c, enabled, it)
+            }) })
+    }
+    InsetGroupedSection(header = "同步状态", animateSize = false) {
+        InsetGroupedRow(title = message ?: "自动读取状态",
+            subtitle = recent ?: "尚无自动读取记录", showDivider = false)
+    }
 }
