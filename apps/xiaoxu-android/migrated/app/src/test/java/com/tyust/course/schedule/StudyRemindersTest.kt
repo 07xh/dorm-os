@@ -21,7 +21,7 @@ class StudyRemindersTest {
     /** 晚自习 18:20–20:45 正好压住第 9 节 18:15–19:00，用来造真实冲突。 */
     private val evening = ScheduleStudyBlock(ScheduleStudyKind.Evening, enabled = true, name = "晚自习",
         start = "18:20", end = "20:45", days = setOf(1, 2, 3, 4))
-    private val eveningClash = ScheduleCourseRecord("custom:clash", "晚课", "", "", 1, 9, 9, "1-25周")
+    private val eveningClash = ScheduleCourseRecord("custom:clash", "晚课", "", "", 1, 9, 9, "1-${ScheduleMaxWeeks}周")
 
     private fun time(day: Int, hour: Int, minute: Int) = Calendar.getInstance(zone).apply {
         clear(); set(2026, Calendar.SEPTEMBER, day, hour, minute)
