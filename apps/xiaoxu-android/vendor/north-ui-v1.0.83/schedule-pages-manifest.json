@@ -1,0 +1,53 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/ScheduleScreen.kt",
+      "blob": "58c285ac3e79348315b374fbc7df22eaf2bade95"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/ScheduleAgendaScreen.kt",
+      "blob": "0076e0058009d309628f82e8ca01fe60fd1e395e"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/ScheduleAgendaContent.kt",
+      "blob": "96c33438fc6e5dda1b2c199cb12118d25b8bac19"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/ScheduleHeader.kt",
+      "blob": "a4075dd4f4e741d548342e3aad57c079e8b35ceb"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/ScheduleGlass.kt",
+      "blob": "e08c8309cc6ed2a97b2c624c4d6a27db44122b4e"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/ScheduleFocus.kt",
+      "blob": "3b23e954b42c86a39a242e6e26da7f600ce105ef"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/ScheduleQuickActions.kt",
+      "blob": "ab44c89e1a90c262919ba788d0a5cbda323038f4"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/SettingsScreen.kt",
+      "blob": "bd42dbef8943eb876d4f17cf014a6c518f0839b5"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/screen/CourseFilterPanel.kt",
+      "blob": "758d6185c2227155ad201ba49a8815c91ea49276"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/model/CourseFilter.kt",
+      "blob": "f6201586e13d4c9b1565ecd2aa0af55fb008ef18"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/model/Course.java",
+      "blob": "95aef50ced5efeaff277b59839eda1f67127016c"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/utils/CourseParser.java",
+      "blob": "7a99d62ffa44a175f9095ab8c515427b00f3cf28"
+    }
+  ]
+}
