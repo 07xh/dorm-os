@@ -26,7 +26,7 @@ import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.tyust.course.manager.AppearanceSettingsManager
 
-private val LocalGlassWindowOwner = staticCompositionLocalOf<android.view.View?> { null }
+internal val LocalGlassWindowOwner = staticCompositionLocalOf<android.view.View?> { null }
 
 /** Each actual window owns its sources; pages inside that window reuse the provided locals. */
 @Composable

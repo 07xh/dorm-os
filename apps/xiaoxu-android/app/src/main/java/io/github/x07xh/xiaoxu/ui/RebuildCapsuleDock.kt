@@ -190,7 +190,7 @@ object NavBarMetrics {
 private const val NavIndicatorRefractionFloor = 0f
 
 @Composable
-private fun CapsuleNavigationBar(
+internal fun CapsuleNavigationBar(
     items: List<BottomNavItem>,
     selectedTab: Int,
     onTabSelect: (Int) -> Unit,
@@ -1228,7 +1228,7 @@ private fun RowScope.NavTab(
 }
 
 
-private data class BottomNavItem(val label: String, val symbol: AppSymbolSpec)
+internal data class BottomNavItem(val label: String, val symbol: AppSymbolSpec)
 
 @Composable
 internal fun rememberNavigationMaterialTier(): NavigationMaterialTier {

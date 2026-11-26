@@ -109,7 +109,7 @@ assert.match(rebuildShell, /NavigationPages\(navigationMotion,/);
 assert.match(motionHost, /val outgoing = visible\.filterKeys/);
 assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/);
 assert.match(rebuildShell, /BackHandler\(enabled = route\.parent != null \|\| routeTrail\.isNotEmpty\(\)\)/);
-assert.match(rebuildShell, /if \(phoneDock\) RebuildCapsuleDock\(/);
+assert.match(rebuildShell, /if \(phoneDock\) CapsuleNavigationBar\(/);
 assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/);
 assert.match(navDock, /else iconPlayback\.replay\(index\)/);
 assert.match(windowHost, /rememberCombinedBackdrop\(wallpaper, page\)/);
@@ -127,7 +127,7 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(rebuildShell, /if \(phoneDock\) RebuildCapsuleDock\(/,
+assert.match(rebuildShell, /if \(phoneDock\) CapsuleNavigationBar\(/,
   '主壳层须只放一套可折射玻璃底栏');
 assert.match(rebuildShell, /if \(wide\) NavigationRail \{/,
   '宽屏保留唯一横屏侧栏适配');
@@ -1129,10 +1129,10 @@ assert.match(motionHost, /val frame = state\.transform\(page\)/);
 assert.match(motionHost, /fun pageSpring\(\)/, "复用统一动效");
 assert.match(rebuildShell, /NavigationPages\(navigationMotion,/);
 assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/, "按路由保存状态");
-assert.match(rebuildShell, /val accountKey = if \(data\.cloud\.authenticated\) "cloud:" \+ data\.cloud\.ownerId\.orEmpty\(\) else "local"/, "账号隔离");
+assert.match(rebuildShell, /val accountKey by remember\(cloud\) \{ derivedStateOf \{[\s\S]*?if \(cloud\.state\.authenticated\) "cloud:" \+ cloud\.state\.ownerId\.orEmpty\(\) else "local"/, "账号隔离");
 assert.match(rebuildShell, /val showPrimary = route\.parent == null/, "子页隐藏底栏");
 assert.match(rebuildShell, /NavBarMetrics\.contentInset\(\)/, "导航占位来自上游");
-assert.match(rebuildShell, /if \(phoneDock\) RebuildCapsuleDock\(/, "唯一手机底栏");
+assert.match(rebuildShell, /if \(phoneDock\) CapsuleNavigationBar\(/, "唯一手机底栏");
 assert.match(rebuildShell, /if \(wide\) NavigationRail/, "宽屏侧栏");
 assert.match(navDock, /return \(blockPadding\(\) \* 2 \+ trackHeight\(\) \+ navigationBar - 16\.dp\)/, "导航与内容占位一致");
 assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/, "上游光学采样");
@@ -1393,9 +1393,14 @@ assert.match(navDock, /modifier = modifier, lensFreshness = lensFreshness/);
 
 // Upstream MainActivity chrome must be drawn outside of the page capture.
 assert.match(windowHost, /layerBackdrop\(page\)[\s\S]*?\{ content\(\) \}[\s\S]*?\{ chrome\(\) \}[\s\S]*?DialogHost\(dialogs\)/);
-assert.match(rebuildShell, /GlassWindowHost\(\s*chrome = \{[\s\S]*?if \(phoneDock\) RebuildCapsuleDock\(/);
-assert.match(rebuildShell, /val navBarBackdrop = com\.tyust\.course\.ui\.system\.LocalModalBackdrop\.current/);
-assert.match(rebuildShell, /backdrop = navBarBackdrop/);
+assert.match(rebuildShell, /GlassOverlayHost\(modifier = Modifier\.fillMaxSize\(\)\)/);
+assert.doesNotMatch(rebuildShell, /\bGlassWindowHost\(/, '根页面直接使用上游 MainActivity 渲染结构');
+assert.match(rebuildShell, /Modifier\.layerBackdrop\(capturedPageBackdrop\)[\s\S]*?Canvas\(Modifier\.fillMaxSize\(\)\.layerBackdrop\(wallpaperBackdrop\)\)[\s\S]*?CompositionLocalProvider\(LocalNavigationMotion provides barMotion\)[\s\S]*?if \(phoneDock\) CapsuleNavigationBar\(/);
+assert.match(rebuildShell, /val barMotion = rememberNavigationMotionState\(selectedNavigationIndex, accountKey \+ ":tabs", reducedMotion\)/);
+assert.match(rebuildShell, /val navigationMotion = rememberNavigationMotionState\(route\.ordinal, accountKey \+ ":routes", reducedMotion\)/);
+assert.match(rebuildShell, /val navBarBackdrop = capturedPageBackdrop \?: wallpaperBackdrop/);
+assert.doesNotMatch(rebuildShell, /rememberCombinedBackdrop\(/, '根导航不重复合成完整页面');
+assert.match(rebuildShell, /backdrop = navBarBackdrop\.takeIf/);
 assert.doesNotMatch(rebuildShell, /backdrop = wallpaperBackdrop/);
 
 // Verify removed legacy components have no remaining Kotlin references at the exact CI checkout.

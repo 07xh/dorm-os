@@ -1,6 +1,18 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.tyust.course.ui.system.LocalAppBackdrop
+import com.tyust.course.ui.system.LocalControlBackdrop
+import com.tyust.course.ui.system.LocalModalBackdrop
+import com.tyust.course.ui.system.drawWallpaperPattern
+import com.tyust.course.ui.system.isBackdropSupported
 import com.tyust.course.ui.system.LocalAppOverlayBottomInset
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -68,7 +80,15 @@ internal fun NativeShell(
     }
     val reducedMotion = rememberGlassAccessibilityMode().reduceMotion ||
         !android.animation.ValueAnimator.areAnimatorsEnabled()
-    val navigationMotion = rememberNavigationMotionState(route.ordinal, "xiaoxu-routes", reducedMotion)
+    // MainActivity.kt upstream: independent page and bar timelines scoped to the current account.
+    val accountKey by remember(cloud) { derivedStateOf {
+        if (cloud.state.authenticated) "cloud:" + cloud.state.ownerId.orEmpty() else "local"
+    } }
+    val destinations = MainDestination.entries
+    val items = remember { destinations.map { BottomNavItem(it.label, it.upstreamSymbol) } }
+    val selectedNavigationIndex = if (route.parent == null) destinations.indexOf(route.primary) else -1
+    val navigationMotion = rememberNavigationMotionState(route.ordinal, accountKey + ":routes", reducedMotion)
+    val barMotion = rememberNavigationMotionState(selectedNavigationIndex, accountKey + ":tabs", reducedMotion)
     fun goTo(next: AppRoute) {
         if (route == next) return
         routeTrail = if (next.parent == null) "" else (routeTrail.split("/").filter { it.isNotEmpty() } + route.name).takeLast(30).joinToString("/")
@@ -163,61 +183,87 @@ internal fun NativeShell(
     }
     BackHandler(enabled = route.parent != null || routeTrail.isNotEmpty()) { goBack() }
 
-    // MainActivity.kt upstream application host: one overlay/window, shared page state,
-    // navigation timeline, scroll intent, and a dock outside the page subtree.
-    // The upstream overlay inset is the sole source of dock content spacing.
-    val accountKey = if (data.cloud.authenticated) "cloud:" + data.cloud.ownerId.orEmpty() else "local"
+    // SPDX-License-Identifier: GPL-3.0-only
+    // Root rendering block adapted from znjhahaha/zhengfang-apk MainActivity.kt
+    // @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed. Native school routes are the data adapter.
     val pageData = remember(accountKey) { PageDataState() }
     DisposableEffect(pageData) { onDispose { pageData.close() } }
-    // MainActivity.kt upstream: one scroll state, one capture, chrome outside that capture.
     val lensFreshness = remember { if (isGlassLensApplicable()) GlassLensFreshness() else null }
     val density = LocalDensity.current
+    val view = LocalView.current
+    val dialogs = rememberDialogHostState()
+    val appWallpaper = com.tyust.course.ui.theme.rememberAppWallpaperStyle()
     val autoCollapse = com.tyust.course.manager.AppearanceSettingsManager.navBarAutoCollapseEnabled &&
         !reducedMotion
     var minimized by remember { mutableStateOf(false) }
     val intent = remember { NavScrollIntent() }
     LaunchedEffect(route, autoCollapse) { minimized = false; intent.reset() }
-    CompositionLocalProvider(LocalPageGlassFreshness provides lensFreshness) {
+    val scroll = remember(density, dialogs, autoCollapse, lensFreshness) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (autoCollapse && source == NestedScrollSource.UserInput && !dialogs.hasBlockingSurface) {
+                    if (consumed.y == 0f && available.y > 0f) {
+                        minimized = false
+                        intent.reset()
+                    } else if (kotlin.math.abs(consumed.y) > kotlin.math.abs(consumed.x)) {
+                        intent.scroll(consumed.y / density.density)?.let { minimized = it }
+                    }
+                }
+                // Upstream: refresh during inertial scrolling too.
+                if (consumed.y != 0f) lensFreshness?.onScroll()
+                return Offset.Zero
+            }
+        }
+    }
+    GlassOverlayHost(modifier = Modifier.fillMaxSize()) {
+        val useGlass = isBackdropSupported()
+        val wallpaperBackdrop = if (useGlass) rememberLayerBackdrop() else null
+        // NativeShell contains native Compose destinations only; WebViews are separate activities.
+        val capturedPageBackdrop = if (useGlass) rememberLayerBackdrop() else null
+        val navBarBackdrop = capturedPageBackdrop ?: wallpaperBackdrop
+        val appLensDensity = LocalDensity.current
+        val appLensAnchor = if (wallpaperBackdrop != null) {
+            rememberGlassLensRegion(tag = "app") { coords ->
+                drawBackdropSource(wallpaperBackdrop, appLensDensity, coords)
+            }
+        } else null
+        val modalLensBlurPx = with(appLensDensity) { GlassRecipe.DialogBlurDp.dp.toPx() }
+        val modalLensAnchor = if (navBarBackdrop != null) {
+            rememberGlassLensRegion("app-modal", route, accountKey, dialogs.currentDialog, navBarBackdrop,
+                freshness = lensFreshness) { coords ->
+                drawBlurred(modalLensBlurPx) { drawBackdropSource(navBarBackdrop, appLensDensity, coords) }
+            }
+        } else null
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val wide = maxWidth >= 700.dp
             val showPrimary = route.parent == null
             val phoneDock = !wide && showPrimary
             val navBarContentInset = if (phoneDock) NavBarMetrics.contentInset() else 0.dp
-            CompositionLocalProvider(LocalAppOverlayBottomInset provides navBarContentInset,
-                LocalPageDataState provides pageData) {
-                GlassWindowHost(
-                    chrome = {
-                        val tier = rememberNavigationMaterialTier()
-                        val navBarBackdrop = com.tyust.course.ui.system.LocalModalBackdrop.current
-                        if (phoneDock) RebuildCapsuleDock(
-                            selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
-                            tier = if (navBarBackdrop != null) tier else NavigationMaterialTier.Opaque,
-                            backdrop = navBarBackdrop,
-                            modifier = Modifier.align(Alignment.BottomCenter)
-                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                                .imePadding(),
-                            minimized = autoCollapse && minimized,
-                            onExpandRequest = { minimized = false; intent.reset() },
-                            lensFreshness = lensFreshness
-                        )
-                    }
-                ) {
-                    val dialogs = LocalDialogHost.current
-                    val scroll = remember(density, dialogs, autoCollapse, lensFreshness) {
-                        object : NestedScrollConnection {
-                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                                if (autoCollapse && source == NestedScrollSource.UserInput && dialogs?.hasBlockingSurface != true) {
-                                    if (consumed.y == 0f && available.y > 0f) {
-                                        minimized = false
-                                        intent.reset()
-                                    } else if (kotlin.math.abs(consumed.y) > kotlin.math.abs(consumed.x)) {
-                                        intent.scroll(consumed.y / density.density)?.let { minimized = it }
-                                    }
-                                }
-                                // Upstream: refresh during inertial scrolling too.
-                                if (consumed.y != 0f) lensFreshness?.onScroll()
-                                return Offset.Zero
-                            }
+            CompositionLocalProvider(
+                LocalGlassWindowOwner provides view,
+                LocalAppBackdrop provides wallpaperBackdrop,
+                LocalControlBackdrop provides wallpaperBackdrop,
+                LocalModalBackdrop provides navBarBackdrop,
+                LocalAppDialogBackdrop provides navBarBackdrop,
+                LocalAppOverlayBottomInset provides navBarContentInset,
+                LocalDialogHost provides dialogs,
+                LocalPageDataState provides pageData,
+                LocalPageGlassFreshness provides lensFreshness,
+                LocalGlassLensAnchor provides appLensAnchor,
+                LocalGlassLensModalAnchor provides modalLensAnchor
+            ) {
+                Box(Modifier.fillMaxSize().then(
+                    if (capturedPageBackdrop != null) Modifier.layerBackdrop(capturedPageBackdrop) else Modifier
+                ).glassLensAnchor(appLensAnchor).glassLensAnchor(modalLensAnchor)
+                    .then(if (dialogs.hasBlockingSurface) Modifier.semantics { hideFromAccessibility() } else Modifier)) {
+                    // Upstream: wallpaper is inside the captured page; controls keep its stationary source.
+                    if (useGlass && wallpaperBackdrop != null) {
+                        Canvas(Modifier.fillMaxSize().layerBackdrop(wallpaperBackdrop)) {
+                            drawWallpaperPattern(appWallpaper)
+                        }
+                    } else {
+                        Canvas(Modifier.fillMaxSize()) {
+                            drawWallpaperPattern(appWallpaper, microTexture = false)
                         }
                     }
                     // Wide-screen rail is the existing business layout adaptation.
@@ -237,7 +283,10 @@ internal fun NativeShell(
                         Box(Modifier.weight(1f).fillMaxHeight()) {
                             key(accountKey) {
                                 val savedPages = rememberSaveableStateHolder()
-                                NavigationPages(navigationMotion, modifier = Modifier.fillMaxSize().nestedScroll(scroll)) { index ->
+                                NavigationPages(navigationMotion, modifier = Modifier.fillMaxSize().nestedScroll(scroll).graphicsLayer {
+                                    translationX = -6.dp.toPx() * dialogs.pageProgress
+                                    alpha = 1f - 0.03f * dialogs.pageProgress
+                                }) { index ->
                                     val pageRoute = AppRoute.entries[index]
                                     val routeKey = "app." + pageRoute.name.lowercase()
                                     savedPages.SaveableStateProvider(pageRoute.name) {
@@ -255,7 +304,24 @@ internal fun NativeShell(
                             }
                         }
                     }
+                } // Close page capture before chrome.
+                CompositionLocalProvider(LocalNavigationMotion provides barMotion) {
+                    val tier = rememberNavigationMaterialTier()
+                    val accessibility = rememberGlassAccessibilityMode()
+                    if (phoneDock) CapsuleNavigationBar(
+                        items = items, selectedTab = selectedNavigationIndex,
+                        onTabSelect = { index -> destinations.getOrNull(index)?.let { goTo(AppRoute.root(it)) } },
+                        minimized = autoCollapse && minimized,
+                        onExpandRequest = { minimized = false; intent.reset() },
+                        backdrop = navBarBackdrop.takeIf { tier == NavigationMaterialTier.Refractive && !accessibility.highContrast },
+                        lensFreshness = lensFreshness,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                            .imePadding()
+                            .then(if (dialogs.hasBlockingSurface) Modifier.semantics { hideFromAccessibility() } else Modifier)
+                    )
                 }
+                DialogHost(dialogs)
             }
         }
     }

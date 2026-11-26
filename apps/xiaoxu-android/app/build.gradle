@@ -60,6 +60,13 @@ android {
         // Signing is performed by the release job after all checks pass.
         // No public debug-key fallback is permitted for formal releases.
         release {
+            // Explicit isolated performance build uses the same release optimizer.
+            if (project.findProperty('xiaoxuPerformanceQa')?.toString() == 'true') {
+                applicationIdSuffix '.performanceqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 性能验证'
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-performance-qa'
+                resValue 'string', 'school_auth_return_host', 'school-auth-return-performance-qa'
+            }
             debuggable false
             minifyEnabled true
             shrinkResources true
