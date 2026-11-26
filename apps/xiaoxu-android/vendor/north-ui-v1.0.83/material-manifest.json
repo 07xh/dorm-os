@@ -1,0 +1,29 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassKit.kt",
+      "blob": "3d9878cab8309c0910d3f9482d16d518eeebdfa4"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassMaterial.kt",
+      "blob": "6de2192507e8d0811fb8ee23016cedd2a3c4ab66"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassCompat.kt",
+      "blob": "67bc1d39875a4c54d02e19c8f699ae6f7e3b1b1e"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/LiquidComponents.kt",
+      "blob": "e887992bf9cab81e0b84cfcbddb6da3ff1db9338"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassPerformancePolicy.kt",
+      "blob": "15e0b4b2415f0819e3909d951826143a85706e2a"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassRuntimeGuard.kt",
+      "blob": "d9c830e5b29321c6fc9ec15d1da407663048f133"
+    }
+  ]
+}
