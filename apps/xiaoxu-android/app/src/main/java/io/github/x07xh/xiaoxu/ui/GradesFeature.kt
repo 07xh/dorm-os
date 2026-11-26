@@ -59,8 +59,14 @@ private fun semesterAverageGpa(grades: List<GradeItemUi>): String {
 
 @Composable
 private fun GradeRefreshStatus(isLoading: Boolean, error: String) {
-    if (isLoading) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
-    else if (error.isNotBlank()) AppNotice(error, error = true)
+    if (isLoading) {
+        androidx.compose.material3.LinearProgressIndicator(
+            modifier = Modifier.fillMaxWidth().height(2.dp)
+        )
+    } else if (error.isNotBlank()) {
+        Text(error, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error)
+    }
 }
 
 @Composable
@@ -284,6 +290,7 @@ private fun MeasuredGradesHeader(
     val wallpaperRegion = rememberWallpaperRegionState()
     val appearance = rememberWallpaperRegionAppearance(wallpaperRegion)
     val p = collapse.coerceIn(0f, 1f)
+    // RebuildShell owns status-bar insets; do not apply them twice.
     val statusBar = 0.dp
     val effectiveBackdrop = backdrop?.takeIf { isBackdropSupported() }
     val layer = if (effectiveBackdrop != null) rememberLayerBackdrop() else null
@@ -314,10 +321,14 @@ private fun MeasuredGradesHeader(
                 LiquidSegmentedControl(tabs, selected, onSelect,
                     modifier = Modifier.testTag("grades-segments"), height = 52.dp - 4.dp * p)
                 Row(Modifier.testTag("grades-actions")) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
+                    }
                     IconButton(onClick = onRefresh, enabled = !refreshing) {
-                        if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
+                        ActionLineIcon(Icons.Outlined.Refresh,
+                            if (refreshing) "正在刷新" else "刷新",
+                            Modifier.size(24.dp),
+                            state = if (refreshing) IconVisualState.Running else IconVisualState.Idle)
                     }
                 }
                 Text("成绩与考试", fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
