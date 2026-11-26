@@ -184,6 +184,7 @@ class MainActivity : ComponentActivity() {
             XiaoxuTheme {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
+                    requestSecondClassRefresh = ::requestSecondClassRefresh,
                     taskReminderOpenCount = taskReminderOpenCount,
                     reminderTaskId = reminderTaskId,
                     onReminderTaskConsumed = { reminderTaskId = null },
@@ -417,14 +418,20 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    override fun onResume() {
-        super.onResume()
-        secondClassAutoJob?.cancel()
+    // One Activity-owned job for foreground entry and resume. Room keeps the last
+    // verified snapshot visible; the coordinator owns cache age and identity checks.
+    private fun requestSecondClassRefresh() {
+        if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) ||
+            secondClassAutoJob?.isActive == true) return
         secondClassAutoJob = lifecycleScope.launch {
-            delay(1_000) // Render the native shell before starting the bounded school reader.
-            SecondClassAutoRefresh.reconcile(applicationContext)
+            withContext(Dispatchers.IO) { SecondClassAutoRefresh.reconcile(applicationContext) }
             SecondClassAutoRefresh.refreshIfDue(applicationContext)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        requestSecondClassRefresh()
         val readSerial = ++localScheduleReadSerial
         lifecycleScope.launch {
             val lessons = withContext(Dispatchers.IO) {
