@@ -56,7 +56,7 @@ class CloudServiceScreenTest {
                 lastSuccessAt = "2026-11-27T00:00:00Z",
                 activities = emptyList(),
                 officialScore = null,
-                personalScore = io.github.x07xh.xiaoxu.data.SecondClassPersonalScore(20.0, 3.0)
+                personalScore = io.github.x07xh.xiaoxu.data.SecondClassScoreBreakdown(20.0, 3.0)
             )
         ))
         val profile = PluginJson.objects(page.getJSONArray("blocks"))
