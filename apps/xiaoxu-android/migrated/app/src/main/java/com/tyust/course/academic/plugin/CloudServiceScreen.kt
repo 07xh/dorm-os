@@ -58,8 +58,8 @@ internal fun CloudServiceScreen(
             message = ""
             try {
                 work()
-            } catch (_: kotlinx.coroutines.CancellationException) {
-                throw kotlinx.coroutines.CancellationException()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 message = "操作未完成，请刷新后检查当前状态"
             } finally {
@@ -295,6 +295,7 @@ internal fun buildCloudMessagePage(state: CloudUiState): JSONObject {
         if (state.wechatCandidates.isNotEmpty()) {
             state.wechatCandidates.take(40).forEachIndexed { index, candidate ->
                 blocks.put(candidateBlock(index, candidate))
+                blocks.put(candidateActionsBlock(index, candidate))
             }
             blocks.put(noticeBlock("candidate_disclaimer",
                 "候选内容仅供本人核对；只有手动确认收录后才会进入本人任务列表。", "warning"))
@@ -347,28 +348,31 @@ internal fun buildCloudMessagePage(state: CloudUiState): JSONObject {
 }
 
 private fun candidateBlock(index: Int, candidate: WechatCandidate): JSONObject {
-    val id = candidate.id
-    val safeId = id.replace(Regex("[^A-Za-z0-9_-]"), "_").take(36)
     val details = listOf(
         candidate.chatLabel.orEmpty(),
         candidate.kind,
         candidate.sentAt,
-        candidate.dueLocalDate.orEmpty()
+        candidate.dueLocalDate.orEmpty(),
+        candidate.excerpt.orEmpty()
     ).filter { it.isNotBlank() }.joinToString(" · ")
-    return JSONObject()
-        .put("id", "candidate_$index")
-        .put("type", "list")
-        .put("title", "待审核候选")
-        .put("items", JSONArray().put(JSONObject()
+    return listBlock(
+        "candidate_$index",
+        "待审核候选",
+        JSONArray().put(JSONObject()
             .put("title", candidate.title)
             .put("subtitle", details)
-            .put("value", "待核对")))
-        .put("subtitle", candidate.excerpt.orEmpty())
-        .put("candidateKey", safeId)
-        .put("actions", JSONArray()
-            .put(actionItem("收录为本人任务", "wechat.candidate.accept", JSONObject().put("id", id)))
-            .put(actionItem("忽略候选", "wechat.candidate.dismiss", JSONObject().put("id", id))))
+            .put("value", "待核对"))
+    )
 }
+
+private fun candidateActionsBlock(index: Int, candidate: WechatCandidate): JSONObject =
+    JSONObject()
+        .put("id", "candidate_actions_$index")
+        .put("type", "actions")
+        .put("title", "候选审核")
+        .put("items", JSONArray()
+            .put(actionItem("收录为本人任务", "wechat.candidate.accept", JSONObject().put("id", candidate.id)))
+            .put(actionItem("忽略候选", "wechat.candidate.dismiss", JSONObject().put("id", candidate.id))))
 
 private fun metric(value: String, label: String) = JSONObject()
     .put("value", value).put("label", label)
