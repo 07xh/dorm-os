@@ -82,9 +82,9 @@ android {
     compileSdkVersion 'android-37.0'
 
     defaultConfig {
-        applicationId "com.tyust.course"
+        applicationId "io.github.x07xh.xiaoxu"
         minSdk 24
-        targetSdk 34
+        targetSdk 35
         versionCode code
         versionName name
         if (!isReleaseTask) {
