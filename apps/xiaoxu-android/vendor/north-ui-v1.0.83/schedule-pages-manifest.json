@@ -30,10 +30,6 @@
       "blob": "ab44c89e1a90c262919ba788d0a5cbda323038f4"
     },
     {
-      "path": "app/src/main/java/com/tyust/course/ui/screen/SettingsScreen.kt",
-      "blob": "bd42dbef8943eb876d4f17cf014a6c518f0839b5"
-    },
-    {
       "path": "app/src/main/java/com/tyust/course/ui/screen/CourseFilterPanel.kt",
       "blob": "758d6185c2227155ad201ba49a8815c91ea49276"
     },

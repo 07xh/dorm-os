@@ -39,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.screen.XiaoxuSettingsScreen
 import com.tyust.course.ui.system.GlassPageScaffold
 import com.tyust.course.ui.system.SystemIconButton
 import androidx.compose.foundation.layout.Box
@@ -87,6 +88,20 @@ fun ProfileSettingsPage(
     onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
+    if (route == "home") {
+        XiaoxuSettingsScreen(
+            connected = client.state.authenticated,
+            refreshing = client.state.busy,
+            onScheduleSettings = onScheduleSettings,
+            onNotifications = { onRouteChange("notifications") },
+            onConnections = { onRouteChange("connections") },
+            onBackup = { onRouteChange("backup") },
+            onAbout = { onRouteChange("about") },
+            onRefresh = onRefresh,
+            onMessages = onMessages
+        )
+        return
+    }
     val animatedRoute = route
     val title = when (animatedRoute) {
         "connections" -> "数据连接"
@@ -121,36 +136,6 @@ fun ProfileSettingsPage(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when (animatedRoute) {
-                "home" -> {
-                    item {
-                        SettingsEditorialSection(title = "学习与课程") {
-                            SettingsEntry("课表设置", Icons.Outlined.DateRange,
-                                onClick = onScheduleSettings)
-                            SettingsDivider()
-                            SettingsEntry("通知与提醒", Icons.Outlined.NotificationsNone) {
-                                onRouteChange("notifications")
-                            }
-                        }
-                    }
-                    item {
-                        SettingsEditorialSection(title = "账户与数据") {
-                            SettingsEntry("数据连接", Icons.Outlined.School) {
-                                onRouteChange("connections")
-                            }
-                            SettingsDivider()
-                            SettingsEntry("备份与恢复", Icons.Outlined.CheckCircle) {
-                                onRouteChange("backup")
-                            }
-                        }
-                    }
-                    item {
-                        SettingsEditorialSection(title = "其他") {
-                            SettingsEntry("关于校序", Icons.Outlined.Info) {
-                                onRouteChange("about")
-                            }
-                        }
-                    }
-                }
                 "connections" -> item {
                     ConnectionsPanel(client, openWebsite, openLocalSchool,
                         startSchoolAuthorization, recentImport)
@@ -166,31 +151,6 @@ fun ProfileSettingsPage(
             }
         }
     }
-    }
-}
-
-/**
- * 设置首页保留原二级路由，只把分组从整张玻璃卡改为开放式行列表。
- * 与单独的连接状态页、提醒开关以及备份等业务容器严格分离。
- */
-@Composable
-private fun SettingsEditorialSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
-        Text(
-            title,
-            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                .semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink
-        )
-        Column(content = { content() })
     }
 }
 

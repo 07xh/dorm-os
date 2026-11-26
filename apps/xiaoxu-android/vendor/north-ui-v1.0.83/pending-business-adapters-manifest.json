@@ -55,6 +55,11 @@
       "path": "pending-business-adapters/app/src/main/java/com/tyust/course/schedule/ReminderJson.kt",
       "upstreamPath": "app/src/main/java/com/tyust/course/schedule/ReminderJson.kt",
       "blob": "28ef4e2e0aa6739e5b7294e1da335c4f6ec1842c"
+    },
+    {
+      "path": "pending-business-adapters/app/src/main/java/com/tyust/course/ui/screen/SettingsScreen.kt",
+      "upstreamPath": "app/src/main/java/com/tyust/course/ui/screen/SettingsScreen.kt",
+      "blob": "bd42dbef8943eb876d4f17cf014a6c518f0839b5"
     }
   ]
 }

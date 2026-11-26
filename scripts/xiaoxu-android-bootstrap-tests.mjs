@@ -40,6 +40,7 @@ for (const path of obsoleteUiPaths) {
 }
 
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
+const northSettings = read(northRoot + 'validation/src/main/java/com/tyust/course/ui/screen/XiaoxuSettingsScreen.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
 const visualQa = read('scripts/xiaoxu-ace6-visual-qa.mjs');
@@ -316,8 +317,7 @@ assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
 assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
 assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun ConnectionsPage\(/,
   '旧版工具弹窗和混合式连接入口应彻底退役');
-assert.match(profileSettings, /"home" ->[\s\S]*?"connections" -> item/,
-  '设置按分类索引；业务内容应进入独立二级路由');
+assert.match(profileSettings, /if \(route == "home"\) \{\s*XiaoxuSettingsScreen\(/);
 assert.match(profileSettings, /"notifications", "notifications-course", "notifications-task" -> item \{/,
   '通知设置必须共用一套二级路由，而不是复制页面');
 assert.match(profileSettings, /NotificationSettingsContent\(localTasks, animatedRoute, onRouteChange\)/,
@@ -860,10 +860,8 @@ assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)[\s\S]*?onRefresh = \{ scope\.launch \{ cloud\.refresh\(\) \} \}/,
   '只有首页的顶栏提供云端刷新，课表页仍使用自己的原生导航');
-assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)/,
-  '成绩页面入口仍为独立原生内容页');
-assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
-  '考试页面与成绩统一页内间距');
+assert.match(main, /academicRoute == AcademicDestination\.GRADES \|\| academicRoute == AcademicDestination\.EXAMS/);
+assert.match(main, /GradesScreen\(/);
 const academicGradeArea = main.slice(main.indexOf('if (academicRoute == AcademicDestination.GRADES || academicRoute == AcademicDestination.EXAMS)'), main.indexOf('val title = when (academicRoute)'));
 assert.match(academicGradeArea, /GradesScreen\(/, '成绩和考试直接使用原版完整页面');
 assert.match(academicGradeArea, /semesterGrades = emptyList\(\)/, '无核验成绩不得伪造');
@@ -1085,8 +1083,7 @@ const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/x
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/,
   '本机备份与恢复只能由账户与数据二级页面打开');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
-  '本机备份仍可通过唯一入口进入');
+assert.match(northSettings, /title = "备份与恢复",[\s\S]*?onClick = onBackup/);
 const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutPage.kt');
 assert.match(profileSettings, /"about" -> item \{\s*AboutPage\(onOpenLicenses/,
   '关于校序应使用单独的品牌信息页面');
@@ -1094,8 +1091,7 @@ assert.match(aboutPage, /AboutInfoRow\("开源许可", onClick = onOpenLicenses\
   '开源许可从关于页进入，不在设置首页重复');
 assert.match(aboutPage, /XiaoxuGroupedSection\(title = "项目致谢"\)/,
   '关于页保留开源署名入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "账户与数据"\)/,
-  '账户与备份入口须保留在设置首页同一分组，不改变二级路由');
+assert.match(northSettings, /header = "账户与数据"/);
 assert.doesNotMatch(main, /if \(showLocalBackup\) item|CompactActionRow\("第二课堂记录"/,
   '移除退役的旧工具入口和向下展开式备份');
 assert.doesNotMatch(profileSettings, /"工具" ->|第二课堂记录/,
@@ -1590,8 +1586,7 @@ assert.match(profileSettings, /contentAlignment = Alignment\.TopCenter/, '设置
 assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.xiaoxuPageWidth\(\)/, '设置保留宽屏阅读约束');
 assert.doesNotMatch(profileSettings, /SettingsEntry\("校序 Academic OS"/,
   '设置首页不应保留重复品牌入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "其他"\)/,
-  '关于校序必须保留在「其他」分组，不占据设置首页首屏');
+assert.match(northSettings, /header = "其他"/);
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置仍走同一二级页宿主');
 assert.doesNotMatch(main, /background\(XiaoxuPalette\.PageGradient\)/, '主页面不得覆盖原版壁纸');
@@ -2163,22 +2158,19 @@ assert.match(academicAction, /onClickLabel = "打开\$title"/,
   '教务入口保持有意义的无障碍点击描述');
 assert.doesNotMatch(academicAction, /background\(XiaoxuPalette\.BrandSoft\)/,
   '教务入口不新增蓝色装饰瓷砖');
-assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
-  '设置首页使用开放式分组而非复制组件库');
+assert.doesNotMatch(profileSettings, /private fun SettingsEditorialSection\(/);
 for (const label of ['学习与课程', '账户与数据', '其他']) {
-  assert.ok(profileSettings.includes('SettingsEditorialSection(title = "' + label + '")'),
-    label + ' 原有导航分组需完整保留');
+  assert.ok(northSettings.includes('header = "' + label + '"'));
 }
-const settingsEditorial = profileSettings.slice(profileSettings.indexOf('private fun SettingsEditorialSection('),
-  profileSettings.indexOf('private fun SettingsDivider('));
-assert.match(settingsEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
-  '设置首页用细线组织内容');
-assert.doesNotMatch(settingsEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
-  '设置首页分组不得嵌套内容玻璃卡');
+assert.match(northSettings, /Scaffold\(/);
+assert.match(northSettings, /derivedStateOf \{ \(scrollState.value \/ 96f\)/);
+assert.match(northSettings, /InsetGroupedSection\(Modifier.moduleEntrance/);
+assert.match(northSettings, /title = "课表设置",[\s\S]*?onClick = onScheduleSettings/);
+assert.match(northSettings, /title = "通知与提醒",[\s\S]*?onClick = onNotifications/);
+assert.match(profileSettings, /onBackup = \{ onRouteChange\("backup"\) \}/);
 assert.match(profileSettings, /"connections" -> item \{/,
   '实际连接页必须继续在原二级路由内');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
-  '备份恢复入口仍可达');
+assert.match(northSettings, /title = "备份与恢复",[\s\S]*?onClick = onBackup/);
 
 
 assert.doesNotMatch(academicOverviewSource, /"未读取"/,
