@@ -1,0 +1,33 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/schedule/ScheduleDomain.kt",
+      "blob": "90ff212a768d1541e7adbaa3fed67a48bac219fc"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/schedule/ScheduleAgenda.kt",
+      "blob": "6c4ab9a4c09d86441dfcacbddc9cfe3c8558f978"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/schedule/ScheduleDates.kt",
+      "blob": "1734184fd21d229083b70291234993f85ccbc85b"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/schedule/ScheduleDisplayStore.kt",
+      "blob": "962934fc5369a2017d472e2b4e61781950255188"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/schedule/ScheduleOverlap.kt",
+      "blob": "287942e74e1d537cc1d55ca02ea44ab267d72aba"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/schedule/ScheduleWeekPagerSync.kt",
+      "blob": "f107ba166b153e24422083a5402a4fcec09c3629"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/schedule/CourseReminder.kt",
+      "blob": "a21ec91bd4931370284c8aea79ed1729524f9d3e"
+    }
+  ]
+}
