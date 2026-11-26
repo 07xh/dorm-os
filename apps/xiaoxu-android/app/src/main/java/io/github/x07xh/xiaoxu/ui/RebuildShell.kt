@@ -56,10 +56,15 @@ internal fun NativeShell(
     onSchoolReturnConsumed: () -> Unit, startSchoolAuthorization: (String) -> Unit,
     openFileImport: () -> Unit, openFileExport: () -> Unit,
     openLocalSchool: (String) -> Unit, consumeWebsiteReturn: () -> Boolean,
-    openWebsite: () -> Unit, openArticle: (String) -> Unit
+    openWebsite: () -> Unit, openArticle: (String) -> Unit,
+    requestSecondClassRefresh: () -> Unit = {}
 ) {
     var route by rememberSaveable { mutableStateOf(AppRoute.HOME) }
     var routeTrail by rememberSaveable { mutableStateOf("") }
+    val latestSecondClassRefresh by rememberUpdatedState(requestSecondClassRefresh)
+    LaunchedEffect(route) {
+        if (route == AppRoute.SECOND_CLASS) latestSecondClassRefresh()
+    }
     val reducedMotion = rememberGlassAccessibilityMode().reduceMotion ||
         !android.animation.ValueAnimator.areAnimatorsEnabled()
     val navigationMotion = rememberNavigationMotionState(route.ordinal, "xiaoxu-routes", reducedMotion)
