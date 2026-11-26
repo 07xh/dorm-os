@@ -1157,7 +1157,8 @@ assert.match(dueTest, /upcomingCountRequiresLocalNotOverdueAndNotDone/,
   '真实JVM用例须覆盖本人逾期及云端未核验日期');
 assert.match(dueTest, /weeklyFiltersDoNotTreatCloudRecordsAsVerifiedSchoolDueDates/,
   '真实JVM用例须拒绝把云端未核实日期标为本周学校作业');
-assert.match(workspace, /未命名|已保存|待完成/, '首页显示本人真实任务数据');
+assert.match(settingsRoutes, /visibleWorkspaceTasks\(combineWorkspaceTasks\(tasks, cloud, native\.orEmpty\(\)\), archivedKeys\)/, '首页显示本人真实任务数据');
+assert.match(settingsRoutes, /all\.count\(::isActionableWorkspaceTask\)/, '首页统计真实待办');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出调试日志');
 // 课表主页面继续保留本机导入及来源分离门禁。
 assert.doesNotMatch(cloud, /scheduleStatus|scheduleFetchedAt|val lessons: List<VerifiedLesson> = emptyList/);
