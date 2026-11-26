@@ -165,7 +165,7 @@ class StudyReminderSchedulingTest {
 
     @Test
     fun `removing the clashing course frees the study reminder again`() {
-        val clash = ScheduleCourseRecord("custom:mon", "周一新课", "", "", 1, 1, 1, "1-25周")
+        val clash = ScheduleCourseRecord("custom:mon", "周一新课", "", "", 1, 1, 1, "1-${ScheduleMaxWeeks}周")
         scheduler.setEnabled(CourseReminderKey(account, term, tuesday.id), tuesday, true)
         scheduler.updateSnapshot(account, term, listOf(tuesday, clash))
         // 每周都被压住 → 不生成自习提醒。
