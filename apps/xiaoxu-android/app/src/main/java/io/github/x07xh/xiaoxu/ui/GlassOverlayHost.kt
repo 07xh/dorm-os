@@ -178,3 +178,6 @@ internal fun dismissRegions(window: Rect, controls: Rect): List<Rect> {
         Rect(hole.right, hole.top, window.right, hole.bottom)
     ).filter { it.width > 0f && it.height > 0f }
 }
+
+// Upstream AnchoredGlassOverlay.kt: overlay-body context for filter controls.
+internal val LocalOverlayBody = staticCompositionLocalOf { false }

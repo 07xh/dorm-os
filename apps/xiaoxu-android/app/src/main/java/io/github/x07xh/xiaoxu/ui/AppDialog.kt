@@ -94,7 +94,7 @@ private fun AppDialogBody(
     val panel = if (backdrop != null) Modifier.glassSheet(backdrop) else Modifier.clip(shape)
         .background(colors.surface).border(0.75.dp, colors.outlineVariant, shape)
     Box(Modifier.width(dialogWidth).then(panel).semantics { paneTitle = "对话框" }) {
-        CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
+        CompositionLocalProvider(LocalContentColor provides colors.onSurface, LocalOverlayBody provides true) {
             Column(
                 modifier = Modifier.padding(
                     horizontal = dialogHorizontalPadding,

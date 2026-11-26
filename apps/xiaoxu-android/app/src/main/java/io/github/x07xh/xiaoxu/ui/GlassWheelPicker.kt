@@ -1,8 +1,9 @@
 package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
-// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, GlassWheelPicker.kt
-// Original authors and contributors. Adapted to the shared local dialog host.
+// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassWheelPicker.kt
+// Original authors and contributors. See upstream license.
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -19,9 +20,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -50,7 +52,10 @@ import java.util.TimeZone
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-
+/**
+ * 玻璃滚轮单列：iOS 风格 3D 滚筒，惯性滚动 + 逐行吸附。
+ * 行随距中心距离产生透视旋转、缩放与淡出；中心行由 systemFill 胶囊指示。
+ */
 @Composable
 fun GlassWheelColumn(
     items: List<String>,
@@ -60,8 +65,8 @@ fun GlassWheelColumn(
     itemHeight: Dp = 40.dp,
     visibleCount: Int = 5
 ) {
-    require(visibleCount % 2 == 1) { "visibleCount 应为奇数" }
     val reduced = rememberGlassAccessibilityMode().reduceMotion
+    require(visibleCount % 2 == 1) { "visibleCount 应为奇数" }
     val density = LocalDensity.current
     val itemHeightPx = with(density) { itemHeight.toPx() }
     val padCount = visibleCount / 2
@@ -72,7 +77,7 @@ fun GlassWheelColumn(
     val scope = rememberCoroutineScope()
 
     // 吸附中心行索引（滚动中实时更新）
-    val centerIndex by remember(state, items.size, itemHeightPx) {
+    val centerIndex by remember(state) {
         derivedStateOf {
             val offsetRows = (state.firstVisibleItemScrollOffset / itemHeightPx).roundToInt()
             (state.firstVisibleItemIndex + offsetRows).coerceIn(0, (items.size - 1).coerceAtLeast(0))
@@ -164,90 +169,10 @@ fun GlassWheelColumn(
     }
 }
 
-
-@Composable
-fun GlassTimePickerDialog(
-    initialTime: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-    title: String = "选择时间",
-    minuteStep: Int = 5,
-    preserveInitial: Boolean = false
-) {
-    val step = minuteStep.coerceIn(1, 30)
-    val hourLabels = remember { (0..23).map { "%02d".format(it) } }
-    val minuteValues = remember(step, initialTime, preserveInitial) {
-        val values = (0 until 60 step step).toList()
-        if (preserveInitial) (values + parseMinute(initialTime, 0)).distinct().sorted() else values
-    }
-    val minuteLabels = remember(minuteValues) { minuteValues.map { "%02d".format(it) } }
-
-    var hour by remember { mutableIntStateOf(parseHour(initialTime, 8)) }
-    var minute by remember {
-        mutableIntStateOf(nearestMinuteIndex(parseMinute(initialTime, 0), minuteValues))
-    }
-
-    AppDialog(usePortal = true, 
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-        confirmButton = { TextButton(onClick = { onConfirm("%02d:%02d".format(hour, minuteValues[minute])) }) { Text("确定") } },
-        text = {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // 中心行 systemFill 胶囊指示条
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .align(Alignment.Center)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF787880).copy(alpha = 0.12f))
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                GlassWheelColumn(
-                    items = hourLabels,
-                    selectedIndex = hour,
-                    onSelect = { hour = it },
-                    modifier = Modifier.weight(1f),
-                    visibleCount = 3
-                )
-                Text(
-                    text = ":",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                GlassWheelColumn(
-                    items = minuteLabels,
-                    selectedIndex = minute,
-                    onSelect = { minute = it },
-                    modifier = Modifier.weight(1f),
-                    visibleCount = 3
-                )
-            }
-        }
-    })
-}
-
-private fun parseHour(value: String, fallback: Int): Int =    value.substringBefore(':').trim().toIntOrNull()?.coerceIn(0, 23) ?: fallback
-
-private fun parseMinute(value: String, fallback: Int): Int =
-    value.substringAfter(':', "").trim().toIntOrNull()?.coerceIn(0, 59) ?: fallback
-
-/** 存档里的分钟可能不在步进点上（例如 08:47），取最近的一格而不是丢弃。 */
-private fun nearestMinuteIndex(minute: Int, values: List<Int>): Int {
-    var best = 0
-    values.forEachIndexed { index, value ->
-        if (abs(value - minute) < abs(values[best] - minute)) best = index
-    }
-    return best
-}
-
-
+/**
+ * 玻璃滚轮日期选择弹窗：年 / 月 / 日 三列，替代 MaterialDatePicker。
+ * 返回本地时区当日零点的时间戳。
+ */
 @Composable
 fun GlassDatePickerDialog(
     onConfirm: (java.time.LocalDate) -> Unit,
@@ -257,7 +182,10 @@ fun GlassDatePickerDialog(
     preserveInitial: Boolean = false
 ) {
     val initialCal = remember(initialDate) {
-        Calendar.getInstance().apply { clear(); set(initialDate.year, initialDate.monthValue - 1, initialDate.dayOfMonth) }
+        Calendar.getInstance().apply {
+            clear()
+            set(initialDate.year, initialDate.monthValue - 1, initialDate.dayOfMonth)
+        }
     }
     val thisYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
     val years = remember(thisYear, initialDate, preserveInitial) {
@@ -285,10 +213,25 @@ fun GlassDatePickerDialog(
     }
     if (dayIndex > daysInMonth - 1) dayIndex = daysInMonth - 1
 
-    AppDialog(usePortal = true, onDismissRequest = onDismiss,
-        title = { Text(title) },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-        confirmButton = { TextButton(onClick = { onConfirm(java.time.LocalDate.of(years[yearIndex], monthIndex + 1, dayIndex + 1)) }) { Text("确定") } },
+    AppDialog(
+        usePortal = true,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+        },
+        confirmButton = {
+            Button(onClick = {
+                    onConfirm(java.time.LocalDate.of(years[yearIndex], monthIndex + 1, dayIndex + 1))
+                }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
+        },
         text = {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 中心行 systemFill 胶囊指示条
@@ -332,6 +275,226 @@ fun GlassDatePickerDialog(
     })
 }
 
+/**
+ * 玻璃滚轮日期时间选择弹窗：日期（近 60 天）+ 时 + 分 三列。
+ * 替代原生 DatePickerDialog/TimePickerDialog，跟随 SystemDialog 玻璃体系。
+ */
+@Composable
+fun GlassDateTimePickerDialog(
+    onConfirm: (timeInMillis: Long) -> Unit,
+    onDismiss: () -> Unit,
+    initialMillis: Long = System.currentTimeMillis(),
+    title: String = "选择时间",
+    preserveInitial: Boolean = false
+) {
+    val dayCount = 60
+    val baseCalendar = remember(initialMillis, preserveInitial) {
+        Calendar.getInstance().apply {
+            timeInMillis = if (preserveInitial) initialMillis else System.currentTimeMillis()
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (preserveInitial) add(Calendar.DAY_OF_YEAR, -dayCount / 2)
+        }
+    }
+    val dayLabels = remember(baseCalendar) {
+        val fmt = SimpleDateFormat("M月d日 E", Locale.CHINA)
+        (0 until dayCount).map { offset ->
+            val cal = baseCalendar.clone() as Calendar
+            cal.add(Calendar.DAY_OF_YEAR, offset)
+            val today = Calendar.getInstance()
+            if (cal.get(Calendar.YEAR) == today.get(Calendar.YEAR) && cal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)) {
+                "今天"
+            } else {
+                fmt.format(cal.time)
+            }
+        }
+    }
+    val hourLabels = remember { (0..23).map { "%02d".format(it) } }
+    val minuteLabels = remember { (0..59).map { "%02d".format(it) } }
+
+    val initialCal = remember(initialMillis) {
+        Calendar.getInstance().apply { timeInMillis = initialMillis }
+    }
+    val initialDayOffset = remember(initialCal) {
+        // Calendar days are not always 24 hours across daylight-saving transitions.
+        val diff = calendarDayOffset(baseCalendar, initialCal)
+        diff.coerceIn(0, dayCount - 1)
+    }
+
+    var dayIndex by remember { mutableIntStateOf(initialDayOffset) }
+    var hourIndex by remember {
+        mutableIntStateOf(initialCal.get(Calendar.HOUR_OF_DAY))
+    }
+    var minuteIndex by remember {
+        mutableIntStateOf(initialCal.get(Calendar.MINUTE))
+    }
+
+    AppDialog(
+        usePortal = true,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+        },
+        confirmButton = {
+            Button(onClick = {
+                    val cal = baseCalendar.clone() as Calendar
+                    cal.add(Calendar.DAY_OF_YEAR, dayIndex)
+                    cal.set(Calendar.HOUR_OF_DAY, hourIndex)
+                    cal.set(Calendar.MINUTE, minuteIndex)
+                    onConfirm(cal.timeInMillis)
+                }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
+        },
+        text = {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // 中心行 systemFill 胶囊指示条
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF787880).copy(alpha = 0.12f))
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                GlassWheelColumn(
+                    items = dayLabels,
+                    selectedIndex = dayIndex,
+                    onSelect = { dayIndex = it },
+                    modifier = Modifier.weight(1.6f)
+                )
+                GlassWheelColumn(
+                    items = hourLabels,
+                    selectedIndex = hourIndex,
+                    onSelect = { hourIndex = it },
+                    modifier = Modifier.weight(0.7f)
+                )
+                Text(
+                    text = ":",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                GlassWheelColumn(
+                    items = minuteLabels,
+                    selectedIndex = minuteIndex,
+                    onSelect = { minuteIndex = it },
+                    modifier = Modifier.weight(0.7f)
+                )
+            }
+        }
+    })
+}
+
+/**
+ * 玻璃滚轮时间选择弹窗：时 : 分 两列，与「节次时间」共用同一套滚轮和弹窗样式。
+ * 分钟按 [minuteStep] 步进（默认 5），与 [GlassTimeRangePickerDialog] 一致。
+ *
+ * @param initialTime "HH:mm" 形式的初始时间，格式不对时回落到 08:00
+ * @param onConfirm 回调 "HH:mm" 形式的时间
+ */
+@Composable
+fun GlassTimePickerDialog(
+    initialTime: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+    title: String = "选择时间",
+    minuteStep: Int = 5,
+    preserveInitial: Boolean = false
+) {
+    val step = minuteStep.coerceIn(1, 30)
+    val hourLabels = remember { (0..23).map { "%02d".format(it) } }
+    val minuteValues = remember(step, initialTime, preserveInitial) {
+        val values = (0 until 60 step step).toList()
+        if (preserveInitial) (values + parseMinute(initialTime, 0)).distinct().sorted() else values
+    }
+    val minuteLabels = remember(minuteValues) { minuteValues.map { "%02d".format(it) } }
+
+    var hour by remember { mutableIntStateOf(parseHour(initialTime, 8)) }
+    var minute by remember {
+        mutableIntStateOf(nearestMinuteIndex(parseMinute(initialTime, 0), minuteValues))
+    }
+
+    AppDialog(
+        usePortal = true,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm("%02d:%02d".format(hour, minuteValues[minute])) }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
+        },
+        text = {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // 中心行 systemFill 胶囊指示条
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF787880).copy(alpha = 0.12f))
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                GlassWheelColumn(
+                    items = hourLabels,
+                    selectedIndex = hour,
+                    onSelect = { hour = it },
+                    modifier = Modifier.weight(1f),
+                    visibleCount = 3
+                )
+                Text(
+                    text = ":",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                GlassWheelColumn(
+                    items = minuteLabels,
+                    selectedIndex = minute,
+                    onSelect = { minute = it },
+                    modifier = Modifier.weight(1f),
+                    visibleCount = 3
+                )
+            }
+        }
+    })
+}
+
+/**
+ * 玻璃滚轮时间段选择弹窗：开始 时:分 / 结束 时:分 四列。
+ *
+ * 存在的理由是课表节次时间原本让用户手打 "HH:MM" 到 OutlinedTextField 里——
+ * 格式错了没有任何提示，是那一页最差的一处交互。分钟按 5 步进：节次时间
+ * 不需要分钟级精度，步进后一屏能扫完，比 60 行滚轮快得多。
+ *
+ * @param onConfirm 回调 "HH:mm" 形式的开始与结束时间
+ */
 @Composable
 fun GlassTimeRangePickerDialog(
     initialStart: String,
@@ -360,10 +523,31 @@ fun GlassTimeRangePickerDialog(
         mutableIntStateOf(nearestMinuteIndex(parseMinute(initialEnd, 45), minuteValues))
     }
 
-    AppDialog(usePortal = true, onDismissRequest = onDismiss,
-        title = { Text(title) },
-        dismissButton = { Row { if (onClear != null) TextButton(onClick = onClear) { Text("清除") }; TextButton(onClick = onDismiss) { Text("取消") } } },
-        confirmButton = { TextButton(onClick = { onConfirm("%02d:%02d".format(startHour, minuteValues[startMinute]), "%02d:%02d".format(endHour, minuteValues[endMinute])) }) { Text("确定") } },
+    AppDialog(
+        usePortal = true,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        dismissButton = {
+            Row {
+                if (onClear != null) TextButton(onClick = onClear) { Text("清除") }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("取消") }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                    onConfirm(
+                        "%02d:%02d".format(startHour, minuteValues[startMinute]),
+                        "%02d:%02d".format(endHour, minuteValues[endMinute])
+                    )
+                }, modifier = Modifier.fillMaxWidth()) { Text("保存") }
+        },
         text = {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -424,6 +608,11 @@ fun GlassTimeRangePickerDialog(
     })
 }
 
+/**
+ * 单列玻璃滚轮选择弹窗。用于「每天节数」这类选项不多但也不适合分段控件的场合
+ * （9 个选项塞进分段控件会挤成一排细条，而 LiquidPicker 是 56dp 的表单字段，
+ * 放进 inset grouped 行里就成了"表单里嵌表单"）。
+ */
 @Composable
 fun GlassOptionWheelDialog(
     options: List<String>,
@@ -437,10 +626,23 @@ fun GlassOptionWheelDialog(
         mutableIntStateOf(selectedIndex.coerceIn(0, options.lastIndex))
     }
 
-    AppDialog(usePortal = true, onDismissRequest = onDismiss,
-        title = { Text(title) },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-        confirmButton = { TextButton(onClick = { onConfirm(index) }) { Text("确定") } },
+    AppDialog(
+        usePortal = true,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("取消") }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(index) }, modifier = Modifier.fillMaxWidth()) { Text("确定") }
+        },
         text = {
         Box(modifier = Modifier.fillMaxWidth()) {
             Box(
@@ -459,4 +661,28 @@ fun GlassOptionWheelDialog(
             )
         }
     })
+}
+
+private fun calendarDayOffset(base: Calendar, selected: Calendar): Int {
+    // Compare date fields at UTC midnight, keeping API 24 compatibility and avoiding DST fractions.
+    fun midnight(calendar: Calendar): Long = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+        clear()
+        set(Calendar.ERA, calendar.get(Calendar.ERA))
+        set(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+    }.timeInMillis
+    return ((midnight(selected) - midnight(base)) / (24L * 60 * 60 * 1000)).toInt()
+}
+
+private fun parseHour(value: String, fallback: Int): Int =    value.substringBefore(':').trim().toIntOrNull()?.coerceIn(0, 23) ?: fallback
+
+private fun parseMinute(value: String, fallback: Int): Int =
+    value.substringAfter(':', "").trim().toIntOrNull()?.coerceIn(0, 59) ?: fallback
+
+/** 存档里的分钟可能不在步进点上（例如 08:47），取最近的一格而不是丢弃。 */
+private fun nearestMinuteIndex(minute: Int, values: List<Int>): Int {
+    var best = 0
+    values.forEachIndexed { index, value ->
+        if (abs(value - minute) < abs(values[best] - minute)) best = index
+    }
+    return best
 }

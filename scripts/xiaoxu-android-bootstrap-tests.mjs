@@ -468,7 +468,7 @@ assert.match(secondClassMain, /正在同步 · 保留当前数据/);
 assert.match(secondClassMain, /InsetGroupedSection\(animateSize = false\)/);
 
 const segmentControl = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamLiquidSegmentedControl.kt');
-assert.match(segmentControl, /height: Dp = 48\.dp/, "上游分段控件默认48dp");
+assert.match(segmentControl, /height: Dp = 52\.dp/, "上游分段控件默认52dp");
 assert.match(segmentControl, /\/ optionCount\)\.coerceAtLeast\(1f\)/, "按分段数量平均分配宽度");
 assert.match(segmentControl, /\.weight\(1f\)[\s\S]*?role = Role\.Tab/, "分段等宽且有标签语义");
 assert.match(taskWorkspaceForComposerGate, /onSelect = \{ filter = filters\[it\]\.first \}, height = 48\.dp\)/, "任务页使用48dp分段控件");

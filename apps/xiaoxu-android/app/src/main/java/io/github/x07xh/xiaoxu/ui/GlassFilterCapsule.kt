@@ -1,8 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
-// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, GlassFilterCapsule.kt
-// Original authors and contributors; local Material theme and performance adapter.
+// Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassFilterCapsule.kt
+// Original authors and contributors. See upstream license.
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,7 +11,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -30,6 +29,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.kyant.shapes.Capsule
+import com.tyust.course.ui.system.LocalWallpaperAppearanceColors
+import com.tyust.course.ui.system.isBackdropSupported
 
 /** A readable choice on a glass container. No nested page readback for every filter chip. */
 @Composable
@@ -46,23 +47,24 @@ internal fun GlassFilterCapsule(
     val accessibility = rememberGlassAccessibilityMode()
     val reduced = accessibility.reduceMotion
     val colors = MaterialTheme.colorScheme
+    val appearance = LocalWallpaperAppearanceColors.current
+    val overPanel = LocalOverlayBody.current
     val chosen = selected == true
     val emphasis by animateFloatAsState(if (chosen) 1f else 0f,
         if (reduced) snap() else spring(dampingRatio = .9f, stiffness = 700f), label = "filter-shape")
     val surface by animateColorAsState(when {
         !enabled -> colors.surfaceContainerHigh
         chosen -> colors.primary.copy(alpha = .12f).compositeOver(colors.surface)
-        else -> colors.surfaceContainerHigh
+        accessibility.highContrast || !isBackdropSupported() -> colors.surfaceContainerHigh
+        else -> appearance.surface
     }, if (reduced) snap() else spring(dampingRatio = 1f, stiffness = 1600f), label = "filter-surface")
     val foreground by animateColorAsState(when {
         !enabled -> colors.onSurfaceVariant.copy(alpha = .62f)
         chosen -> colors.primary
-        else -> colors.onSurface
+        else -> if (overPanel || !isBackdropSupported()) colors.onSurface else appearance.onSurface
     }, if (reduced) snap() else spring(dampingRatio = 1f, stiffness = 1600f), label = "filter-text")
+    val optics = rememberInteractiveOptics()
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val pressProgress by animateFloatAsState(if (pressed) 1f else 0f,
-        if (reduced) snap() else spring(dampingRatio = .9f, stiffness = 700f), label = "filter-press")
     val interaction = when {
         selected == null -> Modifier.clickable(source, null, enabled, role = Role.Button, onClick = onClick)
         toggle -> Modifier.toggleable(selected, source, null, enabled, Role.Checkbox) { onClick() }
@@ -71,10 +73,11 @@ internal fun GlassFilterCapsule(
     val shape = Capsule()
     Row(modifier.heightIn(min = 48.dp).graphicsLayer {
         if (!reduced && enabled) {
-            scaleX = 1f + .012f * emphasis - .035f * pressProgress
-            scaleY = 1f - .012f * emphasis - .035f * pressProgress
+            scaleX = 1f + .012f * emphasis - .035f * optics.pressProgress
+            scaleY = 1f - .012f * emphasis - .035f * optics.pressProgress
         }
-    }
+    }.then(if (enabled && !reduced) optics.gestureModifier else Modifier)
+        .glassChip(shape, dimmed = !enabled, pressProgress = { if (reduced) 0f else optics.pressProgress })
         .clip(shape).background(surface).then(interaction).padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         // Reserve the check slot: changing selection must not reflow every chip.
