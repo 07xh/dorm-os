@@ -36,7 +36,8 @@ object AcademicProviderRegistry {
     fun initialize(context: Context) {
         app = context.applicationContext; localEndpoint = null
         PluginTrace.initialize(context)
-        bundled = BundledAcademicProviders.load { context.assets.open(it).use { stream -> stream.readBytes() } }
+        bundled = BundledAcademicProviders.load { context.assets.open(it).use { stream -> stream.readBytes() } } +
+            BundledServiceProviders.load { context.assets.open(it).use { stream -> stream.readBytes() } }
         store = PluginPackageStore(context, trustedKeys()); runCatching { reload() }
     }
     fun packages(): PluginPackageStore = store ?: error("Plugin registry has not been initialized")
@@ -105,7 +106,7 @@ object AcademicProviderRegistry {
         UserManager.getInstance().updateSchoolConfig(school); choose(school, fallback); reload()
     }
     fun restoreOfficialCatalog() { localEndpoint = null; preferences()?.edit()?.remove("url")?.apply() }
-    fun services(school: SchoolConfig): List<PluginPackage> = installed.values.filter { (it.manifest.isService || it.manifest.isNative) && isEnabled(it.manifest.id, school) && matches(it, school) }
+    fun services(school: SchoolConfig): List<PluginPackage> = knownPackages().filter { (it.manifest.isService || it.manifest.isNative) && isEnabled(it.manifest.id, school) && matches(it, school) }
     fun matches(pkg: PluginPackage, school: SchoolConfig): Boolean {
         val manifest = pkg.manifest
         if (manifest.isService && ServicePluginContract.matches(manifest, school)) return true
