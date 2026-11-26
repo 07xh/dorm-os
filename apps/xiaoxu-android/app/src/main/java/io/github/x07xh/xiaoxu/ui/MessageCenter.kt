@@ -317,7 +317,7 @@ fun MessageCenterPanel(
                     top = 10.dp,
                     bottom = 26.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 item {
                     XiaoxuTopBar(
@@ -331,16 +331,6 @@ fun MessageCenterPanel(
                     }
                 }
                 item {
-                    LocalReminderSummary(
-                        previews = upcomingLocal,
-                        expanded = localSummaryExpanded,
-                        onExpand = { localSummaryExpanded = !localSummaryExpanded },
-                        onOpenTask = onOpenLocalTasks,
-                        onOpenCourse = onOpenLocalSchedule,
-                        onSettings = onOpenReminderSettings
-                    )
-                }
-                item {
                     // One shared glass selector for real message sources, not a
                     // Material TabRow with another visual system inside the page.
                     val noticeTitle = "官方通知" +
@@ -348,7 +338,8 @@ fun MessageCenterPanel(
                     val wechatTitle = "微信审核" +
                         if (state.authenticated && state.wechatError == null &&
                             state.pendingWechatCount != null)
-                            " (${state.pendingWechatCount})" else ""
+                            if (state.pendingWechatCount!! >= 30) " (30+)" else " (${state.pendingWechatCount})"
+                        else ""
                     XiaoxuSegmentedControl(
                         options = listOf(
                             XiaoxuSegmentOption(MSG_FILTER_NOTICE, noticeTitle),
@@ -357,6 +348,7 @@ fun MessageCenterPanel(
                         selectedKey = sourceTab,
                         onSelected = { sourceTab = it }
                     )
+                    Spacer(Modifier.height(10.dp))
                 }
                 if (!showWechat) {
                     item {
@@ -420,10 +412,12 @@ fun MessageCenterPanel(
                     // identity. Avoid a second full-width header before the first row.
                     items(count = filtered.size, key = { index -> noticeKeys[index] }) { index ->
                         val notice = filtered[index]
-                        NoticeCard(
-                            notice = notice,
-                            onClick = { openedId = notice.id.ifBlank { notice.url } }
-                        )
+                        XiaoxuConnectedListRow(index = index, total = filtered.size, standalone = true) {
+                            NoticeCard(
+                                notice = notice,
+                                onClick = { openedId = notice.id.ifBlank { notice.url } }
+                            )
+                        }
                     }
                     if (filtered.isEmpty()) {
                         item { MessageEmptyHint(query = query.takeIf { it.isNotBlank() }) }
@@ -432,18 +426,6 @@ fun MessageCenterPanel(
 
                 if (showWechat) {
                     item {
-                        SourceSectionHeader(
-                            icon = Icons.Outlined.PersonOutline,
-                            title = "微信候选",
-                            badge = "本人云端",
-                            detail = pendingWechatShortLabel(
-                                state.pendingWechatCount,
-                                state.authenticated,
-                                state.wechatError
-                            )
-                        )
-                    }
-                    item {
                         WechatReviewPanel(
                             client = client,
                             pendingCount = state.pendingWechatCount,
@@ -451,7 +433,23 @@ fun MessageCenterPanel(
                         )
                     }
                 }
-
+                item(key = "message:reminder-plan") {
+                    Spacer(Modifier.height(16.dp))
+                    if (localSummaryExpanded) {
+                        LocalReminderSummary(
+                            previews = upcomingLocal,
+                            expanded = true,
+                            onExpand = { localSummaryExpanded = false },
+                            onOpenTask = onOpenLocalTasks,
+                            onOpenCourse = onOpenLocalSchedule,
+                            onSettings = onOpenReminderSettings
+                        )
+                    } else {
+                        androidx.compose.material3.TextButton(onClick = { localSummaryExpanded = true }) {
+                            Text("本机提醒计划" + (upcomingLocal?.let { " · ${it.size}" } ?: ""))
+                        }
+                    }
+                }
             }
         }
         if (wide && !showWechat) {
@@ -583,51 +581,6 @@ private fun NoticeTabletDetailPane(
 // ---------------------------------------------------------------------------
 // 头部：统一紧凑标题；来源计数由 Tab 呈现，不再堆叠摘要卡
 // ---------------------------------------------------------------------------
-
-/**
- * 来源分区标题：把"哪一份数据"写在列表前面，避免混合页面被当成同一个来源。
- */
-@Composable
-private fun SourceSectionHeader(
-    icon: ImageVector,
-    title: String,
-    badge: String,
-    detail: String
-) {
-    // 只用一行呈现来源、数量和身份：不在分段控件下重复堆标题+徽标两层。
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 44.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f).semantics { heading() },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        SourceBadge(
-            text = badge,
-            tone = if (title == "微信候选") XiaoxuTone.Warning else XiaoxuTone.Brand
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = detail,
-            style = MaterialTheme.typography.labelSmall,
-            color = XiaoxuPalette.Ink3,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
 
 // ---------------------------------------------------------------------------
 // 搜索 / 筛选
@@ -811,10 +764,6 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     val isExam = notice.category == "exam"
     Row(
         modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(XiaoxuRadius.list))
-            .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line,
-                RoundedCornerShape(XiaoxuRadius.list))
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
