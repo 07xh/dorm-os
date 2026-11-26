@@ -16,7 +16,10 @@ fun SecondClassAutoReadControls() {
     val prefs = remember(c) { c.getSharedPreferences(SecondClassAutoRefresh.SETTINGS, 0) }
     var revision by remember { mutableIntStateOf(0) }
     DisposableEffect(prefs) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> revision++ }
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+            if (changed == null || changed in setOf("enabled", "background", "status", "success_at",
+                    "background_check_at", "success_background")) revision++
+        }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
@@ -41,7 +44,7 @@ fun SecondClassAutoReadControls() {
     }
     InsetGroupedSection(header = "自动同步", animateSize = false,
         footer = "仅同步本人已授权记录；后台执行时间可能因系统省电策略而延迟。") {
-        InsetGroupedRow(title = "返回应用时自动读取", subtitle = "10 分钟内使用已保存数据",
+        InsetGroupedRow(title = "自动读取", subtitle = "返回应用或进入第二课堂时检查；10 分钟内使用已保存数据",
             trailing = { LiquidSwitch(checked = enabled, onCheckedChange = {
                 SecondClassAutoRefresh.configure(c, it, background)
             }) })
@@ -52,7 +55,7 @@ fun SecondClassAutoReadControls() {
             }) })
     }
     InsetGroupedSection(header = "同步状态", animateSize = false) {
-        InsetGroupedRow(title = message ?: "自动读取状态",
+        InsetGroupedRow(title = message ?: if (!enabled) "自动读取已关闭" else "等待下次检查",
             subtitle = recent ?: "尚无自动读取记录", showDivider = false)
     }
 }
