@@ -20,7 +20,8 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.background
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
@@ -703,9 +704,9 @@ private fun NativeShell(
     val page = current
     Box(Modifier.fillMaxSize().clipToBounds()) {
         pageStateHolder.SaveableStateProvider(page.name) {
-        // Full-size opaque layers and bounds clipping prevent old
-        // page labels from showing through while rapidly changing tabs.
-        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)
+        // The full-window UiV2Shell paints the only gradient, as in the upstream
+        // wallpaper host. The single live tab needs no separate background.
+        Box(Modifier.fillMaxSize()
             .testTag("xiaoxu_page_${page.name}")) {
         when (page) {
             MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
@@ -801,14 +802,13 @@ private fun NativeShell(
                         xiaoxuSettingsRouteTransition(
                             if (initialState) "detail" else "home",
                             if (targetState) "detail" else "home"
-                        )
+                        ).targetContentEnter togetherWith ExitTransition.None
                     },
                     modifier = Modifier.fillMaxSize().clipToBounds(),
                     label = "profileTimetableChild"
                 ) { timetableChild ->
-                    // Each target child owns an opaque full-size layer. The
-                    // timetable/editor must not show settings text behind it.
-                    Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
+                    // The shared wallpaper stays fixed; the outgoing route exits immediately.
+                    Box(Modifier.fillMaxSize()) {
                     if (timetableChild) {
                     // A native child of 我的/设置, not a switch to the timetable tab.
                     // Keeping current == PROFILE avoids AnimatedContent rendering a
@@ -939,13 +939,13 @@ private fun AcademicPage(
             xiaoxuSettingsRouteTransition(
                 if (initialState == AcademicDestination.OVERVIEW) "home" else "detail",
                 if (targetState == AcademicDestination.OVERVIEW) "home" else "detail"
-            )
+            ).targetContentEnter togetherWith ExitTransition.None
         },
         modifier = Modifier.fillMaxSize().clipToBounds(),
         label = "academicChild"
     ) { academicRoute ->
     Column(
-        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
