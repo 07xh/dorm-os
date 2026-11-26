@@ -72,27 +72,40 @@ class ServicePluginActivity : ComponentActivity() {
     }
     @Composable private fun Screen() {
         var runtime by remember { mutableStateOf<ServicePluginSession?>(null) }
+        var nativePackage by remember { mutableStateOf<PluginPackage?>(null) }
         var problem by remember { mutableStateOf("") }
         LaunchedEffect(Unit) {
             try {
-                val pkg = withContext(Dispatchers.IO) { AcademicProviderRegistry.packages().active(intent.getStringExtra("pluginId").orEmpty()) }
+                val pkg = withContext(Dispatchers.IO) { AcademicProviderRegistry.knownPackage(intent.getStringExtra("pluginId").orEmpty()) }
                     ?: error("这个校园服务尚未安装")
                 require(pkg.manifest.isService) { "这不是校园服务插件" }
-                preview = intent.getBooleanExtra("preview", false) && !pkg.official
+                preview = intent.getBooleanExtra("preview", false) && !pkg.official && !pkg.bundled
                 val school = UserManager.getInstance().currentSchool
                 require(preview || school != null && AcademicProviderRegistry.matches(pkg, school) && AcademicProviderRegistry.isEnabled(pkg.manifest.id, school)) { "请先切换到此服务对应的学校并启用插件" }
                 val scope = if (preview) "preview:${pkg.digest}" else accountScope()
                 openedScope = scope
-                runtime = ServicePluginSession(this@ServicePluginActivity, pkg, scope,
-                    requestConfirmation = ::confirmRequest, readStateConfirmation = ::confirmReadState) {
-                    (preview || school != null && AcademicProviderRegistry.isEnabled(pkg.manifest.id, school) && scope == accountScope())
+                if (pkg.manifest.id == BundledServiceProviders.CLOUD_MESSAGES_ID) {
+                    nativePackage = pkg
+                } else {
+                    runtime = ServicePluginSession(this@ServicePluginActivity, pkg, scope,
+                        requestConfirmation = ::confirmRequest, readStateConfirmation = ::confirmReadState) {
+                        (preview || school != null && AcademicProviderRegistry.isEnabled(pkg.manifest.id, school) && scope == accountScope())
+                    }
                 }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { problem = e.message ?: "无法打开校园服务" }
         }
         val current = runtime
+        val native = nativePackage
         DisposableEffect(current) { onDispose { current?.close() } }
-        if (current == null) GlassPageScaffold(title = "校园服务", onBack = { finish() }) { padding ->
+        if (native != null) {
+            CloudServiceScreen(
+                title = native.manifest.name,
+                schoolName = native.manifest.school.getString("name"),
+                accountScope = openedScope.orEmpty(),
+                onBack = { finish() }
+            )
+        } else if (current == null) GlassPageScaffold(title = "校园服务", onBack = { finish() }) { padding ->
             Column(Modifier.padding(padding).padding(24.dp)) {
                 if (problem.isBlank()) CircularProgressIndicator() else Text(problem, color = MaterialTheme.colorScheme.error)
             }
