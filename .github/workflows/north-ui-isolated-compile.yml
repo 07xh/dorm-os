@@ -1,0 +1,27 @@
+name: North UI isolated compile
+on:
+  push:
+    branches: [refactor/north-ui-native-baseline-20261126]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install pinned upstream SDK
+        run: sdkmanager --install 'platforms;android-37.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Verify and compile isolated UI sources
+        run: |
+          python3 apps/xiaoxu-android/vendor/north-ui-v1.0.83/validation/verify_snapshot.py
+          gradle -p apps/xiaoxu-android/vendor/north-ui-v1.0.83/validation compileDebugKotlin --no-daemon
