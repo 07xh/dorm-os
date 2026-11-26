@@ -1731,3 +1731,9 @@ assert.match(dialogHost, /private fun SystemDialogContent\(/);
 assert.match(dialogHost, /LocalGlassLensAnchor provides nestedLensAnchor/);
 assert.match(dialogHost, /LocalGlassLensModalAnchor\.current/);
 assert.doesNotMatch(dialogHost, /fun AppDialogBody\(/);
+
+// Original upstream glass icon button replaces Material's naked back arrow.
+assert.match(pageScaffold, /SystemIconButton\(Icons\.AutoMirrored\.Filled\.ArrowBack/);
+assert.match(systemUi, /fun AnimatedIconButton\(/);
+assert.match(systemUi, /fun SystemIconButton\(/);
+assert.match(systemUi, /\.adaptiveGlassChip\(/);

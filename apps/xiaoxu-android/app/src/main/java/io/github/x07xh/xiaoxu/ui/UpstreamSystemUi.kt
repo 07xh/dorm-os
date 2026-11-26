@@ -22,6 +22,11 @@ import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.unit.Dp
+import com.tyust.course.ui.system.LocalControlBackdrop
+import com.tyust.course.ui.system.LocalWallpaperAppearanceColors
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -81,7 +86,6 @@ fun SystemTopBar(
         modifier = Modifier
             .fillMaxWidth()
             .wallpaperRegion(regionState)
-
     ) {
         val showShell = customWallpaper || collapse > 0.01f
         val shellModifier = when {
@@ -146,10 +150,10 @@ fun SystemTopBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-
+                    .statusBarsPadding()
                     .padding(
-                        start = 20.dp,
-                        end = 20.dp,
+                        start = AppSpacing.pageHorizontal,
+                        end = AppSpacing.pageHorizontal,
                         top = lerpDp(10.dp, 6.dp, collapse),
                         bottom = lerpDp(10.dp, 8.dp, collapse)
                     ),
@@ -454,4 +458,172 @@ fun SystemDivider(
                 )
             )
     )
+}
+
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun SystemIconButton(
+    icon: ImageVector,
+    contentDescription: String?,
+    onClick: () -> Unit,
+    tint: Color = LocalContentColor.current,
+    enabled: Boolean = true,
+    /** 顶栏/工具栏级别的图标按钮默认带玻璃芯片；行内小按钮传 false。 */
+    chip: Boolean = true,
+    backdrop: Backdrop? = LocalControlBackdrop.current
+) {
+    androidx.compose.material3.TooltipBox(
+        positionProvider = androidx.compose.material3.TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            if (!contentDescription.isNullOrBlank()) PlainTooltip { Text(contentDescription) }
+        },
+        state = androidx.compose.material3.rememberTooltipState()
+    ) {
+        AnimatedIconButton(
+            onClick = onClick,
+            icon = icon,
+            contentDescription = contentDescription,
+            enabled = enabled,
+            tint = tint,
+            chip = chip,
+            backdrop = backdrop
+        )
+    }
+}
+
+@Composable
+fun AnimatedIconButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    enabled: Boolean = true,
+    buttonSize: Dp = 38.dp,
+    iconSize: Dp = 18.dp,
+    tint: Color = LocalContentColor.current,
+    /** 顶栏与工具栏的图标按钮默认成为玻璃芯片，不再是裸图标。 */
+    chip: Boolean = true,
+    backdrop: Backdrop? = LocalControlBackdrop.current
+) {
+    var iconEvent by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val toolbar = LocalTopBarMotion.current
+    val accessibility = rememberGlassAccessibilityMode()
+    // 芯片的光学（折射、色散、边缘光、拖拽拉伸）全部由 optics 驱动；
+    // 图标自身的压扁另算：drawBackdrop 的 layerBlock 只变换被采样的玻璃层，
+    // 内容不在其中，所以图标要单独挂一层 graphicsLayer 才会跟着一起动。
+    val optics = rememberInteractiveOptics()
+    val chipModifier = if (chip) {
+        Modifier.adaptiveGlassChip(
+            backdrop = backdrop,
+            shape = CircleShape,
+            optics = optics,
+            enabled = enabled,
+            interactive = enabled,
+            glyphColor = tint
+        )
+    } else {
+        // 裸图标没有容器可折射，按压只能靠图标本身缩放。
+        // 但手势仍必须挂上：optics 的唯一驱动源是 gestureModifier，
+        // 漏挂会让 pressProgress 永远停在 0，下面那层 graphicsLayer
+        // 连同它专为裸图标预留的 depth 一起变成死代码。
+        if (enabled && !accessibility.reduceMotion) optics.gestureModifier else Modifier
+    }
+
+    Box(
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .size(buttonSize)
+            .then(chipModifier)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = { iconEvent++; onClick() }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        ActionLineIcon(
+            icon = icon,
+            event = iconEvent,
+            contentDescription = contentDescription,
+            modifier = Modifier
+                .size(iconSize)
+                .graphicsLayer {
+                    if (accessibility.reduceMotion) return@graphicsLayer
+                    if (chip) {
+                        // 玻璃层在 drawBackdrop 的 layerBlock 里形变，内容不在其中；
+                        // 内容必须走同一段行程与同向的各向异性，否则拖动时图标会脱出。
+                        applyChipContentDeformation(
+                            optics = optics,
+                            travelPx = if (toolbar) 2.dp.toPx() else GlassRecipe.ChipDragTravelDp.dp.toPx(),
+                            stretch = if (toolbar) 0.02f else GlassRecipe.ChipDragStretch,
+                            pressDepth = if (toolbar) 0.02f else 0.08f,
+                            damping = GlassRecipe.ChipContentDeformDamping
+                        )
+                    } else {
+                        // 裸图标没有玻璃层可跟随，只有自身压扁
+                        applyPressSquash(progress = optics.pressProgress, depth = 0.14f)
+                    }
+                },
+            tint = if (enabled) tint else tint.copy(alpha = 0.38f)
+        )
+    }
+}
+
+@Composable
+fun GlassCircleButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    enabled: Boolean = true,
+    size: Dp = 40.dp,
+    tint: Color = LocalWallpaperAppearanceColors.current.onSurface,
+    backdrop: Backdrop? = LocalControlBackdrop.current
+) {
+    val accessibility = rememberGlassAccessibilityMode()
+    val optics = rememberInteractiveOptics()
+    Box(
+        modifier = modifier
+            .size(size)
+            // 与顶栏图标按钮同一套芯片：有 backdrop 时走真折射，
+            // 无 backdrop（纯色区域）时自动退回边缘光，调用方无需关心
+            .adaptiveGlassChip(
+                backdrop = backdrop,
+                shape = CircleShape,
+                optics = optics,
+                enabled = enabled,
+                interactive = enabled,
+                glyphColor = tint
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier
+                .size(size * 0.48f)
+                .graphicsLayer {
+                    if (accessibility.reduceMotion) return@graphicsLayer
+                    // 与玻璃层同一段行程、同向各向异性，否则拖动时图标会脱出
+                    applyChipContentDeformation(
+                        optics = optics,
+                        travelPx = GlassRecipe.ChipDragTravelDp.dp.toPx(),
+                        stretch = GlassRecipe.ChipDragStretch,
+                        pressDepth = GlassRecipe.ChipIconPressDepth,
+                        damping = GlassRecipe.ChipContentDeformDamping
+                    )
+                },
+            tint = if (enabled) tint else tint.copy(alpha = 0.38f)
+        )
+    }
 }

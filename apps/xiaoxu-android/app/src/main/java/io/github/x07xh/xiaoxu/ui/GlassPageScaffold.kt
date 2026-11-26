@@ -2,10 +2,8 @@ package io.github.x07xh.xiaoxu.ui
 
 // SPDX-License-Identifier: GPL-3.0-only
 // Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, ui/system/GlassPageScaffold.kt
-// Original authors and contributors. Package and available icon-button binding adapted.
+// Original authors and contributors. Package/import adaptation only.
 import com.tyust.course.ui.system.LocalAppOverlayBottomInset
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,7 +42,7 @@ fun GlassPageScaffold(
                         title = title,
                         subtitle = subtitle,
                         navigationIcon = {
-                            if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
+                            if (onBack != null) SystemIconButton(Icons.AutoMirrored.Filled.ArrowBack, "返回", onBack)
                         },
                         actions = actions
                     )
