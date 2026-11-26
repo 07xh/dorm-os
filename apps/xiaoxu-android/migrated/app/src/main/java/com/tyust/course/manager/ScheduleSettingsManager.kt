@@ -151,7 +151,7 @@ class ScheduleSettingsManager internal constructor(private var prefs: SharedPref
         val now = System.currentTimeMillis()
         val diffDays = (now - startDate) / (1000 * 60 * 60 * 24)
         val week = (diffDays / 7).toInt() + 1
-        return week.coerceIn(1, 25)
+        return week.coerceIn(1, 35)
     }
     
     /**
