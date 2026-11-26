@@ -8,7 +8,8 @@ import android.provider.Settings as AndroidSettings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -108,7 +109,7 @@ fun ProfileSettingsPage(
     androidx.compose.animation.AnimatedContent(
         targetState = route,
         transitionSpec = {
-            xiaoxuSettingsRouteTransition(initialState, targetState)
+            xiaoxuSettingsRouteTransition(initialState, targetState).targetContentEnter togetherWith ExitTransition.None
         },
         modifier = Modifier.fillMaxSize().clipToBounds(),
         label = "settingsDetail"
@@ -126,10 +127,10 @@ fun ProfileSettingsPage(
         else -> "设置"
     }
     val goBack = { onRouteChange(uiV2SettingsParent(animatedRoute)) }
-    // Each animated route paints an opaque page, so the outgoing settings
-    // labels/cards cannot bleed through the incoming full-screen page.
+    // Reuse the full-window wallpaper instead of rescaling a gradient inside insets.
+    // Immediate outgoing exit keeps the transition single-layered.
     Column(
-        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
