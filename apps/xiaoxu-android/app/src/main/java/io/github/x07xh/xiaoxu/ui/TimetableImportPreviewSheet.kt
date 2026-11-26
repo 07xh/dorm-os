@@ -10,10 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,14 +49,14 @@ internal fun TimetableImportPreviewSheet(
         title = { Text(if (decreased) "核对课表变更" else "导入课表") },
         onDismissRequest = { if (!saving) onDismiss() },
         confirmButton = {
-            Button(onClick = {
+            LiquidButton(style = LiquidButtonStyle.SolidTinted, onClick = {
                 if (decreased && !confirmedReduced) confirmedReduced = true else onConfirm()
             }, enabled = !saving) {
                 Text(if (saving) "正在保存" else if (decreased && !confirmedReduced) "继续核对"
                     else if (decreased) "已核对，替换" else "确认保存")
             }
         },
-        dismissButton = { OutlinedButton(onClick = onDismiss, enabled = !saving) { Text("保留旧课表") } },
+        dismissButton = { LiquidButton(style = LiquidButtonStyle.SolidSurface, onClick = onDismiss, enabled = !saving) { Text("保留旧课表") } },
         text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(

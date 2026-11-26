@@ -351,9 +351,9 @@ private fun CloudTaskEditor(state: CloudUiState, actions: AppPageActions, onDism
             }
         },
         confirmButton = {
-            Button(enabled = connected && !state.busy && !submitting && !uncertain && title.isNotBlank(),
+            LiquidButton(style = LiquidButtonStyle.SolidTinted, enabled = connected && !state.busy && !submitting && !uncertain && title.isNotBlank(),
                 onClick = {
-                    val boundOwner = owner ?: return@Button
+                    val boundOwner = owner ?: return@LiquidButton
                     val value = title.trim()
                     submitting = true
                     scope.launch {

@@ -16,11 +16,9 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -110,7 +108,7 @@ fun LocalTaskBackupPanel(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Button(
+            LiquidButton(style = LiquidButtonStyle.SolidTinted, 
                 onClick = { create.launch("xiaoxu-local-tasks.json") },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
@@ -119,7 +117,7 @@ fun LocalTaskBackupPanel(
                 Spacer(Modifier.width(8.dp))
                 Text(if (busy) "正在处理…" else "导出本机任务")
             }
-            OutlinedButton(
+            LiquidButton(style = LiquidButtonStyle.SolidSurface, 
                 onClick = { open.launch(arrayOf("application/json", "text/plain")) },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)

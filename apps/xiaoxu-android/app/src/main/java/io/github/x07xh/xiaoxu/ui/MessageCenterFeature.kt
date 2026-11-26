@@ -292,7 +292,7 @@ private fun NoticeDetails(notice: AcademicNotice, openArticle: (String) -> Unit)
         AppNotice(noticeCategoryLabel(notice.category) + " · 华水教务官网")
         AppNotice("发布：" + notice.dateLabel.ifBlank { "未标注" })
         Text("正文请在学校官网查看", style = MaterialTheme.typography.bodySmall)
-        Button(onClick = { openArticle(notice.url) }) { Text("在官网查看原文") }
+        LiquidButton(style = LiquidButtonStyle.SolidTinted, onClick = { openArticle(notice.url) }) { Text("在官网查看原文") }
     }
 }
 
@@ -348,7 +348,7 @@ private fun WechatCandidateReview(item: WechatCandidate, state: CloudUiState, ac
         },
         confirmButton = {
             val decision = pendingDecision
-            if (decision != null) Button(enabled = fresh && !reviewing && !failed, onClick = {
+            if (decision != null) LiquidButton(style = LiquidButtonStyle.SolidTinted, enabled = fresh && !reviewing && !failed, onClick = {
                 submitting = true
                 scope.launch {
                     try {

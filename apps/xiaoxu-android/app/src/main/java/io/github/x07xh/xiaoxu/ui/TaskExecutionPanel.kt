@@ -123,7 +123,7 @@ internal fun TaskExecutionPanel(
                 Text("点击生成才发送当前任务标题和补充说明到校序云端 AI；结果先预览，不会自动保存。",
                     style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(aiNotes,onValueChange={aiNotes=it.take(600)},label={Text("补充说明（可选）")},modifier=Modifier.fillMaxWidth(),enabled=!aiBusy)
-                OutlinedButton(enabled=!busy && !aiBusy,onClick={
+                LiquidButton(style = LiquidButtonStyle.SolidSurface, enabled=!busy && !aiBusy,onClick={
                     aiBusy=true;error=null
                     scope.launch {
                         try {
@@ -148,7 +148,7 @@ internal fun TaskExecutionPanel(
                 label={Text("每行一个步骤，最多 12 条")},minLines=2,maxLines=6,modifier=Modifier.fillMaxWidth())
             Row {
                 TextButton(enabled=!busy,onClick={adding=false;draft=""}) {Text("取消")}
-                Button(enabled=!busy && draft.isNotBlank() && !remoteEnded,onClick={perform {
+                LiquidButton(style = LiquidButtonStyle.SolidTinted, enabled=!busy && draft.isNotBlank() && !remoteEnded,onClick={perform {
                     val titles=draft.lines().map {it.trim()}.filter {it.isNotBlank()}
                     val saved=dao.addSteps(root,titles)
                     if(saved){draft="";adding=false};saved
@@ -170,7 +170,7 @@ internal fun TaskExecutionPanel(
             }
             Row {
                 TextButton(onClick={editId=null},enabled=!busy) {Text("取消")}
-                Button(enabled=!busy,onClick={perform {
+                LiquidButton(style = LiquidButtonStyle.SolidTinted, enabled=!busy,onClick={perform {
                     val saved=dao.saveStep(root,editing.id,editTitle.trim(),editDue.trim().ifBlank {null},editing.position,chosen)
                     if(saved)editId=null;saved
                 }}) {Text("保存步骤")}
@@ -182,7 +182,7 @@ internal fun TaskExecutionPanel(
         }
         if(steps.isNotEmpty() && steps.all {it.completed} && !rootDone && !ended) {
             Text("步骤已完成，待确认结束",style=MaterialTheme.typography.bodyMedium)
-            Button(enabled=!busy && !rootBlocked,onClick={perform {
+            LiquidButton(style = LiquidButtonStyle.SolidTinted, enabled=!busy && !rootBlocked,onClick={perform {
                 if(dao.stepsFor(root.scope,root.key).let {it.isNotEmpty() && it.all {step->step.completed}} && onFinish()) dao.finish(root) else false
             }},modifier=Modifier.fillMaxWidth()) {Text("确认结束个人任务")}
         }

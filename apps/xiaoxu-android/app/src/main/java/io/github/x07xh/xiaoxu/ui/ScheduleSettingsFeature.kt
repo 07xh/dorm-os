@@ -141,7 +141,7 @@ internal fun ScheduleSettingsFeature(data: AppWorkspaceState, actions: AppPageAc
         }
         error?.let { AppNotice(it, error = true) }
         status?.let { AppNotice(it) }
-        Button(modifier = Modifier.fillMaxWidth(), enabled = !saving, onClick = {
+        LiquidButton(style = LiquidButtonStyle.SolidTinted, modifier = Modifier.fillMaxWidth(), enabled = !saving, onClick = {
             val config = try {
                 SemesterCalendar.parse(dateText, weeksText, periodsText)
             } catch (e: IllegalArgumentException) {

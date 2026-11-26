@@ -48,7 +48,7 @@ fun parseDue(due: String?): LocalDate? {
 private fun LocalTaskSourcePicker(source: String?, onSelect: (String?) -> Unit, enabled: Boolean = true) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { expanded = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+        LiquidButton(style = LiquidButtonStyle.SolidSurface, onClick = { expanded = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
             Text("个人分类：" + taskSourceLabel(source))
         }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
@@ -101,7 +101,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
             enabled = !saving
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(
+            LiquidButton(style = LiquidButtonStyle.SolidSurface, 
                 onClick = { pickerOpen = true },
                 modifier = Modifier.heightIn(min = 48.dp)
             ) {
@@ -172,7 +172,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
             Text(error!!, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall)
         }
-        Button(
+        LiquidButton(style = LiquidButtonStyle.SolidTinted, 
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             enabled = loaded && !saving && title.isNotBlank(),
             onClick = {
@@ -203,7 +203,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
             }
         ) { Text(if (saving) "保存中…" else "保存修改") }
         }
-    }, confirmButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("取消") } })
+    }, confirmButton = { SystemSecondaryButton(text = "取消", onClick = onDismiss, enabled = !saving) })
 
     if (pickerOpen) {
         GlassDatePickerDialog(initialDate = parseDue(due) ?: LocalDate.now(),
@@ -258,7 +258,7 @@ internal fun LocalTaskCreateSheet(
                     Modifier.fillMaxWidth(), enabled = !saving)
                 LocalTaskSourcePicker(source = source, onSelect = { source = it }, enabled = !saving)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = { pickerOpen = true }, enabled = !saving,
+                    LiquidButton(style = LiquidButtonStyle.SolidSurface, onClick = { pickerOpen = true }, enabled = !saving,
                         modifier = Modifier.heightIn(min = 48.dp)) {
                         Icon(Icons.Outlined.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -270,11 +270,11 @@ internal fun LocalTaskCreateSheet(
             }
         },
         confirmButton = {
-            Button(onClick = ::create, enabled = !saving && title.isNotBlank()) {
+            LiquidButton(style = LiquidButtonStyle.SolidTinted, onClick = ::create, enabled = !saving && title.isNotBlank()) {
                 Text(if (saving) "保存中…" else "添加任务")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("取消") } }
+        dismissButton = { SystemSecondaryButton(text = "取消", onClick = onDismiss, enabled = !saving) }
     )
     if (pickerOpen) {
         GlassDatePickerDialog(initialDate = parseDue(due) ?: LocalDate.now(),

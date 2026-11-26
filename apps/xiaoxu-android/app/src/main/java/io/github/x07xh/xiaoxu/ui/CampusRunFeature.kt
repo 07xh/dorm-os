@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -171,7 +170,7 @@ private fun CampusRunScopedFeature(sessionScope: String) {
             }
 
             if (!editing && !loading) {
-                Button(
+                LiquidButton(style = LiquidButtonStyle.SolidTinted, 
                     enabled = !busy,
                     onClick = {
                         val previous = snapshot
@@ -207,7 +206,7 @@ private fun CampusRunScopedFeature(sessionScope: String) {
                 CampusRunKmInput("首页累计跑量", dashboard) { dashboard = it }
                 CampusRunKmInput("本周跑量", weekly) { weekly = it }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(enabled = !busy, onClick = {
+                    LiquidButton(style = LiquidButtonStyle.SolidTinted, enabled = !busy, onClick = {
                         busy = true
                         error = null
                         val input = CampusRunManualInput(term, target, credited,
