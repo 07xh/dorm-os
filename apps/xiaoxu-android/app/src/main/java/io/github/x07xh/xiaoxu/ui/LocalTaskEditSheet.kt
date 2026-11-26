@@ -46,18 +46,14 @@ fun parseDue(due: String?): LocalDate? {
 
 @Composable
 private fun LocalTaskSourcePicker(source: String?, onSelect: (String?) -> Unit, enabled: Boolean = true) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        LiquidButton(style = LiquidButtonStyle.SolidSurface, onClick = { expanded = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-            Text("个人分类：" + taskSourceLabel(source))
-        }
-        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text("不标注") }, onClick = { onSelect(null); expanded = false })
-            TASK_SOURCES.forEach { option ->
-                DropdownMenuItem(text = { Text(option.label) }, onClick = { onSelect(option.code); expanded = false })
-            }
-        }
-    }
+    SystemPicker(
+        options = listOf("不标注") + TASK_SOURCES.map { it.label },
+        selectedIndex = TASK_SOURCES.indexOfFirst { it.code == source } + 1,
+        onSelect = { index -> onSelect(TASK_SOURCES.getOrNull(index - 1)?.code) },
+        modifier = Modifier.fillMaxWidth(),
+        label = "个人分类",
+        enabled = enabled
+    )
 }
 @Composable
 internal fun TaskCompletionCheckbox(checked: Boolean, enabled: Boolean, description: String, onCheckedChange: (Boolean) -> Unit) {

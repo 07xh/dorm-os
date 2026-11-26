@@ -122,7 +122,7 @@ internal fun TaskExecutionPanel(
             if(aiExpanded) {
                 Text("点击生成才发送当前任务标题和补充说明到校序云端 AI；结果先预览，不会自动保存。",
                     style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(aiNotes,onValueChange={aiNotes=it.take(600)},label={Text("补充说明（可选）")},modifier=Modifier.fillMaxWidth(),enabled=!aiBusy)
+                GlassFormField(aiNotes, { aiNotes = it.take(600) }, "补充说明（可选）", Modifier.fillMaxWidth(), enabled = !aiBusy, singleLine = false)
                 LiquidButton(style = LiquidButtonStyle.SolidSurface, enabled=!busy && !aiBusy,onClick={
                     aiBusy=true;error=null
                     scope.launch {
@@ -144,8 +144,7 @@ internal fun TaskExecutionPanel(
             }
         }
         if(adding) {
-            OutlinedTextField(value=draft,onValueChange={draft=it.take(2400)},
-                label={Text("每行一个步骤，最多 12 条")},minLines=2,maxLines=6,modifier=Modifier.fillMaxWidth())
+            GlassFormField(draft, { draft = it.take(2400) }, "每行一个步骤，最多 12 条", Modifier.fillMaxWidth(), singleLine = false)
             Row {
                 TextButton(enabled=!busy,onClick={adding=false;draft=""}) {Text("取消")}
                 LiquidButton(style = LiquidButtonStyle.SolidTinted, enabled=!busy && draft.isNotBlank() && !remoteEnded,onClick={perform {
@@ -157,8 +156,8 @@ internal fun TaskExecutionPanel(
         }
         val editing=steps.firstOrNull {it.id==editId}
         if(editing!=null) {
-            OutlinedTextField(editTitle,onValueChange={editTitle=it.take(120)},label={Text("步骤名称")},modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(editDue,onValueChange={editDue=it.take(10)},label={Text("个人日期（YYYY-MM-DD，可留空）")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            GlassFormField(editTitle, { editTitle = it.take(120) }, "步骤名称", Modifier.fillMaxWidth())
+            GlassFormField(editDue, { editDue = it.take(10) }, "个人日期（YYYY-MM-DD，可留空）", Modifier.fillMaxWidth())
             TextButton(onClick={showBefore=!showBefore}) {Text("前置步骤（${chosen.size}）")}
             if(showBefore) steps.filter {it.id!=editing.id}.forEach {candidate->
                 val next=if(candidate.id in chosen) chosen-candidate.id else chosen+candidate.id

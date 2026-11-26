@@ -11,7 +11,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,15 +58,9 @@ private fun CampusRunMeasure(label: String, value: String) {
 private fun CampusRunKmInput(
     label: String, value: String, onValue: (String) -> Unit
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onValue(it.take(20)) },
-        label = { Text(label) },
-        suffix = { Text("km") },
-        singleLine = true,
+    GlassFormField(value, { onValue(it.take(20)) }, label, Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        modifier = Modifier.fillMaxWidth()
-    )
+        trailing = { Text("km") })
 }
 
 /**
@@ -193,13 +186,7 @@ private fun CampusRunScopedFeature(sessionScope: String) {
                 Text("只填写官方页面确实显示的数字，未知字段留空；不要填个人 ID 或登录凭据。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(
-                    value = term,
-                    onValueChange = { term = it.take(80) },
-                    label = { Text("学期名称（可选）") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                GlassFormField(term, { term = it.take(80) }, "学期名称（可选）", Modifier.fillMaxWidth())
                 CampusRunKmInput("学期目标", target) { target = it }
                 CampusRunKmInput("计入成绩里程", credited) { credited = it }
                 CampusRunKmInput("学期累计总里程", semester) { semester = it }

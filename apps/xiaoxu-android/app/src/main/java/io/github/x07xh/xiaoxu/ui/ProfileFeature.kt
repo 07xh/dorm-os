@@ -12,7 +12,6 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -130,10 +129,9 @@ internal fun AccountFeature(data: AppWorkspaceState, actions: AppPageActions) {
                         onClick = { confirmExit = true }) { Text("退出云端") }
                 }
             } else {
-                OutlinedTextField(value = passphrase, onValueChange = { passphrase = it.take(256) },
-                    label = { Text("校序个人口令") }, supportingText = { Text("不是学校账户密码") },
-                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
-                    enabled = !state.signingIn, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp))
+                GlassFormField(passphrase, { passphrase = it.take(256) }, "校序个人口令",
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    password = true, enabled = !state.signingIn, supportingText = "不是学校账户密码")
                 TextButton(enabled = passphrase.isNotBlank() && !state.signingIn, onClick = {
                     val submitted = passphrase
                     passphrase = ""

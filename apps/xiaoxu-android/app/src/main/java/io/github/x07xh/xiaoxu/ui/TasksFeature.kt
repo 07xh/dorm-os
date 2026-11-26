@@ -32,7 +32,6 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
     var filter by rememberSaveable { mutableStateOf("pending") }
     var query by rememberSaveable { mutableStateOf("") }
     var sourceFilter by rememberSaveable { mutableStateOf("all") }
-    var sourceMenuOpen by remember { mutableStateOf(false) }
     var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var chooseDestination by rememberSaveable { mutableStateOf(false) }
@@ -97,30 +96,14 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
         }
         GlassFormField(query, { query = it }, "搜索任务", Modifier.fillMaxWidth(), placeholder = "任务名称")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) {
-                TextButton(onClick = { sourceMenuOpen = true },
-                    modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(when (sourceFilter) {
-                        "local" -> "本机来源"
-                        "cloud" -> "云端来源"
-                        "wechat" -> "微信任务"
-                        "chaoxing" -> "学习通任务"
-                        else -> "全部来源"
-                    })
-                }
-                DropdownMenu(expanded = sourceMenuOpen, onDismissRequest = { sourceMenuOpen = false }) {
-                    listOf("all" to "全部来源", "cloud" to "云端来源",
-                        "wechat" to "微信任务", "chaoxing" to "学习通任务",
-                        "local" to "本机来源").forEach { (source, label) ->
-                        DropdownMenuItem(text = { Text(label) }, onClick = {
-                            sourceFilter = source
-                            sourceMenuOpen = false
-                        })
-                    }
-                }
-            }
-            FilterChip(selected = onlyThisWeek, onClick = { onlyThisWeek = !onlyThisWeek },
-                label = { Text("本周日期") })
+            val sources = listOf("all" to "全部来源", "cloud" to "云端来源",
+                "wechat" to "微信任务", "chaoxing" to "学习通任务", "local" to "本机来源")
+            SystemPicker(options = sources.map { it.second },
+                selectedIndex = sources.indexOfFirst { it.first == sourceFilter }.coerceAtLeast(0),
+                onSelect = { sourceFilter = sources[it].first },
+                modifier = Modifier.weight(1f))
+            GlassFilterCapsule(label = "本周日期", selected = onlyThisWeek, toggle = true,
+                onClick = { onlyThisWeek = !onlyThisWeek })
             if (sourceFilter != "all" || onlyThisWeek || query.isNotBlank()) {
                 TextButton(onClick = { sourceFilter = "all"; onlyThisWeek = false; query = "" }) {
                     Text("清除")
