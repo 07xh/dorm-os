@@ -48,7 +48,8 @@ class ScheduleAgendaTest {
         assertEquals(0, ScheduleDates.weekIndexAt(base.firstWeekDate, time("2026-09-06 08:10"), zone))
         assertEquals(-1, ScheduleDates.weekIndexAt(base.firstWeekDate, time("2026-08-30 08:10"), zone))
         assertEquals(26, ScheduleDates.weekIndexAt(base.firstWeekDate, time("2027-03-01 08:10"), zone))
-        assertNull(ScheduleDates.weekAt(base.firstWeekDate, time("2027-03-01 08:10"), zone))
+        assertEquals(26, ScheduleDates.weekAt(base.firstWeekDate, time("2027-03-01 08:10"), zone))
+        assertNull(ScheduleDates.weekAt(base.firstWeekDate, time("2027-05-10 08:10"), zone))
     }
 
     @Test fun unknownWeeksAndMissingOrReversedTimesAreNeverPredicted() {
