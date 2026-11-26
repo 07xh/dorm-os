@@ -1,0 +1,29 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/glass/ChromaticFringe.kt",
+      "blob": "11e1ff9f8d74aa6d9792eb88d12424b122042443"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/glass/DampedDragAnimation.kt",
+      "blob": "1b95e7904e1830d5be4803656af2facdfa600383"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/glass/DragGestureInspector.kt",
+      "blob": "f06e5c4b4eda05ddd01e6538269a3262bcac1235"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/glass/GlassChipAppearance.kt",
+      "blob": "89d925b9e646d14a53a31d6385db29f35b4605ee"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/glass/GlassChipSurface.kt",
+      "blob": "17e6b663bac1e06cca5cf74242568d3ad2d1c400"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/glass/GlassFrameQueue.kt",
+      "blob": "7d74c0e13ca53e36f17095a0d2e39ff878b9e5c8"
+    }
+  ]
+}
