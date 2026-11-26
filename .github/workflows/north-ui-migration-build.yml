@@ -23,6 +23,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify original navigation and schedule UI sources are unchanged
+        run: |
+          set -euo pipefail
+          upstream=apps/xiaoxu-android/upstream/zhengfang-apk-v1.0.135/app/src/main/java/com/tyust/course
+          working=apps/xiaoxu-android/migrated/app/src/main/java/com/tyust/course
+          for file in \
+            MainActivity.kt \
+            ui/theme/NavigationMotion.kt \
+            ui/system/CapsuleNavigationBar.kt \
+            ui/screen/ScheduleAgendaScreen.kt \
+            ui/screen/ScheduleScreen.kt \
+            ui/screen/ScheduleSettingsScreen.kt \
+            ui/screen/ScheduleCourseEditor.kt \
+            ui/screen/ScheduleCourseSheet.kt \
+            ui/route/SettingsRoute.kt \
+            ui/screen/SettingsScreen.kt; do
+            cmp "$upstream/$file" "$working/$file"
+            echo "UPSTREAM IDENTICAL: $file"
+          done
+
       - name: Validate Ace 6 real-device evidence collector
         run: |
           node --check scripts/xiaoxu-ace6-visual-qa.mjs
@@ -62,7 +82,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: xiaoxu-north-ui-debug-${{ github.sha }}
+          name: xiaoxu-north-ui-phone-debug-${{ github.sha }}
           path: apps/xiaoxu-android/migrated/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
           retention-days: 14
@@ -149,9 +169,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Assemble x86_64 emulator debug APK
+        id: assemble-emulator
+        if: ${{ always() && steps.assemble.outcome == 'success' }}
+        working-directory: apps/xiaoxu-android/migrated
+        run: |
+          set -euo pipefail
+          bash ./gradlew :app:assembleDebug -PemulatorPreview=true --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
+
       - name: Emulator launch and frame-stats smoke test
         id: emulator-smoke
-        if: ${{ always() && steps.assemble.outcome == 'success' }}
+        if: ${{ always() && steps.assemble-emulator.outcome == 'success' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -172,7 +200,38 @@ jobs:
             adb pull /sdcard/screen.png /tmp/xiaoxu-smoke/screen.png
             adb shell dumpsys gfxinfo io.github.x07xh.xiaoxu.northui framestats > /tmp/xiaoxu-smoke/frame-stats.txt
             adb shell dumpsys activity activities > /tmp/xiaoxu-smoke/activities.txt
+            grep -Fq 'com.tyust.course.MainActivity' /tmp/xiaoxu-smoke/activities.txt
+            test -s /tmp/xiaoxu-smoke/screen.png
             cat /tmp/xiaoxu-smoke/activities.txt | tail -n 80
+            python3 - <<'PY'
+            import subprocess, time, xml.etree.ElementTree as ET
+            tree = ET.parse('/tmp/xiaoxu-smoke/window.xml')
+            matches = []
+            for node in tree.iter('node'):
+                label = (node.attrib.get('text', '') + ' ' + node.attrib.get('content-desc', '')).strip()
+                bounds = node.attrib.get('bounds', '')
+                if '课表' not in label:
+                    continue
+                numbers = bounds.replace('][', ',').strip('[]').split(',')
+                if len(numbers) == 4 and all(value.isdigit() for value in numbers):
+                    x1,y1,x2,y2 = map(int, numbers)
+                    matches.append((y1, (x1+x2)//2, (y1+y2)//2))
+            if matches:
+                _, x, y = max(matches)
+                subprocess.run(['adb','shell','input','tap',str(x),str(y)],check=True)
+                time.sleep(5)
+                subprocess.run(['adb','shell','uiautomator','dump','/sdcard/schedule.xml'],check=True,stdout=subprocess.DEVNULL)
+                subprocess.run(['adb','pull','/sdcard/schedule.xml','/tmp/xiaoxu-smoke/schedule.xml'],check=True)
+                subprocess.run(['adb','shell','input','swipe','540','1500','540','850','350'],check=True)
+                subprocess.run(['adb','shell','input','swipe','900','1150','250','1150','350'],check=True)
+                time.sleep(2)
+                subprocess.run(['adb','shell','screencap','-p','/sdcard/schedule.png'],check=True)
+                subprocess.run(['adb','pull','/sdcard/schedule.png','/tmp/xiaoxu-smoke/schedule.png'],check=True)
+                print('Captured original schedule route and performed non-destructive scroll/swipe smoke gestures.')
+            else:
+                print('Schedule tab label not found in UI hierarchy; home screenshot and hierarchy retained.')
+            PY
+            adb shell dumpsys gfxinfo io.github.x07xh.xiaoxu.northui framestats > /tmp/xiaoxu-smoke/frame-stats-after-navigation.txt
 
       - name: Upload emulator smoke evidence
         if: ${{ always() && steps.emulator-smoke.outcome != 'skipped' }}

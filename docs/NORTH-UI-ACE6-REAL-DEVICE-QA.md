@@ -30,15 +30,17 @@ adb devices -l
 同包名且已由 CI 验证固定证书的候选包：
 
 ```powershell
-adb install -r .\Xiaoxu-1.0.135.apk
-node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu --apk .\Xiaoxu-1.0.135.apk --commit <CI提交SHA>
+$apk = ".\Xiaoxu-1.0.135.apk" # 将 CI 签名校验通过的 universal APK 复制到此文件名
+adb install -r $apk
+node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu --apk $apk --commit <CI提交SHA>
 ```
 
 如果没有可用的同包名签名候选包，只做隔离 UI 预览：
 
 ```powershell
-adb install .\app-debug.apk
-node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu.northui --apk .\app-debug.apk --commit <CI提交SHA>
+$apk = ".\app-debug.apk" # CI 的 ARM/手机 Debug 预览 APK
+adb install $apk
+node .\scripts\xiaoxu-ace6-visual-qa.mjs --package io.github.x07xh.xiaoxu.northui --apk $apk --commit <CI提交SHA>
 ```
 
 脚本不会替用户安装 APK。`adb install -r` 只应用于包名和签名均已验证的同包名候选包；签名不匹配时停止，不要卸载旧应用绕过检查。

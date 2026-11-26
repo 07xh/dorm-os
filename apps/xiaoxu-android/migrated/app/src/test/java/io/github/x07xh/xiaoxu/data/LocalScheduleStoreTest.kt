@@ -1,5 +1,6 @@
 package io.github.x07xh.xiaoxu.data
 
+import com.tyust.course.xiaoxu.XiaoxuLocalScheduleAdapter
 import android.app.Application
 import android.content.Context
 import androidx.compose.ui.graphics.Color
