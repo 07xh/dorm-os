@@ -86,15 +86,12 @@ assert.match(designSystem, /fun XiaoxuSoftIconButton\(/,
   '顶栏和设置图标应使用唯一柔和按压组件');
 assert.match(designSystem, /fun XiaoxuDialogDim\(/,
   '居中详情弹窗需共享低对比遮罩');
-assert.match(scheduleUi, /scrimColor = XiaoxuPalette\.ModalScrim/,
-  '课程详情背景遮罩必须与统一材质一致');
+assert.match(scheduleUi, /SystemDialog\(onDismissRequest = onDismiss, presentation = DialogPresentation\.Bottom\)/);
 assert.match(scheduleUi, /indication = null,\s*onClick = onEdit/,
   '课程详情长标题不允许绘制大面积矩形按压遮罩');
-assert.match(scheduleUi, /background\(XiaoxuPalette\.SheetSheen\)/,
-  '课程详情共享轻量表面渐变，不增加实时模糊');
+assert.doesNotMatch(scheduleUi, /XiaoxuPalette\.SheetSheen/);
 assert.doesNotMatch(designSystem, /val GlassSheen\b/, '旧卡片高光定义不再保留');
-assert.match(scheduleUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
-  '课表课程卡按压反馈须受圆角裁切');
+assert.match(scheduleUi, /SystemCard\(onClick = onOpen/);
 assert.match(messageUi, /SystemListItem\(/, '公告使用原版列表项');
 
 assert.doesNotMatch(strings, /<string name="start_url"/, '已退役 TWA 默认主页');
@@ -470,8 +467,7 @@ assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typograph
 assert.match(messageUi, /SystemTopBar\([\s\S]*?title = "消息中心"/, "消息标题使用原版顶栏");
 assert.match(workspace, /Text\("任务",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
  '任务页使用简短标题与统一主题字级');
-assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
- '三态数字同卡保留内容且压缩多余高度');
+assert.match(workspace, /height = 68\.dp/);
 assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
  '任务顶部四个工具按钮必须复用唯一组件');
 assert.match(designSystem, /SystemIconButton\(/, '工具按钮使用原版组件');
@@ -788,18 +784,10 @@ assert.doesNotMatch(timetableSettingsCallback,
 assert.doesNotMatch(timetableSettings, /reminderEnabled: Boolean|wantReminders/,
   '退役的课表提醒开关及其保存参数必须同时删除');
 
-const weekPickerBody = schedulePanel.slice(
-  schedulePanel.indexOf('private fun WeekSelector('),
-  schedulePanel.indexOf('private fun SelectablePill(')
-);
-assert.match(weekPickerBody, /rememberLazyListState\(/,
-  '周次选择条必须保存真实横向滚动状态');
-assert.match(weekPickerBody, /LaunchedEffect\(weeks, selected\)/,
-  '第10周等当前选中周次必须自动定位至可见范围');
-assert.match(weekPickerBody, /weekListState\.scrollToItem\(/,
-  '周次列表必须随选中项滚动，而非永远从第1周开始');
-assert.match(weekPickerBody, /LazyRow\(state = weekListState/,
-  '周次列表必须绑定滚动状态');
+assert.match(schedulePanel, /SystemPicker\([\s\S]*?options = weekNumbers\.map/);
+assert.match(schedulePanel, /selectedIndex = currentIndex\.takeIf/);
+assert.match(schedulePanel, /weekNumbers\.getOrNull\(index\)\?\.let \{ selectedWeek = it \}/);
+assert.doesNotMatch(schedulePanel, /private fun WeekSelector\(/);
 const settingsHeaderError = timetableSettings.slice(
   timetableSettings.indexOf('internal fun SemesterSettingsPage('),
   timetableSettings.indexOf('SettingsGroupTitle("学期与显示")')
@@ -813,13 +801,12 @@ assert.match(timetableSettings, /hasError = errorField == "date"/,
 assert.doesNotMatch(timetableSettings, /modifier = Modifier\.padding\(top = 14\.dp\)/,
   '设置错误不得仅显示在节次列表末尾');
 
-assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
+assert.doesNotMatch(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.doesNotMatch(schedulePanel, /"全部周次 ▾"|"显示全部周次"|label = "全部",\s*isSelected = selected == ALL_WEEKS/,
   '课表不得暴露无用途的整学期混合周次入口');
 assert.match(schedulePanel, /if \(weekNumbers\.isNotEmpty\(\) && selectedWeek !in weekNumbers\)/,
   '导入课程或变更教学周后必须回到有效的具体周次');
-assert.match(schedulePanel, /Text\(if \(currentIndex >= 0\) "第 \$selectedWeek 周 ▾" else "选择周次 ▾"/,
-  '周次栏必须以具体教学周为主要状态');
+assert.match(schedulePanel, /options = weekNumbers\.map/);
 
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
@@ -836,7 +823,7 @@ assert.match(schedulePanel, /WeekdayStrip\(/);
 assert.match(schedulePanel, /WeeklyTimetableGrid\(/);
 assert.match(schedulePanel, /DayLessonList\(/);
 assert.match(schedulePanel, /CourseDetailBottomSheet\(/);
-assert.match(schedulePanel, /ModalBottomSheet\(/);
+assert.match(schedulePanel, /presentation = DialogPresentation\.Bottom/);
 assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/,
   '课程详情应引用当前筛选真实课程');
 assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层写死课程');
@@ -879,14 +866,10 @@ assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction 
 assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
   '未核验数据不能混入成绩或考试页面');
 
-const statusTabSource = workspace.slice(workspace.indexOf('private fun TaskStatusTab('),
-    workspace.indexOf('/** 轻量分组标题',workspace.indexOf('private fun TaskStatusTab(')));
-assert.match(statusTabSource, /selectable\(selected = active, role = Role\.Tab, onClick = onClick\)/,
-  '任务三态筛选须具备可访问的选中态，不只是视觉高亮');
-assert.match(workspace, /\.selectableGroup\(\)/,
-  '任务三态筛选须成组供无障碍导航');
-assert.match(statusTabSource, /XiaoxuRadius\.tile/,
-  '任务筛选圆角必须复用唯一设计系统');
+assert.match(workspace, /LiquidSegmentedControl\(/);
+assert.match(workspace, /selectedIndex = keys\.indexOf\(filter\)/);
+assert.match(workspace, /counts\[index\]\.toString\(\)/);
+assert.doesNotMatch(workspace, /private fun TaskStatusTab\(/);
 // messageUi is loaded before these assertions; messageCenter is declared later.
 const messageSearchSource = messageUi.slice(
     messageUi.indexOf('private fun MessageSearchField('),
@@ -1273,8 +1256,7 @@ assert.match(workspace, /"pending", "now" -> isActionableWorkspaceTask\(task\)/,
   '待完成不能包含学习通未知或未关联的旧通知');
 assert.match(workspace, /"verify" -> requiresChaoxingVerification\(task\)/,
   '历史未知学校状态必须保留人工核对筛选');
-assert.match(workspace, /label = "待完成", count = all\.count\(::isActionableWorkspaceTask\)/,
-  '任务中心待完成数量须与可执行待办一致');
+assert.match(workspace, /all\.count\(::isActionableWorkspaceTask\)/);
 assert.match(workspace, /val pending = all\.count\(::isActionableWorkspaceTask\)/,
   '首页待完成数量不得包含未核对旧通知');
 assert.match(workspace, /filter = "verify"/,
@@ -1529,7 +1511,7 @@ assert.match(design, /val list: Dp = 14\.dp/, '课程、公告和连续列表采
 assert.match(design, /val tile: Dp = 12\.dp/, '快捷小块使用12dp圆角');
 assert.match(design, /val modal: Dp = 28\.dp/, '弹层使用独立28dp圆角，不能跟随内容卡缩小');
 assert.match(workspace, /val rowRadius = XiaoxuRadius\.list/, '独立任务列表行不使用分组大圆角');
-assert.match(schedulePanel, /shape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '课程卡必须使用列表级圆角');
+assert.match(schedulePanel, /SystemCard\(onClick = onOpen/);
 assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '公告骨架与正式卡片圆角相同');
 assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
   '保留唯一原生玻璃展开控件');
@@ -1556,19 +1538,17 @@ assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
   '玻璃描边必须保持为单一轻量尺寸，避免肉眼可见硬灰边');
 assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.74f\)/,
   '保留全局轻色描边作为普通卡片后备');
-assert.match(design, /val GlassRim = Brush\.linearGradient\(/,
-  '悬浮控件使用同源光学高光而非深色外圈');
+assert.doesNotMatch(design, /val GlassRim\b/);
 assert.doesNotMatch(design, /val GlassModalFallback\b/, '旧弹窗材质不再保留');
 assert.match(design, /glassChrome: Boolean = false/,
   '不能对长列表内容卡默认叠加高成本玻璃');
-assert.match(design, /Brush\.linearGradient\(/,
-  '全局背景使用一致的淡蓝紫渐变，不得各页面覆盖');
+assert.match(northHost, /drawWallpaperPattern/);
 
 assert.match(design, /val hero: Dp = 28\.dp/, '重要卡与底部弹层圆角须统一为28dp');
 assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
-assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
+assert.doesNotMatch(design, /object XiaoxuMotion\b/);
 assert.match(northHost, /NavigationPages\(navigationMotion/, '主导航使用原版页面切换宿主');
 assert.doesNotMatch(main, /targetState = current,/,
   '主导航不能恢复 AnimatedContent 的双屏叠加');
@@ -1624,7 +1604,7 @@ assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.padding\(padding\)/, '校园
 assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
   '不允许恢复主导航文字重影交叉淡入');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
-assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
+assert.match(schedulePanel, /MotionSpecs\.tabTransition\(\)/);
 assert.doesNotMatch(messageCenter, /fun MessagePill\(/);
 assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
 const primaryCardSource = design.slice(design.indexOf('fun XiaoxuCard('),
@@ -1694,8 +1674,7 @@ assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
 const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
 assert.match(homeQuickEntry, /background\(XiaoxuPalette\.GlassCard\)/,
   '首页学业入口和全 App 普通卡片使用同一轻玻璃材质');
-assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassRim/,
-  '首页学业快捷入口不能回退到实心白卡和灰色硬描边');
+assert.match(homeQuickEntry, /MaterialTheme\.colorScheme\.outlineVariant/);
 
 // Editorial report visual adaptation: make scrollable content readable without
 // surrounding every status or list with another glass card.
@@ -1869,16 +1848,15 @@ assert.doesNotMatch(scheduleVisual, /SchedulePageHeading\(onMessages\)\s*Text\(/
   "课表顶部不得恢复重复的操作文字栏");
 assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/);
 assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/);
-assert.match(scheduleVisual, /WeekSelector\(/);
-assert.match(scheduleVisual, /ModalBottomSheet\(/);
+assert.match(scheduleVisual, /SystemPicker\(/);
+assert.match(scheduleVisual, /presentation = DialogPresentation\.Bottom/);
 
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.match(workspace, /private fun TaskStatusTab\(/, '三态统计筛选必须可操作');
-assert.match(workspace, /One continuous status strip/, '三项统计必须位于同一个白色容器中');
-assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Alignment\.CenterVertically\)/,
-  '三项统计应采用上下标签和数量而非横排大卡');
+assert.match(workspace, /LiquidSegmentedControl\(/);
+assert.match(workspace, /val counts = listOf\(nowCount, all\.count\(::isActionableWorkspaceTask\)/);
+assert.match(workspace, /labelContent = \{ index, _, color ->/);
 assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周日期"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
@@ -2109,15 +2087,13 @@ assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
   '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
-assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
+assert.match(workspace, /val keys = listOf\("now", "pending", "all", "done"\)/);
 assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
 assert.match(workspace, /SystemPicker\(/, '来源筛选使用原版选择器');
 assert.doesNotMatch(workspace, /sourceMenuOpen/, '选择器展开状态由原版持有');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
-assert.match(workspace, /filter = "pending"/,
-  '待完成统计卡应真实切换过滤器');
-assert.match(workspace, /filter = "done"/,
-  '已完成统计卡应真实切换过滤器');
+assert.match(workspace, /keys\.getOrNull\(index\)\?\.let \{ filter = it/);
+assert.match(workspace, /if \(it == "done"\) onlyThisWeek = false/);
 
 assert.match(workspace, /showCloudEditor = true/);
 assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
