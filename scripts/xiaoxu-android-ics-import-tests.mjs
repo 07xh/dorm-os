@@ -72,7 +72,10 @@ assert.match(preview, /confirmedReduced/,
   'Replacing fewer meetings requires an additional explicit confirmation');
 // The new route is a thin adapter to the existing local workspace and original import callbacks.
 assert.match(screen, /localImportedScheduleView\(lessons\)\.sourceLabel/);
-assert.match(workspace, /lessons = pageSnapshot\(lessons\.takeIf/);
+assert.match(workspace, /val latestLessons = rememberUpdatedState\(lessons\)/);
+assert.match(workspace, /val latestRevision = rememberUpdatedState\(scheduleRevision\)/);
+assert.match(workspace, /lessonsSource = \{ pageSnapshot\(latestLessons\.value\.takeIf \{ latestRevision\.value > 0 \|\| it\.isNotEmpty\(\) \}\) \}/,
+  '读取最新课表及版本；没有真实导入时不得伪造已读取的空课表');
 assert.match(screen, /UpstreamCourseDetailSheet\(course, allCourses/);
 assert.match(screen, /onClose = \{ selectedId = null \}/);
 assert.match(screen, /onEdit = \{/);
