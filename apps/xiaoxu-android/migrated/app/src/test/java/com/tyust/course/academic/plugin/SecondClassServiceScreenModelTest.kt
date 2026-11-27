@@ -22,6 +22,11 @@ class SecondClassServiceScreenModelTest {
         assertTrue(json.contains("第二课堂"))
         assertTrue(json.contains("本人账号绑定：已确认"))
         assertTrue(json.contains("立即同步学校只读数据"))
+        assertTrue(json.contains("自动读取：已启用（12 小时周期）"))
+        assertTrue(json.contains("secondclass.connect"))
+        assertTrue(json.contains("secondclass.refresh"))
+        assertTrue(json.contains("secondclass.toggle_auto"))
+        assertTrue(json.contains("secondclass.toggle_background"))
         assertTrue(json.contains("合成活动"))
         assertFalse(json.contains(secretHash))
     }
