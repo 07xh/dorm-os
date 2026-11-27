@@ -35,6 +35,15 @@ class MessageCenterModelTest {
             deriveMessagePhase(CloudUiState(notices = notices)))
     }
 
+    @Test fun newerConfirmedWechatRevisionWinsOverAnOlderOverlappingRead() {
+        val older = CloudTask("task_12345678", "微信群任务", "todo", "todo", "wechat", null, revision = 3)
+        val confirmed = older.copy(status = "done", revision = 4)
+        assertEquals(confirmed, preferConfirmedWechatRevisions(listOf(older), listOf(confirmed)).single())
+        val newerServer = older.copy(status = "todo", revision = 5)
+        assertEquals(newerServer, preferConfirmedWechatRevisions(listOf(newerServer), listOf(confirmed)).single())
+        assertEquals(older, preferConfirmedWechatRevisions(listOf(older), emptyList()).single())
+    }
+
     @Test fun unknownAndStaleWechatCountsAreNotPresentedAsZeroOrFresh() {
         assertEquals("未连接校序云端，无法读取待审核数量",
             pendingWechatLabel(0, authenticated = false))
