@@ -1,24 +1,21 @@
 package io.github.x07xh.xiaoxu.data
 
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
-import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
 import java.security.MessageDigest
 
-/** All responses are synthetic; the isolated runtime APK cannot contact the school. */
-@RunWith(AndroidJUnit4::class)
+/** Offline JVM contract tests: every response is supplied by a synthetic callback.
+ * Legacy device-only session and persistence integration tests remain in the
+ * existing isolated runtime suite; this suite never instantiates HTTP transport.
+ */
 class SecondClassNativeHttpReadTest {
     private val salt = "b".repeat(32)
     private val student = "synthetic-student"
     private val hash = MessageDigest.getInstance("SHA-256")
         .digest((salt + ":" + student).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-    @Before fun isolation() = assertRuntimeIsolation(InstrumentationRegistry.getInstrumentation().targetContext)
 
     private fun envelope(data: JSONArray = JSONArray(), total: Int = data.length(),
         pages: Int = if (data.length() == 0) 0 else 1) = JSONObject()
@@ -46,10 +43,15 @@ class SecondClassNativeHttpReadTest {
             }
         }
         assertEquals(2, calls.count { it == SecondClassReadEndpoint.SCORES })
-        assertEquals(2, parseLocalSecondClassScores(result, 1).size)
-        assertEquals(1, parseLocalSecondClassActivities(result, 1).size)
-        assertEquals(2, parseLocalSecondClassCatalogEmpty(result, 1).size)
-        assertEquals(1, parseLocalSecondClassCatalogActivities(result, 1).size)
+        assertEquals("xiaoxu/local-secondclass-scores-v1", result.getString("schema"))
+        assertTrue(result.getBoolean("identityMatched"))
+        assertEquals(hash, result.getString("accountHash"))
+        assertEquals(2, result.getJSONArray("rows").length())
+        assertTrue(result.getBoolean("activitiesComplete"))
+        assertEquals(0, result.getJSONArray("activities").length())
+        assertEquals("verified_nonempty", result.getString("catalogStatus"))
+        assertEquals(2, result.getJSONArray("catalogEmptyFilters").length())
+        assertEquals(1, result.getJSONArray("catalogActivities").length())
         assertFalse(result.toString().contains(student))
     }
 
@@ -89,29 +91,8 @@ class SecondClassNativeHttpReadTest {
             }
         }
         assertEquals("nonempty_unverified", result.getString("catalogStatus"))
-        assertTrue(parseLocalSecondClassCatalogEmpty(result, 1).isEmpty())
-        assertTrue(parseLocalSecondClassCatalogActivities(result, 1).isEmpty())
-    }
-
-    @Test fun nativeSessionAdapterIsUnavailableInOfflineRuntimeAndNormalPackages() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertFalse(SecondClassNativeQaSession.available(context))
-        SecondClassNativeQaSession.configure(context, true)
-        assertFalse(SecondClassNativeQaSession.enabled(context))
-        assertNull(SecondClassNativeQaSession.acquire(context, hash))
-    }
-
-    @Test fun nativeSessionOnlyAcceptsUnambiguousScopedCookie() {
-        val synthetic = "sid=00000000-0000-4000-8000-000000000000"
-        assertEquals(synthetic, selectSecondClassSessionCookie("unrelated=fixture; " + synthetic))
-        assertNull(selectSecondClassSessionCookie(synthetic + "; " + synthetic))
-        assertNull(selectSecondClassSessionCookie("sid=invalid"))
-        assertNull(selectSecondClassSessionCookie(null))
-        assertTrue(isScopedSecondClassSessionUpdate(synthetic + "; Path=/; Secure; HttpOnly"))
-        assertTrue(isScopedSecondClassSessionUpdate(synthetic + "; Domain=dekt.ncwu.edu.cn"))
-        assertFalse(isScopedSecondClassSessionUpdate(synthetic + "; Domain=.ncwu.edu.cn"))
-        assertFalse(isScopedSecondClassSessionUpdate("unrelated=fixture"))
-        assertFalse(isScopedSecondClassSessionUpdate(synthetic + "; Domain=example.invalid"))
+        assertEquals(0, result.getJSONArray("catalogEmptyFilters").length())
+        assertEquals(0, result.getJSONArray("catalogActivities").length())
     }
 
     @Test fun onlyKnownSchoolLoginRedirectMeansReconnect() {

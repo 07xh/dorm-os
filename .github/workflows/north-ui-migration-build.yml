@@ -227,7 +227,7 @@ jobs:
         working-directory: apps/xiaoxu-android/migrated
         run: |
           set -euo pipefail
-          bash ./gradlew :app:assembleDebug -PemulatorPreview=true --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
+          bash ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PemulatorPreview=true --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
 
       - name: Emulator launch and frame-stats smoke test
         id: emulator-smoke
@@ -327,6 +327,16 @@ jobs:
                 print('Schedule tab label not found in UI hierarchy; home screenshot and hierarchy retained.')
             PY
             adb shell dumpsys gfxinfo io.github.x07xh.xiaoxu.northui framestats > /tmp/xiaoxu-smoke/frame-stats-after-navigation.txt
+
+            # Run only the migrated storage fixtures. Never invoke live school
+            # account tests from the upstream instrumentation suite in CI.
+            test_apk="apps/xiaoxu-android/migrated/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+            test -s "$test_apk"
+            adb install --no-streaming -r "$test_apk"
+            adb shell am instrument -w -r -e class 'io.github.x07xh.xiaoxu.data.CampusRunEncryptedStorageTest,io.github.x07xh.xiaoxu.data.CampusUtilitiesEncryptedStorageTest' io.github.x07xh.xiaoxu.northui.test/androidx.test.runner.AndroidJUnitRunner > /tmp/xiaoxu-smoke/migrated-storage-instrumentation.txt
+            cat /tmp/xiaoxu-smoke/migrated-storage-instrumentation.txt
+            grep -Eq 'OK \(4 tests\)' /tmp/xiaoxu-smoke/migrated-storage-instrumentation.txt
+
 
       - name: Upload emulator smoke evidence
         if: ${{ always() && steps.emulator-smoke.outcome != 'skipped' }}
