@@ -34,12 +34,20 @@ class SecondClassAutoReadPolicyTest {
         assertFalse(due(saved = 49_999_999))
         assertTrue(due(saved = 49_999_999, userRequested = true))
         assertTrue(due(saved = 49_999_999, enabled = false, userRequested = true))
-        assertFalse(due(bound = false, userRequested = true))
+        assertFalse(due(bound = false))
+        assertTrue(due(bound = false, saved = 0, userRequested = true))
         assertFalse(due(interactive = true, userRequested = true))
-        assertFalse(due(saved = 0, userRequested = true))
+        assertTrue(due(saved = 0, userRequested = true))
         assertFalse(due(attempted = 49_999_999, userRequested = true))
         assertFalse(due(background = true, userRequested = true))
     }
+    @Test fun firstManualReadCanEstablishAnExplicitBindingButAutoReadCannot() {
+        assertTrue(due(bound = false, saved = 0, userRequested = true))
+        assertFalse(due(bound = false, saved = 0, userRequested = false))
+        assertFalse(due(bound = false, saved = 0, background = true,
+            backgroundAllowed = true, userRequested = true))
+    }
+
     @Test fun saveRequiresThePreviouslyConfirmedHash() {
         assertTrue(SecondClassAutoReadPolicy.matchesConfirmedAccount("a".repeat(64), "a".repeat(64)))
         for (pair in listOf(null to null, "a".repeat(64) to null,
