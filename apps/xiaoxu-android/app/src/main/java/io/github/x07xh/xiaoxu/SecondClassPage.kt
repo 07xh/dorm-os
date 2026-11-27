@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,9 +50,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 import io.github.x07xh.xiaoxu.ui.XiaoxuSpacing
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
@@ -73,18 +79,20 @@ fun SecondClassPage(
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val all by rememberLocalRows(dao) { dao.observe() }
-    val scores = all.filter { it.provider == "second_class" && it.kind == "credits" }
-    val candidates = all.filter {
-        it.provider == "second_class" && it.kind in setOf("activity", "activity_summary")
+    val scores = remember(all) { all.filter { it.provider == "second_class" && it.kind == "credits" } }
+    val candidates = remember(all) {
+        all.filter { it.provider == "second_class" && it.kind in setOf("activity", "activity_summary") }
     }
-    val batch = candidates.singleOrNull { it.kind == "activity_summary" }
-    val activities = if (batch != null &&
-        candidates.all { it.capturedAt == batch.capturedAt }) candidates else emptyList()
-    val catalogRows = all.filter {
-        it.provider == "second_class" && it.kind == "catalog_empty"
+    val batch = remember(candidates) { candidates.singleOrNull { it.kind == "activity_summary" } }
+    val countConfirmed = remember(candidates, batch) {
+        batch != null && candidates.all { it.capturedAt == batch.capturedAt }
     }
-    val catalogActivities = all.filter {
-        it.provider == "second_class" && it.kind == "catalog_activity"
+    val activities = if (countConfirmed) candidates else emptyList()
+    val catalogRows = remember(all) {
+        all.filter { it.provider == "second_class" && it.kind == "catalog_empty" }
+    }
+    val catalogActivities = remember(all) {
+        all.filter { it.provider == "second_class" && it.kind == "catalog_activity" }
     }
 
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
@@ -93,6 +101,8 @@ fun SecondClassPage(
 
     var refreshing by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var reconnectAction by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         result ->
         refreshing = false
@@ -103,14 +113,16 @@ fun SecondClassPage(
         ) else null
         val succeeded = receipt != null
         error = if (succeeded) null else "本次未更新，可重新读取"
+        reconnectAction = false
 
         onRefreshResult?.invoke(succeeded)
         if (receipt != null) onSavedReceipt?.invoke(receipt)
     }
 
-    fun refreshPersonalRecords() {
+    fun openOfficialReader() {
         if (refreshing) return
         refreshing = true
+        reconnectAction = false
         error = null
         try {
             reader.launch(Intent(context, NativeSchoolConnectActivity::class.java)
@@ -120,6 +132,46 @@ fun SecondClassPage(
             refreshing = false
             error = "学校读取页面无法打开"
             onRefreshResult?.invoke(false)
+        }
+    }
+
+    fun refreshPersonalRecords() {
+        if (refreshing) return
+        // The first connection still uses the school's official login page.
+        // Existing owner-bound snapshots use the same fixed local reader silently.
+        if (scores.isEmpty()) { openOfficialReader(); return }
+        refreshing = true
+        reconnectAction = false
+        error = null
+        scope.launch {
+            try {
+                val updated = SecondClassAutoRefresh.refreshIfDue(
+                    context.applicationContext, userRequested = true)
+                if (updated) {
+                    onRefreshResult?.invoke(true)
+                } else {
+                    val state = SecondClassAutoRefresh.status(context.applicationContext)
+                    // Always preserve a user-invoked official authorization path if a
+                    // retained snapshot exists but its local binding is absent.
+                    // A quiet read failure must not strand the owner indefinitely.
+                    reconnectAction = state != "reading"
+                    error = when (state) {
+                        "needs_reconnect" -> "学校登录已失效，请重新登录后读取"
+                        "needs_confirmation" -> "学校账号已变化，请重新确认本人账号"
+                        "reading" -> "已有读取任务正在进行，请稍后再试"
+                        else -> "本次未更新，已保留上次数据；如需重新授权，可打开官方登录"
+                    }
+                    onRefreshResult?.invoke(false)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                reconnectAction = true
+                error = "本次读取失败，已保留上次数据"
+                onRefreshResult?.invoke(false)
+            } finally {
+                refreshing = false
+            }
         }
     }
 
@@ -135,29 +187,31 @@ fun SecondClassPage(
     LaunchedEffect(connectOnOpen) {
         if (connectOnOpen && !attempted) {
             attempted = true
-            refreshPersonalRecords()
+            openOfficialReader()
         }
 
     }
 
 // The official parser is the only source of truth: never infer today's term,
     // approval status, score totals or catalog entries from a missing snapshot.
-    val termRows = scores.filter {
-        Regex("^第[1-9][0-9]*学期积分$").matches(it.title)
-    }.sortedByDescending {
-        it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0
+    val termRows = remember(scores) {
+        val termPattern = Regex("^第[1-9][0-9]*学期积分$")
+        scores.filter { termPattern.matches(it.title) }.sortedByDescending {
+            it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0
+        }
     }
     var selectedTermTitle by rememberSaveable { mutableStateOf<String?>(null) }
     var termMenuOpen by rememberSaveable { mutableStateOf(false) }
     val selectedTerm = termRows.firstOrNull { it.title == selectedTermTitle }
         ?: termRows.firstOrNull()
-    val schoolTotal = scores.firstOrNull { it.title == "学校积分合计" }
-    val myActivities = activities.filter { it.kind == "activity" }
-    val countConfirmed = batch != null &&
-        candidates.all { it.capturedAt == batch.capturedAt }
+    val schoolTotal = remember(scores) { scores.firstOrNull { it.title == "学校积分合计" } }
+    val myActivities = remember(activities) { activities.filter { it.kind == "activity" } }
     var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
-    val detailRecord = (scores + myActivities + catalogActivities).firstOrNull {
-        it.kind + ":" + it.fingerprint == detailKey
+    val detailRecord = remember(scores, myActivities, catalogActivities, detailKey) {
+        if (detailKey == null) null else
+            sequenceOf(scores, myActivities, catalogActivities).flatten().firstOrNull {
+                it.kind + ":" + it.fingerprint == detailKey
+            }
     }
     val catalogOptions = remember {
         listOf(
@@ -171,14 +225,14 @@ fun SecondClassPage(
     val catalogRecord = catalogRows.singleOrNull {
         it.title == activeCatalogFilter
     }
-    val visibleCatalogActivities = catalogActivities.filter {
-        it.details.startsWith("筛选：$activeCatalogFilter\n")
+    val visibleCatalogActivities = remember(catalogActivities, activeCatalogFilter) {
+        catalogActivities.filter { it.details.startsWith("筛选：$activeCatalogFilter\n") }
     }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(key = "points_header") {
             Row(
@@ -233,14 +287,21 @@ fun SecondClassPage(
                         }
                     }
                 }
-                IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
+                XiaoxuSoftIconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
                     Icon(Icons.Outlined.Refresh,
-                        contentDescription = "从学校重新读取第二课堂")
+                        contentDescription = "手动同步第二课堂")
                 }
             }
             if (refreshing) {
-                Text("读取中…", style = MaterialTheme.typography.labelSmall,
+                Text("同步中…", style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Ink2)
+            }
+            if (error != null) {
+                Text(error ?: "", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error)
+                if (reconnectAction) {
+                    TextButton(onClick = ::openOfficialReader) { Text("重新登录并读取") }
+                }
             }
         }
         item(key = "metrics") {
@@ -265,24 +326,19 @@ fun SecondClassPage(
                         Modifier.weight(1f)
                     )
                 }
-            }
-        }
-        item(key = "term_breakdown") {
-            // 默认折叠为单行，明细只在居中玻璃弹窗内展示；
-            // 不插入六条内容把页面和底栏向下推。
-            XiaoxuCard(
-                onClick = if (selectedTerm != null) ({
-                    detailKey = selectedTerm.kind + ":" + selectedTerm.fingerprint
-                }) else null,
-                contentPadding = 16.dp
-            ) {
+                UiV2SettingsDivider()
+                // One card, one direct entry; detail continues to use the original dialog.
                 Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(enabled = selectedTerm != null) {
+                            selectedTerm?.let { detailKey = it.kind + ":" + it.fingerprint }
+                        }
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("积分明细", modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
                     if (selectedTerm == null) {
                         Text("暂未获取", style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink2)
@@ -329,7 +385,7 @@ fun SecondClassPage(
                     onClick = {
                         detailKey = record.kind + ":" + record.fingerprint
                     },
-                    contentPadding = 16.dp
+                    contentPadding = 12.dp
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(record.title, modifier = Modifier.weight(1f),
@@ -371,7 +427,7 @@ fun SecondClassPage(
                     onClick = {
                         detailKey = record.kind + ":" + record.fingerprint
                     },
-                    contentPadding = 16.dp
+                    contentPadding = 12.dp
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(record.title, modifier = Modifier.weight(1f),
@@ -387,26 +443,22 @@ fun SecondClassPage(
             }
         } else {
             item(key = "catalog_status") {
-                XiaoxuCard {
-                    Text(
-                        if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = XiaoxuPalette.Ink
-                    )
-                    if (catalogRecord != null) {
-                        Text("更新于 " + DateFormat.getDateTimeInstance()
-                            .format(Date(catalogRecord.capturedAt)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink2)
+                XiaoxuCard(contentPadding = 12.dp) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = XiaoxuPalette.Ink)
+                            if (catalogRecord != null) {
+                                Text("更新于 " + DateFormat.getDateTimeInstance()
+                                    .format(Date(catalogRecord.capturedAt)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = XiaoxuPalette.Ink2)
+                            }
+                        }
+                        TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                     }
-                    TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                 }
-            }
-        }
-        if (error != null) {
-            item(key = "reader_error") {
-                Text(error ?: "", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error)
             }
         }
     }

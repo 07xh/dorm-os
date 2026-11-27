@@ -1,8 +1,13 @@
 package io.github.x07xh.xiaoxu.ui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionProvider
+import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetPolicy
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SegmentedControl
+import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
@@ -28,12 +33,12 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
@@ -41,13 +46,10 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -73,12 +75,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
  * 校序统一 UI 设计系统 v1（Issue #268 第一阶段）。
@@ -105,15 +105,8 @@ object XiaoxuPalette {
     /** 页面背景 */
     val Bg = Color(0xFFF4F7FD)
 
-    /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
-    val PageGradient = Brush.linearGradient(
-        0.00f to Color(0xFFF2F8FF),
-        0.22f to Color(0xFFE4EEFF),
-        0.44f to Color(0xFFF2ECFF),
-        0.68f to Color(0xFFE7F4F4),
-        0.86f to Color(0xFFF5EEFC),
-        1.00f to Color(0xFFFAF8FF)
-    )
+    /** V2 neutral reading surface; existing glass and course palettes remain stable. */
+    val PageGradient = UiV2Theme.PageSurface
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
     val GlassCard = Color.White.copy(alpha = 0.95f)
@@ -183,36 +176,37 @@ object XiaoxuPalette {
  * Keep navigation-dock geometry independent of these content-only tokens.
  */
 object XiaoxuRadius {
-    val group: Dp = 20.dp
-    val card: Dp = 18.dp
-    val list: Dp = 14.dp
-    val tile: Dp = 12.dp
-    val hero: Dp = 28.dp
-    val modal: Dp = 28.dp
-    val pill: Dp = 999.dp
+    val group: Dp = UiV2Theme.GroupRadius
+    val card: Dp = UiV2Theme.CardRadius
+    val list: Dp = UiV2Theme.ListRadius
+    val tile: Dp = UiV2Theme.TileRadius
+    val hero: Dp = UiV2Theme.ModalRadius
+    val modal: Dp = UiV2Theme.ModalRadius
+    val pill: Dp = UiV2Theme.PillRadius
 }
 
-/** 间距：页面 18dp，区块 14dp，卡内 16dp，元素 8dp。 */
+/** Compatibility names for shared V2 spacing tokens; dock geometry stays independent. */
 object XiaoxuSpacing {
-    val page: Dp = 18.dp
-    val section: Dp = 14.dp
-    val card: Dp = 16.dp
-    val gap: Dp = 8.dp
+    val page: Dp = UiV2Theme.PageGutter
+    val section: Dp = UiV2Theme.SectionGap
+    val card: Dp = UiV2Theme.PageGutter
+    val gap: Dp = UiV2Theme.GroupGap
 
     /** 北化式紧凑列表统一起始高度；长标题仍由内容自行撑开。 */
-    val listRowMin: Dp = 68.dp
-    val glassStroke: Dp = 0.5.dp
+    val listRowMin: Dp = UiV2Theme.ListRowMin
+    val glassStroke: Dp = UiV2Theme.Hairline
 }
 
 /** Local selection and feedback only; full-screen route switches are immediate. */
 internal object XiaoxuMotion {
-    const val SelectionMs = 180
+    const val SelectionMs = UiV2Motion.QuickMs
     const val FeedbackMs = 120
 }
 
 /** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
 internal object XiaoxuPageLayout {
     val ContentMaxWidth: Dp = 860.dp
+    val ScheduleMaxWidth: Dp = 1200.dp
     val StateMaxWidth: Dp = 560.dp
 }
 
@@ -290,47 +284,19 @@ private val XiaoxuColorScheme = lightColorScheme(
     surfaceTint = XiaoxuPalette.Brand
 )
 
-private val XiaoxuTypography = Typography(
-    headlineMedium = TextStyle(
-        fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.4).sp
-    ),
-    headlineSmall = TextStyle(
-        fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.2).sp
-    ),
-    titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
-    bodySmall = TextStyle(fontSize = 12.5.sp, lineHeight = 19.sp),
-    labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp)
-)
-
-private val XiaoxuShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(XiaoxuRadius.card),
-    large = RoundedCornerShape(XiaoxuRadius.hero),
-    extraLarge = RoundedCornerShape(28.dp)
-)
-
 /** 全 App 唯一主题入口：颜色 / 字级 / 圆角一次装好，页面不再自带配色。 */
 @Composable
 fun XiaoxuTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = XiaoxuColorScheme,
-        typography = XiaoxuTypography,
-        shapes = XiaoxuShapes,
+        typography = UiV2Theme.Typography,
+        shapes = UiV2Theme.Shapes,
         content = {
             // Default Compose clickable/selectable rows receive the same bounded
             // low-contrast ripple; individually clipped shapes retain their outline.
             CompositionLocalProvider(
                 LocalIndication provides ripple(bounded = true, color = XiaoxuPalette.PressTint)
-            ) { content() }
+            ) { UiV2MotionProvider(content) }
         }
     )
 }
@@ -360,7 +326,7 @@ internal fun XiaoxuSoftIconButton(
 ) {
     val source = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier.size(48.dp).clip(CircleShape)
+        modifier = modifier.size(48.dp).uiV2Press(source, enabled).clip(CircleShape)
             .background(backgroundColor)
             // Capture-free glass fallback: only floating controls get this rim.
             // Keep the click indicator after clipping to prevent square dark flashes.
@@ -394,9 +360,11 @@ fun XiaoxuCard(
     contentPadding: Dp = XiaoxuSpacing.card,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val source = if (onClick != null) remember { MutableInteractionSource() } else null
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .then(if (source != null) Modifier.uiV2Press(source) else Modifier)
             .clip(shape)
             .background(container)
             .border(
@@ -405,8 +373,12 @@ fun XiaoxuCard(
                 shape
             )
             .then(
-                if (onClick != null) {
-                    Modifier.heightIn(min = 48.dp).clickable(onClick = onClick)
+                if (onClick != null && source != null) {
+                    Modifier.heightIn(min = 48.dp).clickable(
+                        interactionSource = source,
+                        indication = LocalIndication.current,
+                        onClick = onClick
+                    )
                 } else Modifier
             )
             .padding(contentPadding),
@@ -457,53 +429,10 @@ fun XiaoxuSegmentedControl(
     fillWidth: Boolean = true,
     compact: Boolean = false
 ) {
-    if (options.isEmpty()) return
-    val track = RoundedCornerShape(999.dp)
-    Row(
-        modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth() else Modifier).clip(track)
-            .background(if (compact) XiaoxuPalette.SurfaceAlt else XiaoxuPalette.GlassTrack)
-            .then(if (compact) Modifier.border(
-                XiaoxuSpacing.glassStroke, Color(0xFFD6E0F0), track
-            ) else Modifier.background(XiaoxuPalette.GlassControlSurface)
-                .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, track))
-            .padding(if (compact) 3.dp else 4.dp).selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        options.forEach { option ->
-            val selected = selectedKey == option.key
-            val itemShape = RoundedCornerShape(999.dp)
-            val itemColor = animateColorAsState(
-                targetValue = if (selected) {
-                    if (compact) XiaoxuPalette.BrandSoft else XiaoxuPalette.GlassIndicator
-                } else Color.Transparent,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-bg"
-            ).value
-            val inkColor = animateColorAsState(
-                targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-text"
-            ).value
-            Box(
-                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
-                    .clip(itemShape).background(itemColor)
-                    // The track owns the outline: avoid a second dark rim
-                    // around ordinary selected tabs while retaining compact styling.
-                    .then(
-                        if (selected && compact) Modifier.border(
-                            XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
-                        ) else if (selected) Modifier.border(
-                            XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, itemShape
-                        ) else Modifier
-                    )
-                    .selectable(selected = selected, role = Role.Tab,
-                        onClick = { if (!selected) onSelected(option.key) }),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(option.label, style = MaterialTheme.typography.titleSmall,
-                    color = inkColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
+    UiV2SegmentedControl(
+        options = options, selectedKey = selectedKey, onSelected = onSelected,
+        modifier = modifier, fillWidth = fillWidth, compact = compact
+    )
 }
 
 /**
@@ -557,7 +486,7 @@ fun XiaoxuExpandableGlassRow(
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = UiV2Motion.spec(LocalUiV2Motion.current, XiaoxuMotion.SelectionMs),
         label = "glass-row-chevron"
     )
     XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {
@@ -810,21 +739,23 @@ fun XiaoxuGlassDialog(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = UiV2Theme.PageGutter, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            val availableDialogHeight = maxHeight * 0.88f
+            val compactHeight = maxHeight.value < UiV2SheetPolicy.CompactHeightDp
+            val availableDialogHeight = maxHeight * UiV2SheetPolicy.heightFraction(maxHeight.value)
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.88f)
-                    .widthIn(max = 560.dp)
+                    .widthIn(max = XiaoxuPageLayout.StateMaxWidth)
+                    .fillMaxWidth()
                     .heightIn(max = availableDialogHeight)
                     .clip(shape)
                     .background(XiaoxuPalette.GlassModalFallback)
                     .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                    .padding(horizontal = UiV2Theme.PageGutter,
+                        vertical = if (compactHeight) 12.dp else 20.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -836,7 +767,7 @@ fun XiaoxuGlassDialog(
                 )
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                     content = content
                 )
                 if (showDismissButton) {
@@ -862,7 +793,7 @@ internal fun XiaoxuDialogPrimaryButton(
     Button(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().heightIn(min = 50.dp),
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(XiaoxuRadius.pill),
         content = content
     )
 }
@@ -991,6 +922,18 @@ internal fun XiaoxuToolbarAction(
     }
 }
 
+/** One optional menu action; absent on child routes and wide persistent rails. */
+@Composable
+internal fun XiaoxuNavigationAction(onNavigation: (() -> Unit)?) {
+    if (onNavigation != null) {
+        XiaoxuSoftIconButton(onClick = onNavigation, glassChrome = true) {
+            Icon(Icons.Outlined.Menu, contentDescription = "打开导航",
+                tint = XiaoxuPalette.Ink2)
+        }
+        Spacer(Modifier.width(8.dp))
+    }
+}
+
 /** 统一顶栏：品牌标记 + 页面名 + 刷新。不用 TopAppBar，避免五个页面各调一次主题。 */
 @Composable
 fun XiaoxuTopBar(
@@ -999,7 +942,8 @@ fun XiaoxuTopBar(
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
     onMessages: (() -> Unit)? = null,
-    applyStatusBarInset: Boolean = true
+    applyStatusBarInset: Boolean = true,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -1011,6 +955,7 @@ fun XiaoxuTopBar(
             .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        XiaoxuNavigationAction(onNavigation)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = title,

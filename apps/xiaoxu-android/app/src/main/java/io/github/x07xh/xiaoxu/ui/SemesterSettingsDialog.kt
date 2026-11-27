@@ -77,7 +77,8 @@ internal fun SemesterSettingsPage(
     onImport: () -> Unit,
     onExport: () -> Unit,
     onDismiss: () -> Unit,
-    onSave: (SemesterCalendar?, String, Int) -> Unit
+    onSave: (SemesterCalendar?, String, Int) -> Unit,
+    cloud: io.github.x07xh.xiaoxu.data.CloudClient? = null
 ) {
     val context = LocalContext.current
     var monday by rememberSaveable { mutableStateOf(current?.firstMonday?.toString().orEmpty()) }
@@ -220,6 +221,22 @@ internal fun SemesterSettingsPage(
 
             SettingsGroupTitle("课程与数据")
             XiaoxuGroupSurface {
+                if (cloud != null) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("学校课表自动同步", color = XiaoxuPalette.Ink)
+                            Text("默认关闭 · 开启后前台每30分钟同步",
+                                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+                        }
+                        XiaoxuSettingsSwitch(checked = cloud.ncwuScheduleAutoEnabled,
+                            onCheckedChange = { enabled ->
+                                if (!cloud.setNcwuScheduleAutoEnabled(enabled))
+                                    error = "自动同步设置保存失败"
+                            })
+                    }
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                }
                 SettingsActionRow(title = "添加课程", onClick = onAddCourse)
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(

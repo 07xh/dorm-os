@@ -20,13 +20,14 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.background
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -40,8 +41,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -54,13 +53,12 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import io.github.x07xh.xiaoxu.ui.TimetableImportPreviewSheet
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import io.github.x07xh.xiaoxu.ui.rememberLocalRows
@@ -77,6 +75,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -90,9 +90,12 @@ import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
+import io.github.x07xh.xiaoxu.ui.localImportedScheduleView
 import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
+import io.github.x07xh.xiaoxu.ui.combineWorkspaceTasks
+import io.github.x07xh.xiaoxu.ui.traceWorkspace
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
@@ -101,10 +104,18 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.xiaoxuSettingsRouteTransition
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
+import io.github.x07xh.xiaoxu.ui.XiaoxuNavigationAction
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
-import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
-import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigationReserve
-import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
+import io.github.x07xh.xiaoxu.ui.v2.UiV2PredictiveBack
+import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2BackPreview
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeQuickAction
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
+import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -112,6 +123,7 @@ import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
 /**
@@ -151,7 +163,7 @@ class MainActivity : ComponentActivity() {
             val count = result.data?.getIntExtra(
                 NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
             val permitted = when (source) {
-                "chaoxing" -> kind in setOf("course", "homework")
+                "chaoxing" -> kind in setOf("course", "homework", "study_task", "exam_notice")
                 "second_class" -> kind in setOf("activity", "credits")
                 else -> false
             }
@@ -503,6 +515,7 @@ private fun NativeShell(
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
     // The timetable's own settings entry stays on SCHEDULE; 我的 → 课表设置 uses a PROFILE child.
     var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
+    var schoolScheduleOpenRequest by rememberSaveable { mutableIntStateOf(0) }
     var profileSettingsRoute by rememberSaveable { mutableStateOf("home") }
     // Inbox selections are transient shell-owned state; Activity reminder arguments
     // remain immutable and are consumed only by their original notification path.
@@ -516,6 +529,7 @@ private fun NativeShell(
         !(current == MainDestination.SCHEDULE && scheduleSettingsOpen) &&
         !(current == MainDestination.PROFILE && profileSettingsRoute != "home")
     val pageStateHolder = rememberSaveableStateHolder()
+    val preparedSchedule = remember(localLessons) { localImportedScheduleView(localLessons) }
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
             current = MainDestination.TASKS
@@ -534,24 +548,58 @@ private fun NativeShell(
         current = next.destination
         messagesOpen = false
     }
+    val backPreview = rememberUiV2BackPreview(
+        "${current.name}:${academic.name}:$profileSettingsRoute:$messagesOpen:$scheduleSettingsOpen"
+    )
     BackHandler(enabled = current == MainDestination.SCHEDULE && scheduleSettingsOpen) {
         scheduleSettingsOpen = false
     }
-    BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
-        profileSettingsRoute != "home") {
-        profileSettingsRoute = if (profileSettingsRoute == "licenses") "about" else "home"
+    UiV2PredictiveBack(enabled = !messagesOpen && current == MainDestination.PROFILE &&
+        profileSettingsRoute != "home" && profileSettingsRoute != "timetable-editor" &&
+        profileSettingsRoute != "timetable-settings", preview = backPreview) {
+        profileSettingsRoute = uiV2SettingsParent(profileSettingsRoute)
     }
-    BackHandler(enabled = messagesOpen) {
+    BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
+        profileSettingsRoute in setOf("timetable-editor", "timetable-settings")) {
+        profileSettingsRoute = "home"
+    }
+    UiV2PredictiveBack(enabled = messagesOpen, preview = backPreview) {
         messagesOpen = false // The contextual inbox returns to the originating tab.
     }
-    BackHandler(
+    UiV2PredictiveBack(
         enabled = !messagesOpen && current == MainDestination.ACADEMIC &&
-            academic != AcademicDestination.OVERVIEW
+            academic != AcademicDestination.OVERVIEW,
+        preview = backPreview
     ) {
         academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
-    val localTasks by rememberLocalRows(dao) { dao.observe() }
+    val workspaceLocalTasks = rememberLocalRows(dao) { dao.observe() }
+    val localTasks by workspaceLocalTasks
     val reminderContext = LocalContext.current
+    // Keep common Room snapshots alive across tabs. Read their State values
+    // only in the active destination, instead of recreating empty collectors.
+    val workspaceDependencies = rememberLocalRows(dao) { dao.observeDependencies() }
+    val workspaceNativeDao = remember(reminderContext) {
+        LocalTaskDatabase.open(reminderContext).nativeSchoolRecords()
+    }
+    val workspaceSchoolRows = rememberLocalRows(workspaceNativeDao) { workspaceNativeDao.observe() }
+    // Keep execution rows warm as well; entering Tasks no longer starts three
+    // fresh empty Room collectors and then relayouts the execution list.
+    val workspaceExecutionDao = remember(reminderContext) {
+        LocalTaskDatabase.open(reminderContext).executions()
+    }
+    val workspaceTaskSteps = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeSteps() }
+    val workspaceStepEdges = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeEdges() }
+    val workspaceExecutions = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeExecutions() }
+    // Cache the expensive canonical identity/deduplication projection across
+    // Home/Tasks disposal. Compute lazily only when a consumer needs it.
+    val workspaceRecords = remember(cloud, workspaceLocalTasks, workspaceSchoolRows) {
+        derivedStateOf {
+            traceWorkspace("Xiaoxu.workspace.combine") {
+                combineWorkspaceTasks(workspaceLocalTasks.value, cloud.state.tasks, workspaceSchoolRows.value)
+            }
+        }
+    }
     // A Room checkbox update should reschedule only affected local deadlines,
     // rather than rewriting every WorkManager job. Keep the scheduling work on IO.
     val reminderSnapshot = remember { mutableStateOf<List<LocalTask>?>(null) }
@@ -584,6 +632,26 @@ private fun NativeShell(
             onSchoolReturnConsumed()
         }
     }
+    // Opt-in only, no school network traffic when the app is paused.
+    LaunchedEffect(cloud, appLifecycle, cloud.ncwuScheduleAutoEnabled) {
+        if (cloud.ncwuScheduleAutoEnabled) appLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                cloud.refreshNcwuSchedule(manual = false)
+                delay(60_000L)
+            }
+        }
+    }
+    // Only the visible exam page may trigger periodic candidate checks.
+    LaunchedEffect(current, academic, messagesOpen, appLifecycle, cloud) {
+        if (current == MainDestination.ACADEMIC && academic == AcademicDestination.EXAMS && !messagesOpen) {
+            appLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) {
+                    cloud.checkNcwuBusiness("exams", manual = false)
+                    delay(60_000L)
+                }
+            }
+        }
+    }
     DisposableEffect(appLifecycle, cloud, returnedSchool) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && returnedSchool == null) {
@@ -597,215 +665,211 @@ private fun NativeShell(
         onDispose { appLifecycle.removeObserver(observer) }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
-        val tabletLayout = maxWidth >= 700.dp
-        // Glass samples the actual current page, not the navigation chrome itself.
-        // Phone and tablet still share the one NativeShell and route state.
-        val navBackdrop = if (!tabletLayout && showPrimaryNavigation && Build.VERSION.SDK_INT >= 33) {
-            rememberLayerBackdrop()
-        } else null
-        Box(Modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize().then(
-                if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
-            ),
-            containerColor = Color.Transparent,
-            // Keep Scaffold measurements stable while switching tabs. HOME owns
-            // its own header within the animated page; other tabs already have headers.
-            topBar = {},
-            bottomBar = {
-                if (!tabletLayout && showPrimaryNavigation) {
-                    // Layout-only reserve. Actual dock sits outside the sampled subtree.
-                    PrimaryBottomNavigationReserve(glass = navBackdrop != null)
-                }
-            }
-        ) { contentPadding ->
-            Row(Modifier.fillMaxSize().padding(contentPadding)) {
-                if (tabletLayout && showPrimaryNavigation) {
-                    PrimarySideNavigation(selected = current) { selected ->
-                        current = selected
-                        profileSettingsRoute = "home"
-                        messagesOpen = false
-                    }
-                }
-                Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
-                    if (messagesOpen) {
-                        pageStateHolder.SaveableStateProvider("messages") {
-                            MessageCenterPanel(cloud, openWebsite, openArticle,
-                                useStatusBarInset = false, onBack = { messagesOpen = false },
-                                localTasks = localTasks, localLessons = localLessons,
-                                onOpenLocalTasks = { id ->
-                                    inboxTaskId = id
-                                    inboxTaskSerial++
-                                    messagesOpen = false
-                                    current = MainDestination.TASKS
-                                },
-                                onOpenLocalSchedule = { id, weekday ->
-                                    inboxLessonId = id
-                                    inboxLessonWeekday = weekday
-                                    messagesOpen = false
-                                    current = MainDestination.SCHEDULE
-                                },
-                                onOpenReminderSettings = {
-                                    messagesOpen = false
-                                    current = MainDestination.PROFILE
-                                    profileSettingsRoute = "notifications"
-                                })
-                        }
-                    } else {
-                    // Only one heavy tab is ever composed; no AnimatedContent overlap.
-                    // Keep per-tab SaveableStateProvider so filters/scroll survive.
-                    val page = current
-                    Box(Modifier.fillMaxSize().clipToBounds()) {
-                        pageStateHolder.SaveableStateProvider(page.name) {
-                        // Full-size opaque layers and bounds clipping prevent old
-                        // page labels from showing through while rapidly changing tabs.
-                        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
-                        when (page) {
-                            MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
-                                XiaoxuTopBar(
-                                    title = "今日",
-                                    subtitle = null,
-                                    refreshing = cloud.state.busy,
-                                    onRefresh = { scope.launch { cloud.refresh() } },
-                                    onMessages = { messagesOpen = true },
-                                    applyStatusBarInset = false
-                                )
-                                Box(Modifier.weight(1f)) {
-                                RealAcademicHome(localTasks, client = cloud,
-                                localLessons = localLessons,
-                                openSchedule = { current = MainDestination.SCHEDULE },
-                                openTasks = { current = MainDestination.TASKS },
-                                openMessages = { messagesOpen = true },
-                                openProfile = { current = MainDestination.PROFILE },
-                                openAcademic = { current = MainDestination.ACADEMIC; academic = AcademicDestination.OVERVIEW },
-                                openLocalSchool = { provider ->
-                                    if (provider == "second_class") openSecondClass()
-                                    else openLocalSchool(provider)
-                                },
-                                openFileImport = openFileImport,
-                                openGrades = {
-                                    academic = AcademicDestination.GRADES
-                                    current = MainDestination.ACADEMIC
-                                },
-                                openExams = {
-                                    academic = AcademicDestination.EXAMS
-                                    current = MainDestination.ACADEMIC
-                                },
-                                openSecondClass = { openSecondClass() },
-                                openArticle = openArticle)
-                                }
-                            }
-                            MainDestination.SCHEDULE -> CloudTimetablePanel(
-                                focusLessonId = inboxLessonId ?: reminderLessonId,
-                                focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
-                                    else reminderLessonWeekday,
-                                onFocusConsumed = {
-                                    inboxLessonId = null
-                                    onReminderCourseConsumed()
-                                },
-                                localLessons = localLessons, openFileImport = openFileImport,
-                                openFileExport = openFileExport,
-                                localScheduleRevision = localScheduleRevision,
-                                onLocalLessonsChanged = onLocalLessonsChanged,
-                                onMessages = { messagesOpen = true },
-                                settingsOpen = scheduleSettingsOpen,
-                                onSettingsOpenChanged = { scheduleSettingsOpen = it })
-                            MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
-                                openWebsite, openProfile = { current = MainDestination.PROFILE },
-                                cloud = cloud, onMessages = { messagesOpen = true })
-                            MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
-                                reminderTaskId = inboxTaskId ?: reminderTaskId,
-                                reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
-                                onReminderConsumed = {
-                                    inboxTaskId = null
-                                    onReminderTaskConsumed()
-                                },
-                                openLocalSchool = openLocalSchool,
-                                onMessages = { messagesOpen = true })
-                            MainDestination.PROFILE -> {
-                                // Reuse the settings child route for the timetable
-                                // child. It must not bypass the settings host on entry/back.
-                                AnimatedContent(
-                                    targetState = profileSettingsRoute == "timetable-settings" ||
-                                        profileSettingsRoute == "timetable-editor",
-                                    transitionSpec = {
-                                        xiaoxuSettingsRouteTransition(
-                                            if (initialState) "detail" else "home",
-                                            if (targetState) "detail" else "home"
-                                        )
-                                    },
-                                    modifier = Modifier.fillMaxSize().clipToBounds(),
-                                    label = "profileTimetableChild"
-                                ) { timetableChild ->
-                                    // Each target child owns an opaque full-size layer. The
-                                    // timetable/editor must not show settings text behind it.
-                                    Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
-                                    if (timetableChild) {
-                                    // A native child of 我的/设置, not a switch to the timetable tab.
-                                    // Keeping current == PROFILE avoids AnimatedContent rendering a
-                                    // second full timetable page and glass dock during entry.
-                                    CloudTimetablePanel(
-                                        localLessons = localLessons,
-                                        openFileImport = openFileImport,
-                                        openFileExport = openFileExport,
-                                        localScheduleRevision = localScheduleRevision,
-                                        onLocalLessonsChanged = onLocalLessonsChanged,
-                                        onMessages = { messagesOpen = true },
-                                        settingsOpen = profileSettingsRoute == "timetable-settings",
-                                        onSettingsOpenChanged = { open ->
-                                            profileSettingsRoute =
-                                                if (open) "timetable-settings" else "timetable-editor"
-                                        },
-                                        onSettingsClosed = { profileSettingsRoute = "home" },
-                                        // Adding a course keeps the editor composed; only file
-                                        // actions leave this route for the Activity picker.
-                                        onSettingsFileAction = { profileSettingsRoute = "home" },
-                                        onEditorClosed = { profileSettingsRoute = "home" }
-                                    )
-                                } else {
-                                    ProfileSettingsPage(
-                                        route = if (profileSettingsRoute == "timetable-settings" ||
-                                            profileSettingsRoute == "timetable-editor") "home"
-                                            else profileSettingsRoute,
-                                        onRouteChange = { profileSettingsRoute = it },
-                                        onScheduleSettings = {
-                                            profileSettingsRoute = "timetable-settings"
-                                        },
-                                        client = cloud,
-                                        openWebsite = openWebsite,
-                                        openLocalSchool = { provider ->
-                                            if (provider == "second_class") openSecondClass()
-                                            else openLocalSchool(provider)
-                                        },
-                                        startSchoolAuthorization = startSchoolAuthorization,
-                                        recentImport = localCaptureReturn,
-                                        localTasks = localTasks,
-                                        onMessages = { messagesOpen = true },
-                                        onRefresh = { scope.launch { cloud.refresh() } }
-                                    )
-                                }
-                                    }
-                                }
-                            }
-                        }
-                        }
-                        }
-                    }
-                    }
-                }
-            }
+    UiV2Shell(
+        selected = current,
+        showNavigation = showPrimaryNavigation,
+        backPreview = backPreview,
+        onSelect = { selected ->
+            current = selected
+            profileSettingsRoute = "home"
+            messagesOpen = false
         }
-        if (!tabletLayout && showPrimaryNavigation) {
-            Box(Modifier.align(Alignment.BottomCenter)) {
-                PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) { selected ->
-                    current = selected
-                    profileSettingsRoute = "home"
+    ) { openNavigation ->
+    if (messagesOpen) {
+        pageStateHolder.SaveableStateProvider("messages") {
+            MessageCenterPanel(cloud, openWebsite, openArticle,
+                useStatusBarInset = false, onBack = { messagesOpen = false },
+                localTasks = localTasks, localLessons = localLessons,
+                onOpenLocalTasks = { id ->
+                    inboxTaskId = id
+                    inboxTaskSerial++
                     messagesOpen = false
+                    current = MainDestination.TASKS
+                },
+                onOpenLocalSchedule = { id, weekday ->
+                    inboxLessonId = id
+                    inboxLessonWeekday = weekday
+                    messagesOpen = false
+                    current = MainDestination.SCHEDULE
+                },
+                onOpenReminderSettings = {
+                    messagesOpen = false
+                    current = MainDestination.PROFILE
+                    profileSettingsRoute = "notifications"
+                })
+        }
+    } else {
+    // Only one heavy tab is ever composed; no AnimatedContent overlap.
+    // Keep per-tab SaveableStateProvider so filters/scroll survive.
+    val page = current
+    Box(Modifier.fillMaxSize().clipToBounds()) {
+        pageStateHolder.SaveableStateProvider(page.name) {
+        // The full-window UiV2Shell paints the only gradient, as in the upstream
+        // wallpaper host. The single live tab needs no separate background.
+        Box(Modifier.fillMaxSize()
+            .testTag("xiaoxu_page_${page.name}")) {
+        when (page) {
+            MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
+                XiaoxuTopBar(
+                    title = "今日",
+                    subtitle = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
+                        .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 · EEEE", java.util.Locale.CHINA)),
+                    refreshing = cloud.state.busy,
+                    onRefresh = { scope.launch { cloud.refresh() } },
+                    onMessages = { messagesOpen = true },
+                    onNavigation = openNavigation,
+                    applyStatusBarInset = false
+                )
+                Box(Modifier.weight(1f)) {
+                RealAcademicHome(localTasks, client = cloud,
+                localLessons = localLessons,
+                openSchedule = { current = MainDestination.SCHEDULE },
+                openSchoolSchedule = {
+                    schoolScheduleOpenRequest++
+                    current = MainDestination.SCHEDULE
+                },
+                openTasks = { current = MainDestination.TASKS },
+                openMessages = { messagesOpen = true },
+                openProfile = { current = MainDestination.PROFILE },
+                openAcademic = { current = MainDestination.ACADEMIC; academic = AcademicDestination.OVERVIEW },
+                openLocalSchool = { provider ->
+                    if (provider == "second_class") openSecondClass()
+                    else openLocalSchool(provider)
+                },
+                openFileImport = openFileImport,
+                openGrades = {
+                    academic = AcademicDestination.GRADES
+                    current = MainDestination.ACADEMIC
+                },
+                openExams = {
+                    academic = AcademicDestination.EXAMS
+                    current = MainDestination.ACADEMIC
+                },
+                openSecondClass = { openSecondClass() },
+                openArticle = openArticle,
+                homeDependencies = workspaceDependencies.value,
+                nativeRows = workspaceSchoolRows.value,
+                allRecords = workspaceRecords.value)
+                }
+            }
+            MainDestination.SCHEDULE -> CloudTimetablePanel(
+                preparedSchedule = preparedSchedule,
+                cloud = cloud,
+                schoolOpenRequest = schoolScheduleOpenRequest,
+                focusLessonId = inboxLessonId ?: reminderLessonId,
+                focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
+                    else reminderLessonWeekday,
+                onFocusConsumed = {
+                    inboxLessonId = null
+                    onReminderCourseConsumed()
+                },
+                localLessons = localLessons, openFileImport = openFileImport,
+                openFileExport = openFileExport,
+                localScheduleRevision = localScheduleRevision,
+                onLocalLessonsChanged = onLocalLessonsChanged,
+                onMessages = { messagesOpen = true },
+                onNavigation = openNavigation,
+                settingsOpen = scheduleSettingsOpen,
+                onSettingsOpenChanged = { scheduleSettingsOpen = it })
+            MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
+                openWebsite, openProfile = { current = MainDestination.PROFILE },
+                cloud = cloud, onMessages = { messagesOpen = true },
+                onNavigation = openNavigation)
+            MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                reminderTaskId = inboxTaskId ?: reminderTaskId,
+                reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
+                onReminderConsumed = {
+                    inboxTaskId = null
+                    onReminderTaskConsumed()
+                },
+                openLocalSchool = openLocalSchool,
+                onMessages = { messagesOpen = true },
+                onNavigation = openNavigation,
+                dependencies = workspaceDependencies.value,
+                schoolRows = workspaceSchoolRows.value,
+                allRecords = workspaceRecords.value,
+                executionDao = workspaceExecutionDao,
+                taskSteps = workspaceTaskSteps.value,
+                stepEdges = workspaceStepEdges.value,
+                executions = workspaceExecutions.value)
+            MainDestination.PROFILE -> {
+                // Reuse the settings child route for the timetable
+                // child. It must not bypass the settings host on entry/back.
+                AnimatedContent(
+                    targetState = profileSettingsRoute == "timetable-settings" ||
+                        profileSettingsRoute == "timetable-editor",
+                    transitionSpec = {
+                        xiaoxuSettingsRouteTransition(
+                            if (initialState) "detail" else "home",
+                            if (targetState) "detail" else "home"
+                        ).targetContentEnter togetherWith ExitTransition.None
+                    },
+                    modifier = Modifier.fillMaxSize().clipToBounds(),
+                    label = "profileTimetableChild"
+                ) { timetableChild ->
+                    // The shared wallpaper stays fixed; the outgoing route exits immediately.
+                    Box(Modifier.fillMaxSize()) {
+                    if (timetableChild) {
+                    // A native child of 我的/设置, not a switch to the timetable tab.
+                    // Keeping current == PROFILE avoids AnimatedContent rendering a
+                    // second full timetable page and glass dock during entry.
+                    CloudTimetablePanel(
+                        preparedSchedule = preparedSchedule,
+                        cloud = cloud,
+                        localLessons = localLessons,
+                        openFileImport = openFileImport,
+                        openFileExport = openFileExport,
+                        localScheduleRevision = localScheduleRevision,
+                        onLocalLessonsChanged = onLocalLessonsChanged,
+                        onMessages = { messagesOpen = true },
+                        settingsOpen = profileSettingsRoute == "timetable-settings",
+                        onSettingsOpenChanged = { open ->
+                            profileSettingsRoute =
+                                if (open) "timetable-settings" else "timetable-editor"
+                        },
+                        onSettingsClosed = { profileSettingsRoute = "home" },
+                        // Adding a course keeps the editor composed; only file
+                        // actions leave this route for the Activity picker.
+                        onSettingsFileAction = { profileSettingsRoute = "home" },
+                        onEditorClosed = { profileSettingsRoute = "home" }
+                    )
+                } else {
+                    ProfileSettingsPage(
+                        route = if (profileSettingsRoute == "timetable-settings" ||
+                            profileSettingsRoute == "timetable-editor") "home"
+                            else profileSettingsRoute,
+                        onRouteChange = { profileSettingsRoute = it },
+                        onScheduleSettings = {
+                            profileSettingsRoute = "timetable-settings"
+                        },
+                        onOpenCampusRun = {
+                            profileSettingsRoute = "home"
+                            academic = AcademicDestination.SERVICES
+                            current = MainDestination.ACADEMIC
+                            messagesOpen = false
+                        },
+                        client = cloud,
+                        openWebsite = openWebsite,
+                        openLocalSchool = { provider ->
+                            if (provider == "second_class") openSecondClass()
+                            else openLocalSchool(provider)
+                        },
+                        startSchoolAuthorization = startSchoolAuthorization,
+                        recentImport = localCaptureReturn,
+                        localTasks = localTasks,
+                        onMessages = { messagesOpen = true },
+                        onRefresh = { scope.launch { cloud.refresh() } },
+                        onNavigation = openNavigation
+                    )
+                }
+                    }
                 }
             }
         }
         }
+        }
+    }
+    }
     }
 }
 
@@ -832,22 +896,24 @@ private fun CompactPageHeading(
     title: String,
     onMessages: () -> Unit,
     onRefresh: (() -> Unit)? = null,
-    refreshing: Boolean = false
+    refreshing: Boolean = false,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, modifier = Modifier.weight(1f),
+        XiaoxuNavigationAction(onNavigation)
+        Text(title,
             style = MaterialTheme.typography.headlineSmall,
-            color = XiaoxuPalette.Ink)
+            color = XiaoxuPalette.Ink, modifier = Modifier.weight(1f).semantics { heading() })
         if (onRefresh != null) {
-            IconButton(onClick = onRefresh, enabled = !refreshing) {
+            XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
                 Icon(Icons.Outlined.Refresh, contentDescription = "刷新数据",
                     tint = XiaoxuPalette.Ink2)
             }
         }
-        IconButton(onClick = onMessages) {
+        XiaoxuSoftIconButton(onClick = onMessages) {
             Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
                 tint = XiaoxuPalette.Ink2)
         }
@@ -861,7 +927,8 @@ private fun AcademicPage(
     openWebsite: () -> Unit,
     openProfile: () -> Unit,
     cloud: CloudClient,
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    onNavigation: (() -> Unit)? = null
 ) {
     val tabStateHolder = rememberSaveableStateHolder()
     // A single academic child host without page-level motion.
@@ -872,13 +939,13 @@ private fun AcademicPage(
             xiaoxuSettingsRouteTransition(
                 if (initialState == AcademicDestination.OVERVIEW) "home" else "detail",
                 if (targetState == AcademicDestination.OVERVIEW) "home" else "detail"
-            )
+            ).targetContentEnter togetherWith ExitTransition.None
         },
         modifier = Modifier.fillMaxSize().clipToBounds(),
         label = "academicChild"
     ) { academicRoute ->
     Column(
-        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -888,7 +955,7 @@ private fun AcademicPage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (academicRoute != AcademicDestination.OVERVIEW) {
-                    IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                    XiaoxuSoftIconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = "返回校园",
                             tint = XiaoxuPalette.Ink2)
@@ -903,33 +970,28 @@ private fun AcademicPage(
                             AcademicDestination.SECOND_CLASS -> "第二课堂"
                             AcademicDestination.SERVICES -> "校园服务"
                         },
-                        onMessages = onMessages
+                        onMessages = onMessages,
+                        onNavigation = if (academicRoute == AcademicDestination.OVERVIEW) onNavigation else null
                     )
                 }
             }
         }
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
-                item {
-                    AcademicEditorialSection(title = "教务") {
-                        AcademicActionRow("成绩", Icons.Outlined.School) {
-                            select(AcademicDestination.GRADES)
-                        }
-                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp))
-                        AcademicActionRow("考试", Icons.Outlined.DateRange) {
-                            select(AcademicDestination.EXAMS)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    AcademicEditorialSection(title = "校园生活") {
-                        AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
-                            select(AcademicDestination.SECOND_CLASS)
-                        }
-                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp))
-                        AcademicActionRow("校园服务", Icons.Outlined.Home) {
-                            select(AcademicDestination.SERVICES)
+                item(key = "academic_actions") {
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val singleColumn = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("教务", style = MaterialTheme.typography.titleMedium,
+                                color = XiaoxuPalette.Ink)
+                            AcademicActionPair(singleColumn,
+                                "成绩", Icons.Outlined.School, { select(AcademicDestination.GRADES) },
+                                "考试", Icons.Outlined.DateRange, { select(AcademicDestination.EXAMS) })
+                            Text("校园生活", style = MaterialTheme.typography.titleMedium,
+                                color = XiaoxuPalette.Ink)
+                            AcademicActionPair(singleColumn,
+                                "第二课堂", Icons.Outlined.CheckCircle, { select(AcademicDestination.SECOND_CLASS) },
+                                "校园服务", Icons.Outlined.Home, { select(AcademicDestination.SERVICES) })
                         }
                     }
                 }
@@ -938,34 +1000,101 @@ private fun AcademicPage(
                 tabStateHolder.SaveableStateProvider("second_class") {
                     SecondClassPage()
                 }
-            AcademicDestination.GRADES -> Content(topPadding = 6.dp) {
-                item {
-                    XiaoxuEmpty(
-                        title = "成绩尚未读取",
-                        message = "尚无已核验的本人成绩，学校连接情况请在「我的」查看。",
-                        actionLabel = "连接青果教务",
-                        onAction = openProfile
-                    )
+            AcademicDestination.GRADES -> tabStateHolder.SaveableStateProvider("grades") {
+                val state = cloud.state
+                val gradeScope = rememberCoroutineScope()
+                var source by rememberSaveable { mutableStateOf("ncwu") }
+                var chooseCourse by rememberSaveable(state.ownerId) { mutableStateOf(true) }
+                val authorized = state.authenticated && state.connectionsFresh &&
+                    state.platforms.any { it.id == "chaoxing" && it.sessionState == "active" &&
+                        it.authorization == "verified_session" }
+                val busy = state.busy || state.schoolSyncBusyProvider != null
+                Content(topPadding = 6.dp) {
+                    item {
+                        io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl(
+                            options = listOf(
+                                io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption("ncwu", "青果教务"),
+                                io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption("chaoxing", "学习通")
+                            ),
+                            selectedKey = source,
+                            onSelected = { source = it }
+                        )
+                    }
+                    if (source == "ncwu") item {
+                        NcwuBusinessPanel("grades", cloud, openProfile)
+                    } else if (!authorized) item {
+                        XiaoxuEmpty(
+                            title = "学习通授权待核验",
+                            message = "请先连接学习通本人账号并刷新连接状态。",
+                            actionLabel = "查看数据连接",
+                            onAction = openProfile
+                        )
+                    } else {
+                        item {
+                            UiV2SettingsGroup(title = "作业成绩") {
+                                Text("独立于教务总评，不计入绩点与学分。",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = XiaoxuPalette.Ink3)
+                                androidx.compose.material3.TextButton(
+                                    enabled = !busy,
+                                    onClick = {
+                                        chooseCourse = true
+                                        gradeScope.launch { cloud.readChaoxingGrades() }
+                                    }
+                                ) { Text(if (busy) "正在读取…" else "刷新课程") }
+                                state.chaoxingGradeCourse?.let { course ->
+                                    AcademicActionRow(course.title, Icons.Outlined.School,
+                                        status = "切换课程") { chooseCourse = !chooseCourse }
+                                }
+                                state.chaoxingGradeError?.let {
+                                    Text(it, color = XiaoxuPalette.Danger,
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        if (chooseCourse || state.chaoxingGradeCourse == null) {
+                            items(count = state.chaoxingGradeCourses.size,
+                                key = { index -> "grade-course:" + state.chaoxingGradeCourses[index].key }) { index ->
+                                val course = state.chaoxingGradeCourses[index]
+                                AcademicActionRow(course.title, Icons.Outlined.School) {
+                                    if (!busy) gradeScope.launch {
+                                        if (cloud.readChaoxingGrades(course)) chooseCourse = false
+                                    }
+                                }
+                            }
+                        }
+                        if (!chooseCourse && state.chaoxingGradeCourse != null) {
+                            items(count = state.chaoxingGrades.size) { index ->
+                                val row = state.chaoxingGrades[index]
+                                Column(Modifier.fillMaxWidth()) {
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text(row.title, modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = XiaoxuPalette.Ink)
+                                        Text(row.score?.let { score ->
+                                            score.toString().removeSuffix(".0") +
+                                                (row.maxScore?.let { " / " + it.toString().removeSuffix(".0") } ?: "")
+                                        } ?: row.label, color = XiaoxuPalette.Ink2,
+                                            style = MaterialTheme.typography.titleMedium)
+                                    }
+                                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+                                }
+                            }
+                        }
+                    }
                 }
             }
             AcademicDestination.EXAMS -> Content(topPadding = 6.dp) {
-                item {
-                    XiaoxuEmpty(
-                        title = "考试安排尚未读取",
-                        message = "尚无已核验的本人考试安排，学校连接情况请在「我的」查看。",
-                        actionLabel = "查看数据连接",
-                        onAction = openProfile
-                    )
-                }
+                item { NcwuBusinessPanel("exams", cloud, openProfile) }
             }
             AcademicDestination.SERVICES -> Content {
                 item { CampusRunPanel(cloud) }
                 item {
-                    XiaoxuGroupedSection {
+                    UiV2SettingsGroup(title = "其他服务") {
                         AcademicActionRow("数据连接", Icons.Outlined.School,
                                 onClick = openProfile)
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
+                        UiV2SettingsDivider()
                         AcademicActionRow("打开校序网站", Icons.Outlined.Home,
                             onClick = openWebsite)
                     }
@@ -976,31 +1105,96 @@ private fun AcademicPage(
     }
 }
 
-/**
- * 技术编辑式分组：上边界细线 + 一处真正的标题 + 连续操作行。
- * 教务仍使用唯一 AcademicPage 导航宿主和原有详情页面。
- */
+/** Existing owner connection; grades are manual-only, exam status may refresh in foreground. */
 @Composable
-private fun AcademicEditorialSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
-        Text(
-            title,
-            modifier = Modifier.padding(top = 4.dp).semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink
+private fun NcwuBusinessPanel(kind: String, cloud: CloudClient, openProfile: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val result = cloud.state.ncwuBusiness[kind]
+    val authorized = cloud.canCheckNcwuBusiness()
+    val snapshot = cloud.state.ncwuAcademicSnapshots[kind]
+    if ((!authorized || result?.authorizationRequired == true) && snapshot == null) {
+        XiaoxuEmpty(
+            title = if (kind == "grades") "成绩尚未读取" else "考试安排尚未读取",
+            message = result?.message ?: "请在数据连接中确认本人青果授权。",
+            actionLabel = "查看数据连接", onAction = openProfile
         )
-        Column(content = { content() })
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (kind == "grades") "成绩查询" else "考试查询",
+                modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            androidx.compose.material3.OutlinedButton(
+                enabled = authorized && result?.authorizationRequired != true && !cloud.state.busy && cloud.state.schoolSyncBusyProvider == null,
+                onClick = { scope.launch { cloud.checkNcwuBusiness(kind, manual = true) } }
+            ) { Text(if (result?.loading == true) "查询中" else "刷新") }
+        }
+        Text(if (result?.loading == true) "正在读取学校接口…" else result?.message ?: "尚未查询",
+            style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink)
+        result?.rounds?.forEach { round ->
+            HorizontalDivider(color = XiaoxuPalette.Line)
+            Text(round.title, style = MaterialTheme.typography.titleSmall)
+            Text(round.message, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        if (!authorized || result?.authorizationRequired == true) {
+            androidx.compose.material3.TextButton(onClick = openProfile) { Text("检查数据连接") }
+        }
+        if (snapshot != null) {
+            HorizontalDivider(color = XiaoxuPalette.Line)
+            Text(if (kind == "grades") "已核验成绩快照" else "已核验考试快照",
+                style = MaterialTheme.typography.titleMedium)
+            Text("历史数据 · " + snapshot.capturedAt + if (snapshot.stale) " · 已过期" else "",
+                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+            if (snapshot.records.isEmpty()) Text("该已核验批次没有记录，不代表当前学校无记录。")
+            snapshot.records.groupBy { it.term }.forEach { (term, records) ->
+                Text(term, style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink2)
+                records.forEach { row ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(row.title, style = MaterialTheme.typography.bodyMedium)
+                            val details = if (kind == "grades") listOfNotNull(
+                                row.credit?.let { "学分 $it" }, row.gradePoint?.let { "绩点 $it" })
+                            else listOfNotNull(row.date, listOfNotNull(row.startTime, row.endTime)
+                                .joinToString("–").takeIf { it.isNotEmpty() }, row.location)
+                            if (details.isNotEmpty()) Text(details.joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+                        }
+                        if (kind == "grades") Text(row.score ?: "未提供")
+                    }
+                    HorizontalDivider(color = XiaoxuPalette.Line)
+                }
+            }
+        }
+        cloud.state.ncwuAcademicSnapshotErrors[kind]?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        Text(if (kind == "grades") "仅手动查询；本次接口检查不等于正式成绩同步。"
+            else "前台自动查询间隔至少30分钟；轮次状态不等于正式考试安排。",
+            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }
 }
 
-/** 导航入口保持 56dp 以上触控高度；用行分割替代额外彩色图标卡。 */
+/** Responsive direct action pair using the same horizontal tile as Home. */
+@Composable
+private fun AcademicActionPair(
+    singleColumn: Boolean,
+    firstTitle: String, firstIcon: ImageVector, firstAction: () -> Unit,
+    secondTitle: String, secondIcon: ImageVector, secondAction: () -> Unit
+) {
+    if (singleColumn) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            UiV2HomeQuickAction(firstTitle, firstIcon, Modifier.fillMaxWidth(), firstAction)
+            UiV2HomeQuickAction(secondTitle, secondIcon, Modifier.fillMaxWidth(), secondAction)
+        }
+    } else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            UiV2HomeQuickAction(firstTitle, firstIcon, Modifier.weight(1f), firstAction)
+            UiV2HomeQuickAction(secondTitle, secondIcon, Modifier.weight(1f), secondAction)
+        }
+    }
+}
+
+/** Secondary service links remain compact list rows. */
 @Composable
 private fun AcademicActionRow(
     title: String,
@@ -1008,24 +1202,11 @@ private fun AcademicActionRow(
     status: String? = null,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-            .clickable(role = Role.Button, onClickLabel = "打开$title", onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null,
-            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(16.dp))
-        Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall,
-            color = XiaoxuPalette.Ink)
-        if (status != null) {
-            Text(status, style = MaterialTheme.typography.labelMedium,
-                color = XiaoxuPalette.Ink3)
-            Spacer(Modifier.width(7.dp))
-        }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
-    }
+    val warm = title == "第二课堂" || title == "校园服务"
+    UiV2SettingsEntry(
+        title = title, icon = icon, subtitle = null, statusLabel = status,
+        onClick = onClick,
+        iconContainer = if (warm) UiV2Theme.WarmContainer else UiV2Theme.CoolContainer,
+        iconTint = if (warm) UiV2Theme.WarmInk else UiV2Theme.CoolInk
+    )
 }

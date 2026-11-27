@@ -116,3 +116,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+---
+
+DSH Go — V2 布局与交互设计参考
+Source: https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0
+项目采用 AGPL-3.0；settings_widgets.dart、app_sheet.dart 等文件分别标记 MIT（Copyright 2026 CikeSeven）。校序 V2 参考其行高、留白、分组、窗口策略与弹层交互，采用现有 Kotlin/Compose 组件实现；未引入 Flutter 源文件或整个 DSH Go 应用。此处为设计参考致谢，不表示 DSH Go 整体采用 MIT，也不改变现有正式分发许可门禁。

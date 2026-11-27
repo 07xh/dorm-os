@@ -74,8 +74,8 @@ test('school first login opts device into owner-verified restore and reloads rea
  await expect(row).toContainText('已授权');
 });
 
-test('verified Qingguo schedule auto-refreshes on foreground but pending review never syncs',async({page})=>{
- let connected=true,attempts=0,successAt='2026-10-01T00:00:00Z';
+test('Qingguo schedule defaults to manual, opt-in persists, and pending review never syncs',async({page})=>{
+ let connected=true,attempts=0,gradeChecks=0,successAt='2026-10-01T00:00:00Z';
  await page.route('**/api/v1/**',route=>{
   const url=new URL(route.request().url()).pathname,method=route.request().method();
   if(url==='/api/v1/connections')return respond(route,{
@@ -91,6 +91,11 @@ test('verified Qingguo schedule auto-refreshes on foreground but pending review 
    attempts++;successAt=new Date().toISOString();
    return respond(route,{provider:'ncwu',refreshed:true,lastSuccessAt:successAt});
   }
+  if(url==='/api/v1/connections/ncwu/business-check'&&method==='POST'){
+   const {kind}=route.request().postDataJSON();
+   if(kind==='grades')gradeChecks++;
+   return respond(route,{kind,status:'evaluation_required',verified:false,complete:false,checkedAt:new Date().toISOString()});
+  }
   if(url==='/api/v1/verified/schedule')return respond(route,{
    status:'ready',provenance:'trusted_readonly',lastSuccessAt:successAt,
    records:[{externalId:'TEST_ONLY',title:'合成课程',weekday:2,term:'2026-2027-1'}]});
@@ -100,12 +105,54 @@ test('verified Qingguo schedule auto-refreshes on foreground but pending review 
  });
  await page.goto('/#settings');
  await page.evaluate(()=>window.XiaoxuAcademic.connect());
+ const toggle=page.getByRole('switch',{name:'课表自动同步'});
+ const more=page.locator('details.xu-settings-more');
+ const openMore=async()=>{
+  if(!await more.evaluate(node=>node.open))await more.locator(':scope > summary').click();
+ };
+ await openMore();
+ await expect(toggle).toHaveAttribute('aria-checked','false');
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await page.waitForTimeout(150);
+ expect(attempts).toBe(0);
+
+ // Explicit manual refresh must work despite the opt-out.
+ await page.locator('button[data-page="timetable"]').first().click();
+ await page.locator('[data-xu-ncwu-schedule-refresh]').click();
  await expect.poll(()=>attempts).toBe(1);
+ await expect(page.locator('[data-xu-ncwu-schedule-refresh]')).toBeEnabled();
+ // Entering grades and foreground focus cannot send a grade query.
+ await page.locator('button[data-page="academic"]').first().click();
+ await page.locator('[data-academic-tab="grades"]').click();
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await page.waitForTimeout(150);
+ expect(gradeChecks).toBe(0);
+ await page.locator('[data-xu-ncwu-business="grades"]').click();
+ await expect.poll(()=>gradeChecks).toBe(1);
+ await expect(page.locator('[data-xu-ncwu-business="grades"]')).toBeEnabled();
+
+ await page.locator('button[data-page="profile"].nav-link').click();
+ await page.locator('button.v4-profile-link[data-page="settings"]').click();
+ await openMore();
+ await toggle.click();
+ await expect(toggle).toHaveAttribute('aria-checked','true');
+ expect(await page.evaluate(()=>localStorage.getItem('xiaoxu-ncwu-schedule-auto-v1'))).toBe('1');
+ expect(attempts).toBe(1); // recent manual success observes the same throttle
+ // Reload with old source data: an opted-in verified session may auto-refresh.
+ successAt='2026-10-01T00:00:00Z';
+ await page.reload();
  await page.evaluate(()=>window.XiaoxuAcademic.connect());
- expect(attempts).toBe(1);
+ await expect.poll(()=>attempts).toBe(2);
+ await page.evaluate(()=>window.XiaoxuAcademic.connect());
+ expect(attempts).toBe(2);
+
  connected=false;
  await page.evaluate(()=>window.XiaoxuAcademic.refresh());
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
- await page.waitForTimeout(100);
- expect(attempts).toBe(1);
+ await page.waitForTimeout(150);
+ expect(attempts).toBe(2);
+ await openMore();
+ await toggle.click();
+ await expect(toggle).toHaveAttribute('aria-checked','false');
+ expect(await page.evaluate(()=>localStorage.getItem('xiaoxu-ncwu-schedule-auto-v1'))).toBe('0');
 });

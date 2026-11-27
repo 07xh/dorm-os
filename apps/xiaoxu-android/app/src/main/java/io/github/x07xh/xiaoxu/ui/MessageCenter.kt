@@ -1,5 +1,10 @@
 package io.github.x07xh.xiaoxu.ui
 
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
+import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
+import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionMode
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -32,7 +37,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Info
@@ -45,8 +49,6 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
@@ -85,6 +87,9 @@ import io.github.x07xh.xiaoxu.data.LocalReminderPreview
 import io.github.x07xh.xiaoxu.data.LocalReminderOrigin
 import io.github.x07xh.xiaoxu.data.plannedLocalReminderInbox
 import java.time.ZonedDateTime
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -210,10 +215,6 @@ fun pendingWechatShortLabel(count: Int?, authenticated: Boolean, wechatError: St
 
 private val CardShape = RoundedCornerShape(XiaoxuRadius.list)
 
-private val ExamTile = XiaoxuPalette.WarningSoft
-private val ExamInk = XiaoxuPalette.Warning
-private val NoticeTile = XiaoxuPalette.BrandSoft
-private val NoticeInk = XiaoxuPalette.Brand
 
 // ---------------------------------------------------------------------------
 // 入口：MainActivity 消息页直接调用
@@ -287,6 +288,23 @@ fun MessageCenterPanel(
         }
     }
     val showWechat = sourceTab == MSG_FILTER_WECHAT
+    val privateNotices = remember(state.chaoxingInbox, state.authenticated, showWechat, filterKey, query) {
+        if (showWechat || !state.authenticated) emptyList() else {
+            val search = query.trim()
+            state.chaoxingInbox.filter { notice ->
+                val categoryMatches = when (filterKey) {
+                    MSG_FILTER_EXAM -> notice.category == "exam"
+                    MSG_FILTER_NOTICE -> notice.category != "exam"
+                    else -> true
+                }
+                categoryMatches && (search.isBlank() ||
+                    notice.title.contains(search, ignoreCase = true) ||
+                    notice.course.contains(search, ignoreCase = true))
+            }
+        }
+    }
+    val inboxSentFormat = remember { DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")) }
+    val inboxDueFormat = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")) }
     val opened = state.notices.firstOrNull { (it.id.ifBlank { it.url }) == openedId }
 
     // The two sources never masquerade as one another in the visible list.
@@ -297,7 +315,10 @@ fun MessageCenterPanel(
         if (useStatusBarInset) Modifier.fillMaxSize().statusBarsPadding()
         else Modifier.fillMaxSize()
     ) {
-        val wide = maxWidth >= 840.dp
+        val detailWidth = uiV2DetailWidth(maxWidth.value, maxHeight.value,
+            mainMin = 400f, detailMin = 320f, detailMax = 420f, gap = 12f,
+            horizontalPadding = 78f)
+        val wide = detailWidth != null
         val sidePadding = when {
             wide -> 28.dp
             maxWidth < 380.dp -> 14.dp
@@ -308,33 +329,11 @@ fun MessageCenterPanel(
             Modifier.weight(1f).fillMaxHeight(),
             contentAlignment = Alignment.TopCenter
         ) {
-            LazyColumn(
-                state = if (showWechat) wechatListState else officialListState,
-                modifier = Modifier.fillMaxHeight().xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth),
-                contentPadding = PaddingValues(
-                    start = sidePadding,
-                    end = sidePadding,
-                    top = 10.dp,
-                    bottom = 26.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item {
+            Column(Modifier.fillMaxHeight().xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = sidePadding),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     MessageHeader(onRefresh = refresh, onBack = onBack)
-                }
-                item {
-                    LocalReminderSummary(
-                        previews = upcomingLocal,
-                        expanded = localSummaryExpanded,
-                        onExpand = { localSummaryExpanded = !localSummaryExpanded },
-                        onOpenTask = onOpenLocalTasks,
-                        onOpenCourse = onOpenLocalSchedule,
-                        onSettings = onOpenReminderSettings
-                    )
-                }
-                item {
-                    // One shared glass selector for real message sources, not a
-                    // Material TabRow with another visual system inside the page.
+                    // Keep source switching available even deep in the message list.
                     val noticeTitle = "官方通知" +
                         if (state.notices.isNotEmpty()) " (${state.notices.size})" else ""
                     val wechatTitle = "微信审核" +
@@ -350,11 +349,31 @@ fun MessageCenterPanel(
                         onSelected = { sourceTab = it }
                     )
                 }
+                LazyColumn(
+                    state = if (showWechat) wechatListState else officialListState,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(
+                        start = sidePadding, end = sidePadding,
+                        top = 10.dp, bottom = 26.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (!showWechat) item(key = "local-reminders") {
+                        LocalReminderSummary(
+                            previews = upcomingLocal,
+                            expanded = localSummaryExpanded,
+                            onExpand = { localSummaryExpanded = !localSummaryExpanded },
+                            onOpenTask = onOpenLocalTasks,
+                            onOpenCourse = onOpenLocalSchedule,
+                            onSettings = onOpenReminderSettings
+                        )
+                    }
                 if (!showWechat) {
                     item {
-                        MessageSearchField(
+                        UiV2SearchField(
                             query = query,
-                            onQueryChange = { query = it.take(60) }
+                            onQuery = { query = it.take(60) },
+                            placeholder = "搜索官方公告标题或日期"
                         )
                     }
                     item { FilterRow(selected = filterKey, onSelect = { filterKey = it }) }
@@ -407,6 +426,48 @@ fun MessageCenterPanel(
                     }
                 }
 
+                // Private Chaoxing inbox is kept separate from public school notices.
+                if (!showWechat && state.authenticated) {
+                    item(key = "chaoxing-inbox-header") {
+                        SourceSectionHeader(
+                            icon = Icons.Outlined.MailOutline,
+                            title = "学习通",
+                            badge = "本人通知",
+                            detail = when {
+                                !state.chaoxingInboxFresh -> "缓存未核验"
+                                state.chaoxingInbox.size == 100 -> "最近100条"
+                                else -> "${state.chaoxingInbox.size} 条已保存"
+                            }
+                        )
+                    }
+                    if (privateNotices.isEmpty()) item(key = "chaoxing-inbox-empty") {
+                        Text(
+                            if (state.chaoxingInboxFresh) "当前缓存中没有匹配通知"
+                            else "尚未成功读取学习通通知缓存",
+                            color = XiaoxuPalette.Ink3,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    items(count = privateNotices.size, key = { "chaoxing-inbox:" + privateNotices[it].id }) { index ->
+                        val notice = privateNotices[index]
+                        XiaoxuCard(contentPadding = 12.dp) {
+                            Text(notice.title, style = MaterialTheme.typography.titleSmall,
+                                color = XiaoxuPalette.Ink)
+                            Text(listOfNotNull(notice.course.takeIf { it.isNotBlank() },
+                                if (notice.category == "exam") "考试通知 · 状态未核实" else "学习通通知",
+                                inboxSentFormat.format(Instant.parse(notice.sentAt))).joinToString(" · "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink3)
+                            if (notice.dueAt != null) Text(
+                                (if (notice.category == "exam") "通知所列考试时间：" else "通知所列时间：") +
+                                    inboxDueFormat.format(Instant.parse(notice.dueAt)),
+                                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+                            if (!state.chaoxingInboxFresh) Text("上次读取记录",
+                                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3)
+                        }
+                    }
+                }
+
                 if (showOfficialSection) {
                     // Source tab shows the total; each notice retains its official-source
                     // identity. Avoid a second full-width header before the first row.
@@ -444,10 +505,11 @@ fun MessageCenterPanel(
                     }
                 }
 
+                }
             }
         }
-        if (wide && !showWechat) {
-            Column(Modifier.weight(1f).fillMaxHeight()
+        if (detailWidth != null && !showWechat) {
+            Column(Modifier.width((detailWidth + 22f).dp).fillMaxHeight()
                 .padding(top = 10.dp, end = 22.dp)) {
                 NoticeTabletDetailPane(
                     notice = opened,
@@ -456,7 +518,7 @@ fun MessageCenterPanel(
             }
         }
         }
-        if (!wide && opened != null) {
+        if (!wide && !showWechat && opened != null) {
             NoticeDetailSheet(
                 notice = opened,
                 openArticle = openArticle,
@@ -655,70 +717,6 @@ private fun SourceSectionHeader(
 // 搜索 / 筛选
 // ---------------------------------------------------------------------------
 
-/** 白底圆角搜索条：与海报一致的填充样式，触控高度 ≥52dp。 */
-@Composable
-private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
-    TextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 52.dp)
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
-                RoundedCornerShape(XiaoxuRadius.tile))
-            .semantics { contentDescription = "搜索官方公告：标题或日期" },
-        singleLine = true,
-        placeholder = {
-            Text(
-                text = "搜索官方公告标题或日期",
-                style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink3
-            )
-        },
-        leadingIcon = {
-            Icon(
-                Icons.Outlined.Search,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = XiaoxuPalette.Ink3
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = { onQueryChange("") }, role = Role.Button)
-                        .semantics { contentDescription = "清空搜索" },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = XiaoxuPalette.Ink2
-                    )
-                }
-            }
-        },
-        textStyle = MaterialTheme.typography.bodyMedium,
-        shape = RoundedCornerShape(XiaoxuRadius.tile),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = XiaoxuPalette.GlassCard,
-            unfocusedContainerColor = XiaoxuPalette.GlassCard,
-            disabledContainerColor = XiaoxuPalette.GlassCard,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            focusedTextColor = XiaoxuPalette.Ink,
-            unfocusedTextColor = XiaoxuPalette.Ink,
-            cursorColor = XiaoxuPalette.Brand
-        )
-    )
-}
-
 @Composable
 private fun FilterRow(selected: String, onSelect: (String) -> Unit) {
     LazyRow(
@@ -751,16 +749,17 @@ private fun MessagePill(
     a11yLabel: String,
     onClick: () -> Unit
 ) {
+    val reduced = LocalUiV2Motion.current == UiV2MotionMode.Reduced
     val background by animateColorAsState(
         targetValue = if (isSelected) XiaoxuPalette.GlassIndicator
         else XiaoxuPalette.GlassTrack,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = tween(if (reduced) 0 else XiaoxuMotion.SelectionMs),
         label = "message-pill-bg"
     )
     val foreground by animateColorAsState(
         targetValue = if (isSelected) XiaoxuPalette.BrandDeep
         else XiaoxuPalette.Ink2,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = tween(if (reduced) 0 else XiaoxuMotion.SelectionMs),
         label = "message-pill-fg"
     )
     Row(

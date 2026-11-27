@@ -132,7 +132,7 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
     'missing official total is unknown, not fabricated zero');
   assert.match(page,/if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
     'do not show personal activity count without a complete batch');
-  assert.match(page,/val catalogActivities = all\.filter/,
+  assert.match(page,/val catalogActivities = remember\(all\) \{\s*all\.filter/,
     'catalog list reads only persisted validated local records');
   assert.match(page,/visibleCatalogActivities\.isNotEmpty\(\)/,
     'nonempty verified official catalog renders native cards');
@@ -145,9 +145,11 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
   assert.match(header,/DropdownMenu\(/,'term selector stays in the overview title row');
   assert.doesNotMatch(page,/item\(key = "term_selector"\)/,
     'no separate term card beneath the summary');
-  const breakdown = page.slice(page.indexOf('item(key = "term_breakdown")'),
+  const breakdown = page.slice(page.indexOf('item(key = "metrics")'),
     page.indexOf('item(key = "activities_header")'));
   assert.match(breakdown,/Text\("积分明细"/);
+  assert.match(breakdown,/clickable\(enabled = selectedTerm != null\)/);
+  assert.doesNotMatch(page,/item\(key = "term_breakdown"\)/);
   assert.doesNotMatch(breakdown,/secondClassCategories\(/,
     'six categories must not be expanded in the default scroll list');
   assert.match(page,/if \(detailRecord\.kind == "credits"\)/,

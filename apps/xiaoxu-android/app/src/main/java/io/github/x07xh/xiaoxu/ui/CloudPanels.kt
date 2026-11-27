@@ -8,6 +8,10 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +43,8 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -126,7 +132,8 @@ fun CloudTaskEditor(client: CloudClient) {
 fun ConnectionsPanel(
     client: CloudClient, openWebsite: () -> Unit,
     openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
-    recentImport: LocalSchoolImportReceipt? = null
+    recentImport: LocalSchoolImportReceipt? = null,
+    onOpenCampusRun: () -> Unit
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
@@ -154,6 +161,24 @@ fun ConnectionsPanel(
             openLocal = openLocalSchool,
             recentImport = recentImport
         )
+        // Campus running is independent from NCWU school SSO. Do not
+        // misrepresent a locally imported score as a connected account.
+        XiaoxuGroupedSection(title = "校园跑") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("运动世界校园", style = MaterialTheme.typography.titleMedium)
+                    Text("自动同步未连接 · 可在校园服务导入本机 JSON",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = onOpenCampusRun) { Text("查看") }
+            }
+        }
     }
     val cloudConnections: @Composable () -> Unit = {
         CloudAuthorizationSection(
@@ -172,7 +197,7 @@ fun ConnectionsPanel(
     }
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (maxWidth >= 600.dp) {
+        if (maxWidth >= 720.dp && LocalDensity.current.fontScale <= 1.3f) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -202,7 +227,7 @@ fun ConnectionsPanel(
 }
 
 /**
- * 账号头图：渐变蓝卡 + 通用头像 + 真实会话状态 + 三格真实指标。
+ * 账户概览：紧凑真实会话状态；登录后显示三项真实指标。
  *
  * 没有真实头像来源（学校头像接口未接入、云端也不保存头像），因此只用通用人形图标，
  * 不画虚构头像、不编造学号；三格数字全部来自 CloudUiState 已有字段。
@@ -228,7 +253,7 @@ private fun ProfileHeroCard(state: CloudUiState) {
         else -> state.tasks.size.toString() + "（快照）"
     }
     // Real account state without a fabricated avatar, name, school or demo numbers.
-    XiaoxuCard(contentPadding = 14.dp) {
+    UiV2HomeSurface {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
@@ -255,17 +280,26 @@ private fun ProfileHeroCard(state: CloudUiState) {
                 }
             )
         }
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ProfileMetric(label = "学校平台", value = platformCaption,
-                modifier = Modifier.weight(1f))
-            ProfileMetric(label = "微信待审核", value = reviewCaption,
-                modifier = Modifier.weight(1f))
-            ProfileMetric(label = "云端任务", value = taskCaption,
-                modifier = Modifier.weight(1f))
+        if (state.authenticated) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f) {
+                    Column(Modifier.fillMaxWidth()) {
+                        ProfileMetric("学校平台", platformCaption, Modifier.fillMaxWidth())
+                        ProfileMetric("微信待审核", reviewCaption, Modifier.fillMaxWidth())
+                        ProfileMetric("云端任务", taskCaption, Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ProfileMetric("学校平台", platformCaption, Modifier.weight(1f))
+                        ProfileMetric("微信待审核", reviewCaption, Modifier.weight(1f))
+                        ProfileMetric("云端任务", taskCaption, Modifier.weight(1f))
+                    }
+                }
+            }
+        } else {
+            Text("本机功能无需连接云端", style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -274,14 +308,14 @@ private fun ProfileHeroCard(state: CloudUiState) {
 private fun ProfileMetric(label: String, value: String, modifier: Modifier = Modifier) {
     // 数字直接排在唯一的账户玻璃卡中，不再叠加三张灰底小卡。
     Column(
-        modifier = modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(value, style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink, maxLines = 1,
+            color = XiaoxuPalette.Ink, maxLines = 2,
             overflow = TextOverflow.Ellipsis)
         Text(label, style = MaterialTheme.typography.labelSmall,
-            color = XiaoxuPalette.Ink2, maxLines = 1,
+            color = XiaoxuPalette.Ink2, maxLines = 2,
             overflow = TextOverflow.Ellipsis)
     }
 }
@@ -305,24 +339,12 @@ private fun CloudAuthorizationSection(
     onToggleAdvanced: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader(
-            title = "云端同步",
-            actionLabel = "管理",
-            onAction = onToggleAdvanced
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                if (state.authenticated) "校序云端已连接" else "校序云端未连接",
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink2
-            )
-            SourceBadge(
-                text = if (state.authenticated) "已连接" else "未连接",
-                tone = if (state.authenticated) XiaoxuTone.Success else XiaoxuTone.Neutral
+        UiV2SettingsGroup(title = "云端同步") {
+            UiV2SettingsEntry(
+                title = "校序云端",
+                icon = Icons.Outlined.Cloud,
+                statusLabel = if (state.authenticated) "已连接" else "未连接",
+                onClick = onToggleAdvanced
             )
         }
         if (cloudAdvanced) XiaoxuBottomSheet(
@@ -475,17 +497,18 @@ private fun PlatformStatusCard(
 ) {
     val platform = state.platforms.firstOrNull { it.id == id }
     val canRead = state.authenticated && state.connectionsFresh &&
-        platform?.sessionState == "active"
+        platform?.sessionState == "active" &&
+        (id != "chaoxing" || platform?.authorization == "verified_session")
     val refreshing = state.schoolSyncBusyProvider == id || (id == "chaoxing" && state.busy)
     val cloudChaoxingCount = state.tasks.count { it.provider == "chaoxing" }
     val statusTone = when {
         !state.authenticated -> XiaoxuTone.Neutral
-        id == "chaoxing" -> if (state.tasksFresh) XiaoxuTone.Brand else XiaoxuTone.Warning
         !state.connectionsFresh -> XiaoxuTone.Warning
         platform?.verified == true -> XiaoxuTone.Success
         else -> XiaoxuTone.Neutral
     }
     var expanded by rememberSaveable(id) { mutableStateOf(false) }
+    var showChaoxingAutoConfirmation by remember(id, state.ownerId) { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
@@ -524,8 +547,6 @@ private fun PlatformStatusCard(
                 Text(
                     text = when {
                         !state.authenticated -> "请先连接校序云端"
-                        id == "chaoxing" -> if (state.tasksFresh)
-                            "云端已保存 $cloudChaoxingCount 条任务" else "已有云端任务待刷新"
                         !state.connectionsFresh -> "本次无法核验连接状态；缓存仅供参考，请刷新重试"
                         else -> connectionStatusLabel(platform)
                     },
@@ -539,7 +560,6 @@ private fun PlatformStatusCard(
             SourceBadge(
                 text = when {
                     !state.authenticated -> "云端未连接"
-                    id == "chaoxing" -> if (state.tasksFresh) "已读取云端记录" else "待刷新"
                     !state.connectionsFresh -> "状态待刷新"
                     platform?.verified == true && id == "ncwu" -> "教务会话有效"
                     platform?.verified == true -> "已核验读取"
@@ -570,37 +590,69 @@ private fun PlatformStatusCard(
                 color = XiaoxuPalette.Ink3
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (id == "chaoxing") {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryAction(
+                    label = "刷新云端缓存",
+                    enabled = state.authenticated && !refreshing && state.schoolSyncBusyProvider == null,
+                    modifier = Modifier.weight(1f)
+                ) { scope.launch { client.refreshPrivate() } }
+                PrimaryAction(
+                    label = if (refreshing) "正在同步…" else "HTTP 同步全部作业",
+                    enabled = canRead && !refreshing && state.schoolSyncBusyProvider == null,
+                    modifier = Modifier.weight(1f)
+                ) { scope.launch { client.syncChaoxingHomeworkHttp() } }
+            }
+            SecondaryAction(
+                label = "同步课程通知",
+                enabled = canRead && !refreshing && state.schoolSyncBusyProvider == null,
+                modifier = Modifier.fillMaxWidth()
+            ) { scope.launch { client.syncChaoxingNoticesHttp() } }
+            Text(
+                text = if (state.tasksFresh) "云端已保存 $cloudChaoxingCount 条学习通任务"
+                    else "云端任务缓存未核验",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3
+            )
+            PrimaryAction(
+                label = if (canRead) "管理学习通授权" else "连接学习通账号",
+                enabled = state.authenticated && !refreshing &&
+                    state.schoolSyncBusyProvider == null
+            ) { startSchoolAuthorization(id) }
+            SettingRow(
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                title = "本机 HTTP 读取",
+                subtitle = "使用本机官方授权会话，数据保存在设备上",
+                onClick = { openLocalSchool(id) }
+            )
+        } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SecondaryAction(
                 label = when {
                     refreshing -> "正在读取…"
-                    id == "chaoxing" -> "刷新已保存任务"
                     id == "ncwu" -> "成绩读取待接入"
                     else -> "刷新本人数据"
                 },
                 // The old ncwu sync path refreshes a server timetable, NOT grades.
                 // Keep school authorization, but do not send the imported schedule to cloud.
                 enabled = id != "ncwu" &&
-                    (if (id == "chaoxing") state.authenticated else canRead) && !state.busy &&
+                    canRead && !state.busy &&
                     state.schoolSyncBusyProvider == null,
                 modifier = Modifier.weight(1f)
             ) {
                 scope.launch {
-                    if (id == "chaoxing") client.refreshPrivate()
-                    else client.syncAuthorizedSchool(id)
+                    client.syncAuthorizedSchool(id)
                 }
             }
             PrimaryAction(
-                label = if (id == "chaoxing") "读取本人任务"
-                    else if (id == "second_class") "学校官方授权" else when (platform?.sessionState) {
+                label = if (id == "second_class") "学校官方授权" else when (platform?.sessionState) {
                     "expired", "unreadable" -> "重新授权"
                     "active" -> "管理授权"
                     else -> "连接账号"
                 },
-                enabled = id in setOf("chaoxing", "second_class") || client.ownerSessionBinding() != null,
+                enabled = id == "second_class" || client.ownerSessionBinding() != null,
                 modifier = Modifier.weight(1f)
             ) {
-                if (id in setOf("chaoxing", "second_class")) openLocalSchool(id)
+                if (id == "second_class") openLocalSchool(id)
                 else startSchoolAuthorization(id)
             }
         }
@@ -613,6 +665,76 @@ private fun PlatformStatusCard(
                 subtitle = "在本机浏览器读取当前可见记录，不经过云端",
                 onClick = { openLocalSchool(id) }
             )
+        }
+
+        if (id == "chaoxing") {
+            Text(
+                text = when {
+                    !state.authenticated -> "云端任务需要校序账号授权；本机登录独立保存"
+                    !state.connectionsFresh -> "云端连接状态尚未刷新，不能确认定时读取状态"
+                    platform?.autoSyncEnabled == true -> "云端每 60 分钟只读同步：已启用"
+                    platform?.sessionState == "active" -> "云端会话有效，定时读取默认关闭"
+                    else -> "云端学习通未授权；手机本机读取不等于云端连接"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink3
+            )
+            if (state.connectionsFresh && platform?.autoSyncLastRunAt != null) {
+                val lastResult = when (platform.autoSyncLastResult) {
+                    "success" -> "成功"
+                    "partial" -> "部分成功"
+                    "failed" -> "失败"
+                    "expired" -> "会话过期"
+                    "idle" -> "无待处理课程"
+                    else -> "未核实"
+                }
+                Text(
+                    "上次云端运行：" + platform.autoSyncLastRunAt + " · " + lastResult,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink3
+                )
+            }
+            Text(
+                "仅使用现有服务器授权的学习通会话；不上传手机 Cookie、不自动作答。" +
+                    "自动同步只保证发起只读任务，实际更新以服务器成功结果为准。",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3
+            )
+            val enabled = state.connectionsFresh && platform?.autoSyncEnabled == true
+            val allowed = state.authenticated && state.connectionsFresh &&
+                !state.busy && state.schoolSyncBusyProvider == null &&
+                (enabled || (platform?.sessionState == "active" &&
+                    platform.authorization == "verified_session" && platform.autoSyncAvailable))
+            SecondaryAction(
+                label = if (enabled) "关闭每小时云端同步" else "开启每小时云端同步",
+                enabled = allowed,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (enabled) scope.launch { client.setChaoxingAutoSync(false) }
+                else showChaoxingAutoConfirmation = true
+            }
+            if (showChaoxingAutoConfirmation && allowed && !enabled) {
+                AlertDialog(
+                    onDismissRequest = { showChaoxingAutoConfirmation = false },
+                    title = { Text("开启学习通云端定时同步？") },
+                    text = {
+                        Text("确认后，服务器将使用已有的本人学习通授权，每小时尝试一次只读同步。" +
+                            "每轮最多检查三门课程，不会使用或上传手机登录凭据。" +
+                            "如果云端会话失效，仍须在校序网站重新授权。")
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showChaoxingAutoConfirmation = false
+                            scope.launch { client.setChaoxingAutoSync(true) }
+                        }) { Text("确认开启") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showChaoxingAutoConfirmation = false }) {
+                            Text("取消")
+                        }
+                    }
+                )
+            }
         }
 
         if (state.schoolSyncResultProvider == id && state.schoolSyncMessage != null) {

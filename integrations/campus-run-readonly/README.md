@@ -73,3 +73,46 @@ Python 桥接的候选字段始终明确标注 `verifiedFieldSemantics=false`；
 **尚未实现/不可冒称完成**：本人已有登录态传给 Python 运行环境、Android 与 Python 的受保护传输渠道、实际个人账号成绩、目标与计入成绩口径核对、一加 Ace 6 真机验证。本轮只验证跨语言格式与错误门禁，**不是**真实账号自动同步。
 
 与此前“必须等待官方开放 API”不同，真实上游仍优先复用 MIT 开源客户端的合法只读功能，不重新抓三份 HAR，不新建成绩数据库、同步 Worker 或登录界面。
+
+
+## 2026-11-19：用户已上传 `ydsj_toolkit.zip` 的只读契约核对
+
+本轮从用户私有文件库取回其 2026-11-17 上传的 `ydsj_toolkit.zip`，仅检查 ZIP 内源代码和文档，**没有运行其中的登录器、协议客户端、定时循环或任何真实账号请求**。ZIP 原始文件、`config.json`、`dashboard_data.json` 与任何凭据均未提交公开仓库。
+
+- 工具包 `json_client.py score` 读取 `get_semester_completed`（学期汇总）与 `get_semester_info`，`history` 读取 `get_run_history(page_num,page_size,sid,type)`；这是已有工具代码中的只读调用关系，不等于当前服务端版本已经通过正式验收
+- 工具包中的 `live_sync.py` 将 `semesterDis` 与 `semesterValidDis` 混用、将排行榜第一条当本人、仅统计首历史页，且可能将失败响应写入 SQLite/看板；这些旧做法禁止在校序复用
+- 新增无网络依赖的 `toolkit_readonly_contract.py`：仅接受 `error=10000` 的业务数据；独立保留总里程/有效里程与次数、过滤多余字段、移除排行榜输出；缺乏分页结束元数据时 `isLastPage=null` 且 `paginationVerified=false`
+- 这些归一化结果的 `verifiedFieldSemantics` 永久为 `false`，必须由后续受控、已核实身份且完成真实数值/单位对照的适配器才能赋予可信语义
+- 纯离线测试 `test_toolkit_readonly_contract.py` 覆盖区分有效成绩、排行榜他人、分页未知、401/业务错误/受保护封装。正式 Python 桥与 Kotlin 查询层继续复用原有数据接口
+
+**尚未做的事：** 本次 ZIP 文档记载了假 Token 401 网关诊断，并没有附可复验的本人业务明文成功样本；尽管用户此前确认工具可读取，不能靠 ZIP 的静态代码断言真机已经同步成功。此外工具包的 `SportClient` 包含与只读目标无关的登录、设备标识与运动提交功能，因此不得整体嵌入校序，也不能通过模拟另一端的设备参数规避官方登录限制。只读、每 72 小时一次仍可能影响服务器端多端会话，须用本人正常授权方式实测。
+
+本阶段不增加后台同步进程、定时请求、自动凭据填充、排行榜模块或重复校园跑面板。只有真实只读身份、字段和分页验收完成后，才接 `CampusRunBridgeJsonReader` 和正式 UI。
+
+
+## 校序本机 JSON 导入：先离线最小化数据
+
+对于从归档工具包 `json_client.py score` 获得的**本人已授权成功响应**，推荐先用独立离线脚本生成最小化文件；不需要也不接受账号、密码、Token、UID、抓包数据或服务端地址：
+
+```bash
+python integrations/campus-run-readonly/offline_score_export.py \
+  --input score.json \
+  --output xiaoxu-safe-score.json
+```
+
+脚本纯本地读取源文件，只会输出 `schema=xiaoxu/campus-run-toolkit-safe-v1`、`unit=m` 和 `semester_completed.data` 中的 `sname`、`semesterDis`、`semesterValidDis`、`semesterCount`、`semesterValidCount`（有则保留，未知不补零）。归档 `score_cli.py` 的实际输出把距离明确标注为米；拒绝状态异常、无数值、非整数米、计入成绩大于总量、有效次数大于总次数、超过安全范围的输入。
+
+输出文件采用新文件名，禁止覆盖源文件。原始输入不会复制、上传、记录日志，导出文件中不包含 Token、排行榜、GPS 轨迹或历史原始记录。校序「教务 → 校园服务 → 校园跑 → 导入工具包 JSON」选择**米**和新文件，查看预览再确认；选择**公里**会因导出文件单位不匹配而被拒绝。
+
+这个工具**不**替代本人授权，不会联网刷新数据，也不会将导入结果标记为官方实时同步。仅校序预留的未来联网只读协调器遵守自身 72 小时预算；原工具包定时循环不受它管理，建议关闭自动循环。
+
+
+### 跨语言格式契约测试
+
+Android JVM 与 Python sanitizer 共用同一份**完全合成、无任何个人数据**的 `apps/xiaoxu-android/app/src/test/resources/campus-run-safe-score-fixture.json`：
+
+- Python 测试先把完整工具包 `all` 结构中的私有额外字段去掉，要求输出结构与共用 fixture 完全一致
+- Android Kotlin 测试在 JVM 读取同一 fixture，核对 `schema`、米单位、有效/总里程、有效/总次数与非可信 `USER_IMPORT` 属性
+- Android 本机文件选择器允许 `application/octet-stream` 等被文件管理器泛化的 JSON MIME 类型；通过 256KB 上限、严格 JSON 类型/业务码与明确单位校验拦截不合规文件。没有联网上传行为
+
+测试不涉及运动世界真实登录、跨平台凭证或服务端请求；CI 通过不代表自动同步已具备授权能力。
