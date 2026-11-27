@@ -56,46 +56,6 @@ class LocalTaskDatabaseMigrationTest {
             """.trimIndent())
             legacy.execSQL("CREATE INDEX index_local_task_dependencies_prerequisiteId ON local_task_dependencies(prerequisiteId)")
             legacy.execSQL("""
-                CREATE TABLE task_executions (
-                    scope TEXT NOT NULL,
-                    rootKey TEXT NOT NULL,
-                    ended INTEGER NOT NULL,
-                    PRIMARY KEY(scope, rootKey)
-                )
-            """.trimIndent())
-            legacy.execSQL("""
-                CREATE TABLE task_steps (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                    scope TEXT NOT NULL,
-                    rootKey TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    completed INTEGER NOT NULL,
-                    position INTEGER NOT NULL,
-                    due TEXT,
-                    FOREIGN KEY(scope, rootKey) REFERENCES task_executions(scope, rootKey)
-                        ON UPDATE NO ACTION ON DELETE CASCADE
-                )
-            """.trimIndent())
-            legacy.execSQL("CREATE INDEX index_task_steps_scope_rootKey ON task_steps(scope, rootKey)")
-            legacy.execSQL("""
-                CREATE TABLE task_step_edges (
-                    stepId INTEGER NOT NULL,
-                    prerequisiteId INTEGER NOT NULL,
-                    PRIMARY KEY(stepId, prerequisiteId),
-                    FOREIGN KEY(stepId) REFERENCES task_steps(id) ON UPDATE NO ACTION ON DELETE CASCADE,
-                    FOREIGN KEY(prerequisiteId) REFERENCES task_steps(id) ON UPDATE NO ACTION ON DELETE CASCADE
-                )
-            """.trimIndent())
-            legacy.execSQL("CREATE INDEX index_task_step_edges_prerequisiteId ON task_step_edges(prerequisiteId)")
-
-            legacy.execSQL("INSERT INTO local_tasks(id,title,completed,createdAt,source,due) VALUES(41,'保留任务',0,1700000000000,'local','2026-12-01')")
-            legacy.execSQL("INSERT INTO local_tasks(id,title,completed,createdAt,source,due) VALUES(42,'前置任务',1,1700000001000,NULL,NULL)")
-            legacy.execSQL("INSERT INTO local_task_dependencies(taskId,prerequisiteId) VALUES(41,42)")
-            legacy.execSQL("INSERT INTO task_executions(scope,rootKey,ended) VALUES('device','local:41',0)")
-            legacy.execSQL("INSERT INTO task_steps(id,scope,rootKey,title,completed,position,due) VALUES(101,'device','local:41','第一步',1,0,NULL)")
-            legacy.execSQL("INSERT INTO task_steps(id,scope,rootKey,title,completed,position,due) VALUES(102,'device','local:41','第二步',0,1,'2026-12-01')")
-            legacy.execSQL("INSERT INTO task_step_edges(stepId,prerequisiteId) VALUES(102,101)")
-            legacy.execSQL("""
                 INSERT INTO native_school_records(provider,kind,fingerprint,title,details,sourceHost,capturedAt)
                 VALUES('second_class','credits','legacy-credit-row','积分快照','保留明细','dekt.ncwu.edu.cn',1700000002000)
             """.trimIndent())
@@ -116,8 +76,11 @@ class LocalTaskDatabaseMigrationTest {
             assertTrue(tasks.all { !it.stableId.isNullOrBlank() && it.stableId.matches(Regex("[a-f0-9]{32}")) })
 
             assertEquals(listOf(LocalTaskDependency(41, 42)), database.tasks().dependencySnapshot())
-            assertEquals(listOf(101L, 102L), database.executions().stepSnapshot().map { it.id })
-            assertEquals(listOf(TaskStepEdge(102, 101)), database.executions().edgeSnapshot())
+            // These tables are introduced by the v4 -> v5 migration, so a true v4
+            // fixture must not contain legacy step rows before the migration.
+            assertEquals(emptyList<TaskStep>(), database.executions().stepSnapshot())
+            assertEquals(emptyList<TaskStepEdge>(), database.executions().edgeSnapshot())
+            assertEquals(emptyList<TaskExecution>(), database.executions().executionSnapshot())
             val schoolRows = database.nativeSchoolRecords().snapshot()
             assertEquals(1, schoolRows.size)
             assertEquals("legacy-credit-row", schoolRows.single().fingerprint)
