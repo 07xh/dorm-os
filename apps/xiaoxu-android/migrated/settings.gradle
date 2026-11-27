@@ -24,13 +24,13 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
-        // Resolve Maven Central artifacts before mirrors: a transient mirror 502
-        // must not block release lint or the release candidate build.
+        // Use the Central mirror first to avoid transient Maven Central 429s;
+        // Maven Central remains the authoritative fallback when the mirror misses an artifact.
+        maven { url 'https://maven.aliyun.com/repository/central' }
         mavenCentral()
         maven { url 'https://maven.aliyun.com/repository/google' }
         // GeckoView is published on Mozilla's Maven repository.
         maven { url 'https://maven.mozilla.org/maven2'; content { includeGroup 'org.mozilla.geckoview' } }
-        maven { url 'https://maven.aliyun.com/repository/central' }
     }
 }
 
