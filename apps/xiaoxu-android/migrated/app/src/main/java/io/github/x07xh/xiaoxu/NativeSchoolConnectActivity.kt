@@ -68,6 +68,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         const val EXTRA_AUTO_SCORE = "auto_score"
         const val EXTRA_RETURN_KIND = "saved_kind"
         const val EXTRA_SAVED_COUNT = "saved_count"
+        const val EXTRA_LOGIN_ONLY = "login_only"
+        const val EXTRA_LOGIN_ONLY_RESULT = "login_only_result"
         // NCWU's independently published CAS -> Chaoxing SSO service.
         // This is a SCHOOL-owned login redirect, not authorization to Xiaoxu.
         private const val CHAOXING_SCHOOL_SERVICE = "https://fysso.chaoxing.com/cassso/ncwu"
@@ -120,6 +122,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private lateinit var catalogProbe: Button
     private var catalogProbeOn = false
     private var provider = ""
+    private var loginOnly = false
     private var loaded = false
     private var pageFailed = false
     private var captureEpoch = 0
@@ -159,6 +162,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         provider = intent.getStringExtra(EXTRA_PROVIDER).orEmpty()
+        loginOnly = provider == "second_class" &&
+            intent.getBooleanExtra(EXTRA_LOGIN_ONLY, false)
         val entry = entries[provider] ?: run { finish(); return }
         if (provider == "second_class") {
             SecondClassAutoRefresh.manualStarted()
@@ -181,7 +186,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             setTextIsSelectable(true)
             text = "学习通正常登录后点「读取全部」，读取通知、学习计划和课程作业。"
             setPadding(8, 4, 8, 8)
-            if (provider == "second_class") text =
+            if (provider == "second_class") text = if (loginOnly)
+                "仅打开华水官方登录页面。登录凭据留在学校官方页面；返回后由第二课堂服务使用固定 HTTPS 只读接口读取数据。"
+            else
                 "首次在学校官网正常登录；会话有效时可直接读取积分，无需每次登录。积分仅保存在此设备。"
         }
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -203,6 +210,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         extract = control("读取全部") { captureVisibleRecords() }
         if (provider == "second_class") extract.text = "读取／刷新本人积分"
         extract.isEnabled = false
+        if (loginOnly) extract.visibility = View.GONE
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
             setOnClickListener { browser.loadUrl(CHAOXING_SCHOOL_SSO) }
@@ -217,15 +225,21 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             setOnClickListener { toggleCatalogObserver() }
         }
         finishAndReturn = Button(this).apply {
-            text = "返回校序查看已保存数据"
+            text = if (loginOnly) "返回校序继续同步" else "返回校序查看已保存数据"
             isEnabled = false
-            if (provider == "chaoxing") visibility = View.GONE
+            if (provider == "chaoxing" || loginOnly) visibility = View.GONE
             setOnClickListener {
-                // Only a committed Room write enables this button.
-                setResult(Activity.RESULT_OK, Intent()
-                    .putExtra(EXTRA_PROVIDER, provider)
-                    .putExtra(EXTRA_RETURN_KIND, savedKind)
-                    .putExtra(EXTRA_SAVED_COUNT, savedCount))
+                if (loginOnly) {
+                    setResult(Activity.RESULT_OK, Intent()
+                        .putExtra(EXTRA_PROVIDER, provider)
+                        .putExtra(EXTRA_LOGIN_ONLY_RESULT, true))
+                } else {
+                    // Only a committed Room write enables this button.
+                    setResult(Activity.RESULT_OK, Intent()
+                        .putExtra(EXTRA_PROVIDER, provider)
+                        .putExtra(EXTRA_RETURN_KIND, savedKind)
+                        .putExtra(EXTRA_SAVED_COUNT, savedCount))
+                }
                 finish()
             }
         }
@@ -269,7 +283,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     catalogProbe.text = "观测活动列表请求（手动）"
                     catalogProbe.isEnabled = false
                     extract.isEnabled = false
-                    if (!navigationAllowed(provider, url)) {
+                    if (loginOnly) {
+                        finishAndReturn.isEnabled = false
+                        finishAndReturn.visibility = View.GONE
+                    }
+                    if (!navigationAllowed(provider, url))
                         pageFailed = true
                         view.stopLoading()
                         tell("已阻止非学校或学习通白名单站点的跳转。请返回官方页面。")
@@ -285,9 +303,19 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         else loaded && extractionAllowed(provider, url)
                     extract.text = if (provider == "second_class") "读取／刷新本人积分"
                         else "读取全部"
-                    catalogProbe.isEnabled = provider == "second_class" && loaded &&
+                    catalogProbe.isEnabled = !loginOnly && provider == "second_class" && loaded &&
                         host == "dekt.ncwu.edu.cn" &&
                         Uri.parse(url ?: "").path.orEmpty().startsWith("/sys/")
+                    if (loginOnly && provider == "second_class") {
+                        extract.isEnabled = false
+                        finishAndReturn.isEnabled = loaded && host == "dekt.ncwu.edu.cn"
+                        finishAndReturn.visibility = if (finishAndReturn.isEnabled) View.VISIBLE else View.GONE
+                        tell(if (pageFailed) "学校官方页面加载失败，请重试。"
+                            else if (finishAndReturn.isEnabled)
+                                "已打开华水官方页面。请在此页面正常完成登录，然后返回校序；数据读取由第二课堂服务通过固定 HTTPS 只读接口执行。"
+                            else "正在等待学校官方登录跳转…")
+                        return
+                    }
                     tell(if (pageFailed)
                         "当前页面访问失败，已禁止导入；请检查官方页面后重试。"
                     else if (extract.isEnabled)
@@ -375,8 +403,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             })
             root.addView(more)
         }
-        if (scoreShortcut != null) root.addView(scoreShortcut)
-        if (provider == "second_class") root.addView(catalogProbe)
+        if (scoreShortcut != null && !loginOnly) root.addView(scoreShortcut)
+        if (provider == "second_class" && !loginOnly) root.addView(catalogProbe)
         root.addView(finishAndReturn)
         root.addView(status)
         root.addView(browser, LinearLayout.LayoutParams(
@@ -492,6 +520,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     }
 
     private fun captureVisibleRecords() {
+        if (loginOnly) {
+            tell("请先在学校官方页面完成登录，然后返回第二课堂服务同步。")
+            return
+        }
         if (provider == "chaoxing") {
             startOwnerTaskDiscovery()
         } else if (provider == "second_class") {
