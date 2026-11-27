@@ -287,7 +287,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         finishAndReturn.isEnabled = false
                         finishAndReturn.visibility = View.GONE
                     }
-                    if (!navigationAllowed(provider, url))
+                    if (!navigationAllowed(provider, url)) {
                         pageFailed = true
                         view.stopLoading()
                         tell("已阻止非学校或学习通白名单站点的跳转。请返回官方页面。")
