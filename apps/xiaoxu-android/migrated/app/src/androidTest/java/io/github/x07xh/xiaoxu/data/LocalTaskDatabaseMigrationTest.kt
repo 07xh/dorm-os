@@ -55,6 +55,9 @@ class LocalTaskDatabaseMigrationTest {
                 )
             """.trimIndent())
             legacy.execSQL("CREATE INDEX index_local_task_dependencies_prerequisiteId ON local_task_dependencies(prerequisiteId)")
+            legacy.execSQL("INSERT INTO local_tasks(id,title,completed,createdAt,source,due) VALUES(41,'保留任务',0,1700000000000,'local','2026-12-01')")
+            legacy.execSQL("INSERT INTO local_tasks(id,title,completed,createdAt,source,due) VALUES(42,'前置任务',1,1700000001000,NULL,NULL)")
+            legacy.execSQL("INSERT INTO local_task_dependencies(taskId,prerequisiteId) VALUES(41,42)")
             legacy.execSQL("""
                 INSERT INTO native_school_records(provider,kind,fingerprint,title,details,sourceHost,capturedAt)
                 VALUES('second_class','credits','legacy-credit-row','积分快照','保留明细','dekt.ncwu.edu.cn',1700000002000)
