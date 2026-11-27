@@ -101,6 +101,10 @@ class SecondClassNativeHttpReadTest {
         assertFalse(isSecondClassLoginRedirect(302, "https://example.invalid/login"))
         assertFalse(isSecondClassLoginRedirect(302, "/sys/stu/score"))
         assertFalse(isSecondClassLoginRedirect(302, "http://dekt.ncwu.edu.cn/login"))
+        assertTrue(isSecondClassLoginRedirect(302,
+            "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F"))
+        assertFalse(isSecondClassLoginRedirect(302,
+            "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fevil.example%2F"))
         assertFalse(isSecondClassLoginRedirect(200, "/login"))
     }
 

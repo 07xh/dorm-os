@@ -98,7 +98,7 @@ internal fun buildSecondClassServicePage(
                 scores.take(50).forEach { row ->
                     put(JSONObject()
                         .put("title", row.title)
-                        .put("subtitle", row.details.replace('\n', ' · ').take(240))
+                        .put("subtitle", row.details.replace("\n", " · ").take(240))
                         .put("value", if (row.title == "学校积分合计") "学校汇总" else "学期记录"))
                 }
             }))
@@ -119,7 +119,7 @@ internal fun buildSecondClassServicePage(
                 }
                 activities.take(60).forEach { row ->
                     put(JSONObject().put("title", row.title)
-                        .put("subtitle", row.details.replace('\n', ' · ').take(240))
+                        .put("subtitle", row.details.replace("\n", " · ").take(240))
                         .put("value", "本人记录"))
                 }
             }))
@@ -136,7 +136,7 @@ internal fun buildSecondClassServicePage(
                 }
                 catalog.take(120).forEach { row ->
                     put(JSONObject().put("title", row.title)
-                        .put("subtitle", row.details.replace('\n', ' · ').take(180))
+                        .put("subtitle", row.details.replace("\n", " · ").take(180))
                         .put("value", "名称已核验"))
                 }
             }))

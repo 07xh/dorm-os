@@ -100,6 +100,8 @@ internal class SecondClassNativeHttpTransport(private val session: SecondClassAu
                 val status = connection.responseCode
                 if (isSecondClassLoginRedirect(status, connection.getHeaderField("Location")))
                     throw AutoReadFailure("needs_reconnect")
+                if (status == 401 && endpoint != SecondClassReadEndpoint.PERSONAL)
+                    throw AutoReadFailure("needs_reconnect")
                 if (status != 200) throw SecondClassHttpFailure(status, endpoint)
                 session.acceptResponse(connection)
                 val limit = if (endpoint == SecondClassReadEndpoint.CATALOG) 100_000 else 300_000
