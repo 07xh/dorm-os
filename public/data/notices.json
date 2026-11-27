@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-27T00:37:40.702Z",
+  "lastSuccessAt": "2026-11-27T10:55:53.733Z",
   "sources": [
     {
       "id": "jwc",
@@ -29,28 +29,28 @@
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-27T00:37:40.702Z",
+      "lastSuccessAt": "2026-11-27T10:55:53.733Z",
       "count": 27
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-27T00:37:40.702Z",
+      "lastSuccessAt": "2026-11-27T10:55:53.733Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-27T00:37:40.702Z",
+      "lastSuccessAt": "2026-11-27T10:55:53.733Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-27T00:37:40.702Z",
+      "lastSuccessAt": "2026-11-27T10:55:53.733Z",
       "count": 10
     }
   ],
@@ -572,6 +572,15 @@
       "id": "ncwu-6db9bec4ab18e3b7",
       "title": "关于开展2026-2027学年第一学期本科教学工作量核算工作的通知 11-23",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3024.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-bbda0f26f7f2c21b",
+      "title": "关于举办校级教师教学创新大赛选拔赛现场赛的通知 11-27",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3032.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
