@@ -89,7 +89,12 @@ android {
         versionCode code
         versionName name
         if (!isReleaseTask) {
-            ndk { abiFilters.addAll(emulatorPreview ? ['x86_64'] : ['arm64-v8a', 'armeabi-v7a']) }
+            // Keep normal development builds multi-ABI, but the compact Ace 6
+            // preview must not inherit armeabi-v7a from defaultConfig.
+            def nonReleaseAbis = emulatorPreview
+                ? ['x86_64']
+                : (compactPreview ? ['arm64-v8a'] : ['arm64-v8a', 'armeabi-v7a'])
+            ndk { abiFilters.addAll(nonReleaseAbis) }
         }
         buildConfigField "String", "FEEDBACK_SIGNING_SECRET", quoteForBuildConfig(feedbackSigningSecret)
         buildConfigField "String", "MAP_CONFIG_CLIENT_SECRET", quoteForBuildConfig(mapConfigClientSecret)

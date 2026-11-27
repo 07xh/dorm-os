@@ -102,6 +102,12 @@ jobs:
           bash ./gradlew :app:assembleUiPreview -PcompactPreview=true --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
           apk=app/build/outputs/apk/uiPreview/app-uiPreview.apk
           test -s "$apk"
+          # Ace 6 preview is arm64-only; fail if defaultConfig leaks a second ABI.
+          if unzip -Z1 "$apk" | grep -Eq '^lib/(armeabi|armeabi-v7a|x86|x86_64)/'; then
+            echo "Compact Ace 6 preview unexpectedly contains non-arm64 native libraries." >&2
+            exit 1
+          fi
+          unzip -Z1 "$apk" | grep -q '^lib/arm64-v8a/'
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -Fq "package: name='io.github.x07xh.xiaoxu.uipreview' versionCode='135' versionName='1.0.135-ui-preview'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           sha256sum "$apk" > "$RUNNER_TEMP/Xiaoxu-1.0.135-Ace6-UI-Preview.apk.sha256"
