@@ -99,4 +99,60 @@ class LocalTaskDatabaseMigrationTest {
             context.deleteDatabase(name)
         }
     }
+    @Test
+    fun secondClassSnapshotReplacementChecksPreviousBindingBeforeReplacingRows() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = Room.inMemoryDatabaseBuilder(context, LocalTaskDatabase::class.java).build()
+        try {
+            val dao = database.nativeSchoolRecords()
+            val firstHash = "a".repeat(64)
+            val secondHash = "b".repeat(64)
+            val firstAt = 1_700_000_000_000L
+            val secondAt = firstAt + 10_000L
+            fun score(fingerprint: String, capturedAt: Long) = NativeSchoolRecord(
+                "second_class", "credits", fingerprint, "第1学期积分",
+                "素质分：3 · 志愿服务时长：2", "dekt.ncwu.edu.cn", capturedAt)
+            fun summary(fingerprint: String, capturedAt: Long) = NativeSchoolRecord(
+                "second_class", "activity_summary", fingerprint, "本人报名活动",
+                "已完整读取 0 条；活动分数不与学校积分合计相加。",
+                "dekt.ncwu.edu.cn", capturedAt)
+
+            dao.replaceSecondClassSnapshot(
+                listOf(score("first-score", firstAt)),
+                listOf(summary("first-summary", firstAt)),
+                accountHash = firstHash,
+                requirePreviousBindingMatch = true
+            )
+            assertEquals(firstHash, dao.snapshotKind("second_class", "account_binding").single().details)
+
+            val rejected = runCatching {
+                dao.replaceSecondClassSnapshot(
+                    listOf(score("should-not-save", secondAt)),
+                    listOf(summary("should-not-save-summary", secondAt)),
+                    accountHash = secondHash,
+                    requirePreviousBindingMatch = true,
+                    expectedPreviousBinding = "c".repeat(64),
+                    expectedPreviousBindingCapturedAt = firstAt
+                )
+            }.exceptionOrNull()
+            assertNotNull(rejected)
+            assertEquals(firstHash, dao.snapshotKind("second_class", "account_binding").single().details)
+            assertEquals("first-score", dao.snapshotKind("second_class", "credits").single().fingerprint)
+
+            dao.replaceSecondClassSnapshot(
+                listOf(score("second-score", secondAt)),
+                listOf(summary("second-summary", secondAt)),
+                accountHash = secondHash,
+                requirePreviousBindingMatch = true,
+                expectedPreviousBinding = firstHash,
+                expectedPreviousBindingCapturedAt = firstAt
+            )
+            assertEquals(secondHash, dao.snapshotKind("second_class", "account_binding").single().details)
+            assertEquals("second-score", dao.snapshotKind("second_class", "credits").single().fingerprint)
+            assertEquals(secondAt, dao.snapshotKind("second_class", "activity_summary").single().capturedAt)
+        } finally {
+            database.close()
+        }
+    }
+
 }
