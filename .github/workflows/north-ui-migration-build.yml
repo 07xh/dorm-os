@@ -318,7 +318,7 @@ jobs:
               echo "Failed to install Android instrumentation tests." >&2
               exit 1
             fi
-            instrumentation=$(adb shell pm list instrumentation | sed -n 's/^instrumentation:\\([^ ]*\\).*/\\1/p' | grep 'androidx.test.runner.AndroidJUnitRunner' | head -n 1)
+            instrumentation=$(adb shell pm list instrumentation | sed -n 's/^instrumentation:\([^ ]*\).*/\1/p' | grep 'androidx.test.runner.AndroidJUnitRunner' | head -n 1)
             if [ -z "$instrumentation" ]; then
               echo "AndroidJUnitRunner instrumentation package was not registered." >&2
               exit 1
