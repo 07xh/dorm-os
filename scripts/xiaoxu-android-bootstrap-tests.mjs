@@ -1,6 +1,6 @@
 // Static boundary tests for native Android V0.2. Android CI also compiles the real APK.
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
@@ -9,7 +9,6 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
-const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt');
 // RC1 retired these sources and superseded QA requests. Deleting them is not
 // enough: later UI branches must not silently restore obsolete containers.
 const obsoleteUiPaths = [
@@ -22,7 +21,11 @@ for (const path of obsoleteUiPaths) {
     '淘汰代码或构建请求不可从旧 UI 分支恢复: ' + path);
 }
 
-const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
+// Settings navigation and reminders now live in separate, active upstream-hosted routes.
+const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ReminderSettingsFeature.kt');
+const settingsIndex = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SettingsScreen.kt');
+const settingsRoutes = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppFeaturePages.kt');
+const sharedFrame = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppPageFrame.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
 const visualQa = read('scripts/xiaoxu-ace6-visual-qa.mjs');
@@ -68,33 +71,48 @@ assert.doesNotMatch(visualQa, /(?:upload|fetch|axios)\s*\(/,
   '截图只能在本机保存，不能自动传输私人课程或任务截图');
 
 assert.match(strings, /<string name="app_name">校序<\/string>/);
-const designSystem = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
-const scheduleUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-const messageUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
-assert.match(designSystem, /fun Modifier\.xiaoxuPageWidth\(/, '正文最大宽度由唯一设计系统定义');
-assert.match(scheduleUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
-assert.match(messageUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
-assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/, '页面不得残留重复宽度实现');
-
-// Interaction regressions: no dark, unbounded ripple; shared sheet dim.
-assert.match(designSystem, /LocalIndication provides ripple\(bounded = true/,
-  '默认按压反馈须使用共享受界浅色 ripple');
-assert.match(designSystem, /fun XiaoxuSoftIconButton\(/,
-  '顶栏和设置图标应使用唯一柔和按压组件');
-assert.match(designSystem, /fun XiaoxuDialogDim\(/,
-  '居中详情弹窗需共享低对比遮罩');
-assert.match(scheduleUi, /scrimColor = XiaoxuPalette\.ModalScrim/,
-  '课程详情背景遮罩必须与统一材质一致');
-assert.match(scheduleUi, /indication = null,\s*onClick = onEdit/,
-  '课程详情长标题不允许绘制大面积矩形按压遮罩');
-assert.match(scheduleUi, /background\(XiaoxuPalette\.SheetSheen\)/,
-  '课程详情共享轻量表面渐变，不增加实时模糊');
-assert.match(designSystem, /val GlassSheen = Brush\.verticalGradient\(/,
-  '通用卡片复用同一轻量玻璃高光材质');
-assert.match(scheduleUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
-  '课表课程卡按压反馈须受圆角裁切');
-assert.match(messageUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
-  '通知卡不可重新引入深色点击灰块');
+const glassKit = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassKit.kt');
+const pageScaffold = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassPageScaffold.kt');
+const windowHost = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassWindowHost.kt');
+const dialogHost = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppDialog.kt');
+const uiTheme = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildTheme.kt');
+const systemUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamSystemUi.kt');
+const motionHost = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleMotionProfile.kt');
+const rebuildShell = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildShell.kt');
+const navDock = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildCapsuleDock.kt');
+const designSystem = [glassKit, pageScaffold, windowHost, dialogHost, uiTheme, systemUi, sharedFrame].join('\n');
+const scheduleUi = ['ScheduleFeature.kt','ScheduleHeader.kt','UpstreamTimetable.kt','UpstreamCourseDetailSheet.kt'].map(name => read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/' + name)).join('\n');
+const messageUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenterFeature.kt');
+// Current UI uses a single upstream layout/theme/window host. The old fixed
+// XiaoxuPalette geometry is intentionally retired; device comparison remains
+// independently required by the unchanged Ace6 visual QA evidence checks.
+assert.match(settingsRoutes, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/);
+assert.match(settingsIndex, /widthIn\(max = AppSpacing\.formMaxWidth\)/);
+assert.match(settingsRoutes, /wideContent = route == AppRoute\.HOME \|\| route == AppRoute\.TASKS \|\| route == AppRoute\.MESSAGES/);
+assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/);
+assert.match(uiTheme, /CourseSelectorTheme\(content = content\)/);
+assert.match(systemUi, /fun SystemTopBar\(/);
+assert.match(pageScaffold, /SystemTopBar\(/);
+assert.match(pageScaffold, /GlassWindowHost\(modifier\)/);
+assert.match(windowHost, /LocalGlassWindowOwner\.current === view && !isolatePage/);
+assert.match(dialogHost, /window\?\.setDimAmount\(DialogScrimAlpha\)/);
+assert.match(glassKit, /fun InsetGroupedSection\(/);
+assert.match(glassKit, /fun InsetGroupedRow\(/);
+assert.match(glassKit, /\.background\(glassSurfaceColor\(\)\)/);
+assert.match(scheduleUi, /ModalBottomSheet\(onDismissRequest = onClose/);
+assert.match(scheduleUi, /IconButton\(onEdit, Modifier\.size\(48\.dp\)\)/);
+assert.match(scheduleUi, /\.combinedClickable\([\s\S]*?indication = null,/);
+assert.match(messageUi, /InsetGroupedRow\(title = notice\.title/);
+assert.match(messageUi, /AppDialog\(usePortal = true,/);
+assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\)/);
+assert.match(rebuildShell, /NavigationPages\(navigationMotion,/);
+assert.match(motionHost, /val outgoing = visible\.filterKeys/);
+assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/);
+assert.match(rebuildShell, /BackHandler\(enabled = route\.parent != null \|\| routeTrail\.isNotEmpty\(\)\)/);
+assert.match(rebuildShell, /if \(phoneDock\) CapsuleNavigationBar\(/);
+assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/);
+assert.match(navDock, /else iconPlayback\.replay\(index\)/);
+assert.match(windowHost, /rememberCombinedBackdrop\(wallpaper, page\)/);
 
 assert.doesNotMatch(strings, /<string name="start_url"/, '已退役 TWA 默认主页');
 assert.match(manifest, /android:name="\.MainActivity"[\s\S]*?android:exported="true"/);
@@ -109,9 +127,9 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(main, /PrimaryBottomNavigation\(selected = current, backdrop = navBackdrop\)/,
+assert.match(rebuildShell, /if \(phoneDock\) CapsuleNavigationBar\(/,
   '主壳层须只放一套可折射玻璃底栏');
-assert.match(main, /PrimarySideNavigation\(selected = current\)/,
+assert.match(rebuildShell, /if \(wide\) NavigationRail \{/,
   '宽屏保留唯一横屏侧栏适配');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"/);
@@ -132,8 +150,8 @@ assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
 const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
-const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
-const taskWorkspaceForComposerGate = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskEditSheet.kt');
+const taskWorkspaceForComposerGate = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TasksFeature.kt');
 assert.match(profileSettings, /fun requestNotificationAccess\(target: String\)/,
   'Two reminder toggles must share one Android permission gateway');
 assert.equal(profileSettings.split('ContextCompat.checkSelfPermission(').length - 1, 1,
@@ -174,9 +192,9 @@ assert.match(localTaskUi, /private fun LocalTaskSourcePicker\(/,
 assert.doesNotMatch(localTaskUi,
   /LazyRow\(horizontalArrangement = Arrangement\.spacedBy\(8\.dp\)\)\s*\{\s*items\(count = TASK_SOURCES\.size/,
   '新建和编辑任务禁止再出现横向截断的五项分类');
-assert.match(taskWorkspaceForComposerGate, /showLocalComposer by rememberSaveable/,
+assert.match(taskWorkspaceForComposerGate, /adding by rememberSaveable/,
   '顶栏新增任务必须独立于本机任务管理');
-assert.match(taskWorkspaceForComposerGate, /label = "新增本机任务",[\s\S]*?onClick = \{ showLocalComposer = true \}/,
+assert.match(taskWorkspaceForComposerGate, /if \(data\.cloud\.authenticated\) chooseDestination = true else adding = true[\s\S]*?if \(adding\) LocalTaskCreateSheet\(actions\.localTaskDao,/,
   '新增按钮直接进入单用途新建页');
 // The secondary local manager was retired; main hub and Room execution tests own this behavior.
 assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/,
@@ -185,8 +203,16 @@ assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, valu
   '本机截止通知的已有授权状态仅在通知设置中切换');
 assert.doesNotMatch(localTaskUi, /LocalDeadlineReminders\.setEnabled|rememberLauncherForActivityResult/,
   '任务编辑页不再保留第二套截止通知总开关');
-assert.match(main, /LocalDeadlineReminders\.reconcile\([\s\S]*?reminderContext, localTasks, previousTasks = previous/,
-  'Room edits must re-plan notifications even when the task manager is collapsed');
+const appWorkspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppWorkspaceState.kt');
+assert.match(rebuildShell, /val data = rememberAppWorkspace\(dao, cloud,/,
+  'Reminder observer must be owned by the application shell rather than a task page');
+assert.match(appWorkspace, /val tasks = rememberSnapshotRows\(dao\) \{ dao\.observe\(\) \}/);
+assert.match(appWorkspace, /@Stable\s*internal class AppWorkspaceState/);
+assert.match(appWorkspace, /tasksSource = \{ pageSnapshot\(tasks\.value\) \}/);
+assert.match(appWorkspace, /recordsSource = \{ pageSnapshot\(records\.value\) \}/);
+assert.match(appWorkspace, /cloudSource = \{ cloud\.state \}/);
+assert.match(appWorkspace, /LaunchedEffect\(dao, tasks, context\) \{[\s\S]*?snapshotFlow \{ tasks\.value \}\.filterNotNull\(\)\.collect \{ snapshot ->[\s\S]*?LocalDeadlineReminders\.reconcile\(context, snapshot, previousTasks = previous\)[\s\S]*?previousTasks = snapshot/,
+  'Room edits must re-plan notifications, including when the task page is absent, without inventing an initial empty snapshot');
 
 assert.match(ci, /assembleDebug/);
 assert.match(ci, /upload-artifact/);
@@ -197,7 +223,7 @@ assert.match(taskUpdateRoute, /export async function onRequestPost\(context\)/,
   'Android 个人完成状态须通过现有云端任务路径 POST 兼容方法');
 assert.match(taskUpdateRoute, /Object\.keys\(body\)\.sort\(\)\.join\(','\)!=='localStatus,revision'/,
   '兼容 POST 严格限定个人状态与版本，不开放标题或官方字段修改');
-const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt');
+const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileFeature.kt');
 assert.match(cloud, /https:\/\/dorm-os-dk9\.pages\.dev/);
 assert.match(cloud, /instanceFollowRedirects = false/);
 assert.match(cloud, /AndroidKeyStore/);
@@ -210,107 +236,104 @@ assert.match(cloud, /\/api\/v1\/assignments/);
 assert.match(cloud, /refreshOnForeground/);
 assert.match(cloud, /SystemClock\.elapsedRealtime/);
 assert.match(cloud, /60_000L/);
-assert.match(main, /LifecycleEventObserver/);
-assert.match(main, /Lifecycle\.Event\.ON_RESUME/);
-assert.match(main, /DisposableEffect/);
-assert.match(main, /cloud\.refreshOnForeground\(\)/);
+assert.match(appWorkspace, /LifecycleEventObserver/);
+assert.match(appWorkspace, /Lifecycle\.Event\.ON_RESUME/);
+assert.match(appWorkspace, /DisposableEffect/);
+assert.match(appWorkspace, /cloud\.refreshOnForeground\(\)/);
 assert.match(main, /shouldRefreshAfterWebsite = true/);
-assert.match(main, /if \(force\) cloud\.refresh\(\)/);
+assert.match(appWorkspace, /if \(force\) cloud\.refresh\(\)/);
 
 assert.match(cloud, /\/api\/v1\/connections/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/,
   '本机课表不能再从云端自动拉取课程');
-assert.match(main, /CloudTimetablePanel/);
+assert.match(settingsRoutes, /ScheduleFeature\(data, actions,/);
 assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
-const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+const workspaceLogic = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WorkspaceTaskLogic.kt');
+const readContracts = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildReadContracts.kt');
+const workspace = [taskWorkspaceForComposerGate, workspaceLogic, settingsRoutes, appWorkspace, readContracts].join('\n');
 assert.match(localTaskUi, /internal fun TaskCompletionCheckbox\(/,
   'Local editor and task hub must share one completion-checkbox renderer');
 assert.equal((localTaskUi.match(/\bCheckbox\(/g) || []).length, 1,
   'Only the reusable task control may instantiate a Material checkbox');
-assert.equal((workspace.match(/TaskCompletionCheckbox\(/g) || []).length, 2,
-  'Local and approved WeChat task rows must reuse the shared checkbox');
-assert.doesNotMatch(workspace, /\bCheckbox\(/,
+assert.equal((taskWorkspaceForComposerGate.match(/TaskCompletionCheckbox\(/g) || []).length, 2,
+  'Local and accepted WeChat rows share the same completion checkbox');
+assert.doesNotMatch(taskWorkspaceForComposerGate, /\bCheckbox\(/,
   'Unified task list must not maintain duplicate Material checkbox chrome');
 assert.match(profileSettings, /private fun ReminderToggleRow\(/,
   'Course and deadline reminders must share one settings row');
 assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 6,
   'Course, deadline, two date phases and local quiet hours share one toggle implementation');
-assert.equal((profileSettings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
+assert.equal((profileSettings.match(/LiquidSwitch\(/g) || []).length, 1,
   'Both reminders must use a shared switch layout');
-assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
-assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite,/);
-assert.match(main, /openLocalSchool = openLocalSchool/);
-assert.match(workspace, /openLocalSchool\("chaoxing"\)/);
+assert.match(settingsRoutes, /AppRoute\.HOME -> HomeFeature\(data, actions\)/);
+assert.match(settingsRoutes, /AppRoute\.TASKS -> TasksFeature\(data, actions,/);
+assert.match(rebuildShell, /connectLocal = openLocalSchool/);
+assert.match(panels, /actions\.connectLocal\("chaoxing"\)/);
 assert.ok(main.includes('https://dorm-os-dk9.pages.dev/#settings'), 'school connector must deep-link into the existing connection center');
 assert.match(workspace, /fun combineWorkspaceTasks\(/);
-assert.match(workspace, /fun RealAcademicHome\(/);
+assert.match(settingsRoutes, /fun HomeFeature\(/);
 assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|private val WorkspaceBlue\b/,
   '已废弃的首页展示卡片和专用颜色不得回流');
-assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
-assert.match(workspace, /fun RealAcademicTaskHub\(/);
-const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+assert.match(workspace, /fun (?:ColumnScope\.)?TasksFeature\(/, '真实任务工作台继续复用既有组件');
+assert.match(workspace, /fun (?:ColumnScope\.)?TasksFeature\(/);
+const localEditorSource = localTaskUi;
 assert.match(localEditorSource, /fun LocalTaskEditSheet\(/);
 assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
   '禁止独立 Material3 Card 回流本机任务编辑器');
 assert.doesNotMatch(localEditorSource, /fun LocalTaskBoard\(/);
 assert.doesNotMatch(localEditorSource, /private fun StatTile\(/,
   '任务 KPI 仅由新版任务中心展示，不复活旧数字大卡');
-assert.match(workspace, /dao\.trySetCompleted\(id, checked\)/, '统一任务列表保留真实完成写入');
-assert.match(workspace, /dao\.remove\(deletingTask\.id\)/, '统一详情保留删除确认与真实 Room 写入');
+assert.match(rebuildShell, /dao\.trySetCompleted\(id, value\)/, '统一任务列表保留真实完成写入');
+assert.match(taskWorkspaceForComposerGate, /actions\.localTaskDao\.remove\(deleting\.id\)/, '统一详情保留删除确认与真实 Room 写入');
 assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, value\)/,
   '本机截止提醒应由统一通知页面控制');
 assert.match(profileSettings, /LocalDeadlineReminders\.reconcile\(context, tasks\)/,
   '新通知设置必须沿用真实 Room 任务的既有提醒计划');
-assert.match(workspace, /CloudTaskEditor\(client\)/);
-assert.match(panels, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
-assert.match(panels, /client\.addCloudTask\(value\)/, '云端新增仍使用现有真实接口');
+assert.match(taskWorkspaceForComposerGate, /CloudTaskEditor\(data\.cloud, actions,/);
+assert.match(taskWorkspaceForComposerGate, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
+assert.match(rebuildShell, /cloud\.addCloudTask\(title, owner\)/, '云端新增仍使用现有真实接口');
 assert.doesNotMatch(panels, /fun CloudTasksPanel\(/,
   '退役的嵌套云端任务列表不应重新出现在管理面板');
 assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
-assert.match(workspace, /不能据此推断学校没有作业/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
-assert.match(read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt'),
-  /本机导入 · 待本人核对/,
+assert.match(taskWorkspaceForComposerGate, /仅显示已读取的任务，不推断平台状态/);
+assert.match(settingsRoutes, /lessons\.filter \{ it\.weekday == day && week in it\.weeks \}/, '首页只匹配本机导入课表星期');
+assert.match(readContracts,
+  /本机导入（待本人核对）/,
   '课表来源与未核验教学周必须在课表页保留提示，首页无需反复显示');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
-assert.match(main, /ProfileSettingsPage\(/, '我的页面应接入唯一原生设置路由');
-assert.match(profileSettings, /ConnectionsPanel\(client, openWebsite, openLocalSchool,/,
+assert.match(settingsRoutes, /SettingsScreen\(data, actions\)/, '我的页面应接入唯一原生设置路由');
+assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data, actions\)/,
   '已有真实授权面板应仅被复用于数据连接二级页');
 // 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
-assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/);
-assert.match(panels, /PasswordVisualTransformation/);
-assert.match(panels, /fun ConnectionsPanel\(/);
-assert.equal((panels.match(/\bLocalSchoolConnectionPanel\s*\(/g) || []).length, 1,
-  'Native school connection content must not be duplicated for different screen widths');
-assert.equal((panels.match(/\bCloudAuthorizationSection\s*\(/g) || []).length, 2,
-  'Cloud authorization must have exactly one definition and one responsive invocation');
-assert.match(panels, /val localConnections: @Composable \(\) -> Unit = \{/,
-  'Responsive native connection content must be shared');
-assert.match(panels, /val cloudConnections: @Composable \(\) -> Unit = \{/,
-  'Responsive cloud authorization content must be shared');
-// The owner can begin each school's permitted local read without cloud login
-// or first navigating to Xiaoxu's website. Cloud authorization remains optional.
-assert.match(panels, /var cloudAdvanced by rememberSaveable \{ mutableStateOf\(false\) \}/);
-assert.ok(
-    panels.indexOf('LocalSchoolConnectionPanel(') <
-        panels.indexOf('if (cloudAdvanced)'),
-    '本机官方页面读取必须先于云端可选授权展示'
-);
-const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
-assert.match(nativeSchoolPanel, /连接学习通／刷新全部任务/);
-assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
-assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
+assert.match(settingsRoutes, /AppRoute\.MESSAGES -> MessageCenterFeature\(data, actions\)/);
+const sharedPasswordForm = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassFormField.kt');
+assert.match(panels, /GlassFormField\(passphrase,[\s\S]*?password = true/,
+  '个人口令必须使用公共密码表单');
+assert.match(sharedPasswordForm, /if \(password && !reveal\) PasswordVisualTransformation\(\)/,
+  '公共密码表单必须默认遮挡口令');
+assert.match(panels, /internal fun ConnectionsFeature\(/);
+assert.match(panels, /internal fun AccountFeature\(/);
+assert.equal((panels.match(/header = "本机学校读取"/g) || []).length, 1);
+assert.equal((panels.match(/header = "云端学校授权"/g) || []).length, 1);
+assert.ok(panels.indexOf('header = "本机学校读取"') < panels.indexOf('header = "云端学校授权"'),
+  '本机官方页面读取必须先于云端可选授权展示');
+const nativeSchoolPanel = panels;
+assert.match(nativeSchoolPanel, /actions\.connectLocal\("chaoxing"\)/);
+assert.match(nativeSchoolPanel, /actions\.connectLocal\("ncwu"\)/);
+assert.match(nativeSchoolPanel, /actions\.connectLocal\("second_class"\)/);
+assert.match(panels, /val verified = cloud\.authenticated && cloud\.connectionsFresh/);
+assert.match(panels, /if \(verified && linked\?\.sessionState == "active"\)/);
 assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun ConnectionsPage\(/,
   '旧版工具弹窗和混合式连接入口应彻底退役');
-assert.match(profileSettings, /"home" ->[\s\S]*?"connections" -> item/,
+assert.match(settingsIndex, /actions\.navigate\(AppRoute\.CONNECTIONS\)/,
   '设置按分类索引；业务内容应进入独立二级路由');
-assert.match(profileSettings, /"notifications", "notifications-course", "notifications-task" -> item \{/,
+assert.match(settingsRoutes, /AppRoute\.REMINDER_SETTINGS -> ReminderSettingsFeature\(data\)/,
   '通知设置必须共用一套二级路由，而不是复制页面');
-assert.match(profileSettings, /NotificationSettingsContent\(localTasks, animatedRoute, onRouteChange\)/,
+assert.match(profileSettings, /AppSnapshotContent\(data\.localTasks\)[\s\S]*?NotificationSettingsContent\(tasks\)/,
   '分类设置复用唯一提醒权限与调度网关');
 assert.doesNotMatch(profileSettings, /onRouteChange\("notifications-course"\)/,
   'Reminder settings must not require a second navigation hop');
@@ -324,31 +347,31 @@ assert.match(profileSettings, /title = "截止提醒", subtitle = "", checked = 
   '本机截止提醒独立显示真实开关状态');
 assert.match(profileSettings, /LocalCourseReminders\.setLeadMinutes\(context, minutes\)/,
   '课程提前时间调整应写入唯一的本机提醒配置');
-assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);
-assert.match(profileSettings, /"licenses" -> item \{ OpenSourceCreditsPanel\(\) \}/);
-assert.doesNotMatch(profileSettings, /第二课堂记录|selectedTool/,
+assert.match(settingsRoutes, /AppRoute\.TASK_BACKUP -> LazyColumn \{ item \{ LocalTaskBackupPanel\(\) \} \}/);
+assert.match(settingsRoutes, /AppRoute\.LICENSES -> LazyColumn \{ item \{ OpenSourceCreditsPanel\(\) \} \}/);
+assert.doesNotMatch(settingsIndex, /第二课堂记录|selectedTool/,
   '第二课堂记录属于业务页，不回流设置首页');
 
-assert.match(panels, /openLocalSchool\(id\)/);
-assert.match(panels, /LocalSchoolConnectionPanel/);
-assert.match(panels, /成绩读取待接入/,
+assert.match(panels, /actions\.connectLocal\("ncwu"\)/);
+assert.match(panels, /fun ConnectionsFeature\(/);
+assert.match(rebuildShell, /readGrades = \{ cloud\.loadGrades\(\) \}/,
   '青果连接保留，旧课表同步不得冒充成绩读取');
 assert.doesNotMatch(panels, /"ncwu" -> "本机打开青果官方课表"/);
-assert.match(panels, /本机打开第二课堂官网/);
-assert.match(panels, /本机官网读取仅保存当前可见记录/);
+assert.match(panels, /actions\.connectLocal\("second_class"\)/);
+assert.match(panels, /只保存学校本人可见记录/);
 assert.match(cloud, /val tasksFresh: Boolean = false/);
 assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
 assert.match(cloud, /tasksFresh = tasks != null/);
 assert.match(cloud, /tasksFresh = false, connectionsFresh = false,/);
-assert.match(workspace, /!state\.tasksFresh && state\.tasks\.isNotEmpty\(\)/,
+assert.match(taskWorkspaceForComposerGate, /data\.cloud\.authenticated && !data\.cloud\.tasksFresh/,
   '云端任务快照新鲜度必须由统一任务中心说明');
-assert.match(workspace, /含上次云端快照/,
-  '旧快照提醒不可因删除嵌套列表而消失');
-assert.match(panels, /openLocalSchool: \(String\) -> Unit/);
-assert.match(panels, /connectionStatusLabel\(platform\)/);
-assert.match(panels, /client\.syncAuthorizedSchool\(id\)/);
-assert.match(panels, /"ncwu" to "青果教务"/);
-assert.match(panels, /"second_class" to "第二课堂"/);
+assert.match(taskWorkspaceForComposerGate, /data\.cloud\.tasks\.takeIf \{ data\.cloud\.authenticated && data\.cloud\.tasksFresh \}\.orEmpty\(\)/,
+  '新版明确提示未核验，并且隐藏未通过当前账户验证的云端任务');
+assert.match(settingsRoutes, /val connectLocal: \(String\) -> Unit/);
+assert.match(panels, /connectionStatusLabel\(record\)/);
+assert.match(rebuildShell, /cloud\.syncAuthorizedSchool\(provider\)/);
+assert.match(panels, /actions\.authorize\("ncwu"\)/);
+assert.match(panels, /actions\.authorize\("second_class"\)/);
 assert.match(panels, /学校授权/);
 assert.match(cloud, /suspend fun syncAuthorizedSchool\(provider: String\): Boolean/);
 assert.match(cloud, /provider != "second_class"/,
@@ -380,8 +403,8 @@ assert.doesNotMatch(cloud, /state\.scheduleStatus/);
 assert.match(cloud, /state\.secondClassFresh &&/);
 assert.match(cloud, /state\.secondClass\?\.provenance == "trusted_readonly"/);
 assert.doesNotMatch(cloud, /val verified = state\.privateError == null/);
-assert.match(panels, /本次无法核验连接状态/);
-assert.match(panels, /val canRead = state\.authenticated && state\.connectionsFresh/);
+assert.match(panels, /云端状态尚未核验/);
+assert.match(panels, /val verified = cloud\.authenticated && cloud\.connectionsFresh/);
 assert.match(cloud, /clearAccountSnapshots/);
 assert.doesNotMatch(panels, /schoolPassword|CookieManager|WebView|READ_SMS/);
 
@@ -400,55 +423,32 @@ assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/git
 assert.doesNotMatch(main, /SecondClassPanel\(cloud, openWebsite\)/,
   '第二课堂个人记录不应返回我的设置入口');
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
-assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
-assert.match(secondClassMain, /XiaoxuSegmentedControl\(\s*options = catalogOptions/,
-  '单页二课只保留活动广场的共享筛选控件');
-assert.match(secondClassMain, /XiaoxuGlassDialog\(/,
-  '真实二课积分和活动详情复用居中浮层');
-assert.match(secondClassMain, /detailRecord != null/,
-  '只有真实保存记录才创建详情浮层');
+assert.match(settingsRoutes, /AppRoute\.SECOND_CLASS -> SecondClassContent\(data\.nativeRecords/, '第二课堂通过唯一共享数据入口');
+assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/, '统一页面状态持有者');
+assert.match(secondClassMain, /SecondClassContent\(pageSnapshot\(all\), onRefreshResult, onSavedReceipt, connectOnOpen, modifier\)/, '独立授权活动复用同一内容');
+assert.match(secondClassMain, /LiquidSegmentedControl\(listOf\("报名中", "待验证", "即将报名"\), catalogFilter/, '真实目录类别使用统一分段控件');
+assert.match(secondClassMain, /detail\?\.let \{ row ->\s*AppDialog\(/, '仅真实记录打开统一详情弹窗');
+assert.match(secondClassMain, /LazyColumn\(Modifier\.weight\(1f\)/, '单一惰性列表');
+assert.match(secondClassMain, /requestedTerm by rememberSaveable\(binding!!\.details\)/, '学期选择按已核验身份隔离');
+assert.match(secondClassMain, /item\(key = "credits-overview"\)[\s\S]*?Text\("积分概览", Modifier\.weight\(1f\)[\s\S]*?AcademicTermPicker\(termTitles, selected/, '积分标题同行学期选择');
+assert.match(secondClassMain, /item\(key = "credits-overview"\)[\s\S]*?title = "积分明细"/, '积分明细只展示入口');
+assert.match(secondClassMain, /if \(row\.kind == "credits"\)[\s\S]*?secondClassCategories\(row\)/, '积分分类在真实详情弹窗显示');
+assert.match(secondClassMain, /secondClassPoints\(total\) \?: "—"/, '未知总积分不可伪造零');
+assert.match(secondClassMain, /if \(summary == null\) "未读取" else "\$\{activities\.size\} 项"/, '未核验活动列表不能推导数量');
+assert.match(secondClassMain, /it\.provider == "second_class" && it\.sourceHost == "dekt\.ncwu\.edu\.cn"/, '仅学校来源');
+assert.match(secondClassMain, /it\.details\.matches\(Regex\("\[a-f0-9\]\{64\}"\)\)/, '真实身份绑定');
+assert.match(secondClassMain, /capture != null && capture > 0 && binding\?\.capturedAt == capture/, '身份和积分同次读取');
+assert.match(secondClassMain, /it\.kind in setOf\("activity", "activity_summary"\) && it\.capturedAt == stamp/, '个人活动与积分读取时间一致');
+assert.match(secondClassMain, /personal\.filter \{ it\.kind == "activity" \}/, '汇总不是个人活动卡片');
+assert.match(secondClassMain, /AcademicReadAction\("手动读取", refreshing\) \{ refresh\(\) \}/, '唯一手动刷新入口');
+assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/, '授权读取复用原Activity');
+assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/, '学校读取限定第二课堂');
+assert.match(secondClassMain, /Text\("学校官网"\)/, '官网入口');
 for (const label of ['积分概览', '我的活动', '活动广场', '积分明细']) {
   assert.ok(secondClassMain.includes('"' + label + '"'), '单页必须直接呈现：' + label);
 }
-assert.doesNotMatch(secondClassMain, /sectionOptions|val currentScroll|section == [012]/,
-  '不允许回退旧的三顶栏和三个独立滚动容器');
-assert.match(secondClassMain, /LazyColumn\(/, '二课单列表惰性加载，避免逐页向下展开');
-assert.match(secondClassMain, /selectedTermTitle by rememberSaveable/,
-  '积分支持已读取的真实学期选择');
-const secondClassPointsHeader = secondClassMain.slice(
-  secondClassMain.indexOf('item(key = "points_header")'),
-  secondClassMain.indexOf('item(key = "metrics")'));
-assert.match(secondClassPointsHeader, /Text\("积分概览"/,
-  '积分概览标题直接在第一行');
-assert.match(secondClassPointsHeader, /DropdownMenu\(/,
-  '学期下拉必须位于积分概览标题同行');
-assert.doesNotMatch(secondClassMain, /item\(key = "term_selector"\)/,
-  '学期选择不再单独占据积分卡下方的一张大卡片');
-const secondClassBreakdown = secondClassMain.slice(
-  secondClassMain.indexOf('item(key = "term_breakdown")'),
-  secondClassMain.indexOf('item(key = "activities_header")'));
-assert.match(secondClassBreakdown, /Text\("积分明细"/,
-  '积分明细默认只显示可点击的摘要行');
-assert.doesNotMatch(secondClassBreakdown, /secondClassCategories\(|entries\.forEach|selectedTerm\.details/,
-  '六类积分默认不能在主页面向下展开');
-assert.match(secondClassMain, /if \(detailRecord\.kind == "credits"\)/,
-  '六类积分在共享居中玻璃弹窗中展示');
-assert.match(secondClassMain, /secondClassPoints\(schoolTotal\) \?: "—"/,
-  '学校总积分不能凭空变成零');
-assert.match(secondClassMain, /if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
-  '未验证活动快照不能推导数量');
-assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
-assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
-assert.match(secondClassMain, /IconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
-  '第二课堂从学校读取入口与分类栏同列且只保留一个刷新按钮');
-assert.match(secondClassMain, /activities\.filter \{ it\.kind == "activity" \}/,
-  '汇总标题不可显示为个人活动卡片');
-assert.doesNotMatch(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "刷新"\)/,
-  '禁止回退为内容列表上方的重复刷新文字');
-assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
-assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/);
-
-
+assert.doesNotMatch(secondClassMain, /sectionOptions|val currentScroll|ScrollableTabRow|TabRow\(/,
+  '不允许恢复旧三顶栏或独立滚动容器');
 
 const localCatalogParser = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSecondClassCatalogEmpty.kt');
 const localReader = read('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js');
@@ -458,60 +458,56 @@ assert.match(secondClassMain, /"活动暂未获取"/, '未同步不能虚构暂�
 assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完成本机读取|个人已报名活动不是活动广场|TabRow\(|FilterChip\(/,
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
-assert.match(secondClassMain, /val catalogActivities = all\.filter/,
+assert.match(secondClassMain, /val visibleCatalogActivities = remember\(catalog, activeCatalogFilter\) \{ catalog\.filter/,
   '第二课堂活动广场必须读取本机已验证的非空目录记录');
-assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
+assert.match(secondClassMain, /onSelect = \{ catalogFilter = it \}/,
  '活动筛选继续保持所选官方目录类别');
-assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
+assert.match(secondClassMain, /val catalogKeys = listOf\("报名中", "待验证", "即将开始报名"\)/,
  '活动类别须保留报名中筛选');
-assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
- '共享分段控件必须等宽且具有至少44dp触控高度');
-assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeight = 26\.sp/,
- '一级页面共用20sp字级与26sp行高');
-assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
- '课表标题从统一主题取得字级');
-assert.match(messageUi, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
- '消息标题从统一主题取得字级');
-assert.match(workspace, /Text\("任务",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
- '任务页使用简短标题与统一主题字级');
-assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
- '三态数字同卡保留内容且压缩多余高度');
-assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
- '任务顶部四个工具按钮必须复用唯一组件');
-assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
- '共享工具按钮必须具有统一42dp几何尺寸');
-assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 3,
- '任务中心只保留搜索、新建和更多三个统一工具按钮');
-assert.match(workspace, /label = "更多任务操作"/,
- '低频操作必须收进可发现的更多菜单');
-assert.match(workspace, /expanded = taskMenuOpen/,
- '更多菜单必须有明确展开与关闭状态');
-assert.match(workspace, /本周暂无可做的本机任务/,
- '本周无数据必须明确说明，而非误报任务消失');
-assert.match(workspace, /onlyThisWeek -> "查看全部待办"/,
- '本周无任务时必须提供一次点击恢复入口');
-assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/,
- '不应回退为多层筛选和冗余管理栏');
-assert.match(workspace, /val onTaskTap: \(WorkspaceTask\) -> Unit/,
- '本机任务需支持直接进入已有编辑页');
-assert.match(workspace, /if \(showSearch\) searchQuery = ""/,
- '关闭搜索框必须清理隐藏搜索词，避免任务无故消失');
-assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/,
- '只有已解析的学习通官方截止日期可用于排序');
-assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/,
- '官方截止文字无法解析时，旧云端日期不能冒充已核实截止');
-assert.match(workspace, /item\(key = "task:undo-last"\)/,
- '个人任务完成后需要保留一键撤销操作');
-assert.match(workspace, /if \(!dao\.trySetCompleted\(id, checked\)\)[\s\S]*?else \{[\s\S]*?if \(checked\) lastCompletedLocalId = id/,
- '必须在 Room 成功保存之后才展示刚完成任务');
-assert.match(workspace, /toggleLocal\(row, false\)/,
- '撤销必须复用本机任务完成状态写入流程');
-assert.match(workspace, /enabled = !pendingLocalTaskUpdates\.containsKey\(/,
- '前一笔本机状态更新未确认时不得执行撤销');
-assert.match(secondClassMain, /refreshPersonalRecords\(\)/, '授权读取仍有效');
-assert.match(secondClassMain, /if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
+
+assert.doesNotMatch(rebuildShell, /\bInitialPageLoad\(/, '共享快照页面不等待异步挂载');
+assert.match(motionHost, /val frame = state\.transform\(page\)/);
+assert.match(rebuildShell, /LaunchedEffect\(route\) \{\s*if \(route == AppRoute\.SECOND_CLASS\) latestSecondClassRefresh\(\)/, '进入二课复用Activity读取');
+assert.match(main, /secondClassAutoJob\?\.isActive == true\) return/, '已有读取不重复启动');
+assert.match(main, /requestSecondClassRefresh = ::requestSecondClassRefresh/, '读取由Activity生命周期拥有');
+assert.doesNotMatch(main, /delay\(1_000\)/, '没有人为固定刷新延迟');
+assert.match(secondClassMain, /正在同步 · 保留当前数据/);
+assert.match(secondClassMain, /InsetGroupedSection\(animateSize = false\)/);
+
+const segmentControl = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamLiquidSegmentedControl.kt');
+assert.match(segmentControl, /height: Dp = 52\.dp/, "上游分段控件默认52dp");
+assert.match(segmentControl, /\/ optionCount\)\s*\.coerceAtLeast\(1f\)/, "按分段数量平均分配宽度");
+assert.match(segmentControl, /\.weight\(1f\)[\s\S]*?role = Role\.Tab/, "分段等宽且有标签语义");
+assert.match(taskWorkspaceForComposerGate, /onSelect = \{ filter = filters\[it\]\.first \}, height = 48\.dp\)/, "任务页使用48dp分段控件");
+assert.match(taskWorkspaceForComposerGate, /SystemStatStrip\(items = listOf\("待办"[\s\S]*?"待核验"[\s\S]*?"已完成"/, "统一三态统计");
+const upstreamPicker = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamLiquidPicker.kt');
+assert.match(taskWorkspaceForComposerGate, /SystemPicker\(options = sources\.map \{ it\.second \}/, "来源筛选使用统一选择器");
+assert.match(taskWorkspaceForComposerGate, /onSelect = \{ sourceFilter = sources\[it\]\.first \}/, "来源选择真实更新筛选条件");
+assert.doesNotMatch(taskWorkspaceForComposerGate, /DropdownMenu\(|sourceMenuOpen/, "禁止旧来源弹窗回流");
+assert.match(upstreamPicker, /BackHandler\(enabled = expanded\) \{ expanded = false \}/, "来源筛选支持返回键关闭");
+assert.match(upstreamPicker, /onDismiss = \{ expanded = false \}/, "来源筛选支持点击外部关闭");
+assert.match(upstreamPicker, /onSelect\(index\)\s*expanded = false/, "选中来源后关闭公共选择器");
+const upstreamMenu = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SystemActionMenu.kt');
+const taskExecutionMenu = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
+const wheelDialogs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassWheelPicker.kt');
+assert.match(upstreamMenu, /AnchoredGlassOverlay\(/, "操作菜单使用公共玻璃宿主");
+assert.match(taskExecutionMenu, /SystemActionMenu\(/, "任务步骤使用上游操作菜单");
+assert.doesNotMatch(taskExecutionMenu, /DropdownMenu\(/, "禁止退役步骤菜单回流");
+assert.doesNotMatch(wheelDialogs, /WheelDialogHost\(/, "禁止专用滚轮弹窗宿主回流");
+assert.equal((wheelDialogs.match(/AppDialog\(/g) || []).length, 5, "五类滚轮共享公共弹窗");
+assert.match(taskWorkspaceForComposerGate, /if \(onlyThisWeek\) TextButton\(onClick = \{ onlyThisWeek = false \}\)/, "本周筛选可直接解除");
+assert.match(taskWorkspaceForComposerGate, /onClick = \{ detailKey = task\.key \}/, "任务直接进入详情");
+assert.match(taskWorkspaceForComposerGate, /sourceFilter = "all"; onlyThisWeek = false; query = ""/, "清除筛选及搜索词");
+assert.match(taskWorkspaceForComposerGate, /val saved = actions\.updateLocalTask\(localId, value\)[\s\S]*?if \(saved && value\) lastCompletedLocalId = localId/, "仅实际写入成功后提供撤销");
+assert.match(taskWorkspaceForComposerGate, /TextButton\(enabled = !saving,[\s\S]*?actions\.updateLocalTask\(undoTask\.id, false\)/, "撤销使用同一真实Room写入，保存期间禁用");
+assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/, "仅经核验学习通官方截止参与排序");
+assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/, "不能将旧云端日期冒充官方截止");
+assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/, '不恢复旧多层管理栏');
+assert.match(pageScaffold, /SystemTopBar\(/);
+assert.match(secondClassMain, /fun refresh\(\)/, '授权读取仍有效');
+assert.match(secondClassMain, /if \(catalogTime != null && catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
-assert.match(secondClassMain, /catalogRecord\.capturedAt/, '空结果必须关联真实读取时间');
+assert.match(secondClassMain, /val catalogTime = catalog\.map \{ it\.capturedAt \}\.distinct\(\)\.singleOrNull\(\)/, '空结果必须关联真实读取时间');
 
 assert.match(localCatalogParser, /parseLocalSecondClassCatalogEmpty\(/);
 assert.match(localCatalogParser, /catalogStatus/);
@@ -522,7 +518,7 @@ assert.match(localCatalogActivitiesParser, /parseLocalSecondClassCatalogActiviti
   '非空目录必须由独立严格字段解析器校验');
 assert.doesNotMatch(localCatalogActivitiesParser, /password|cookie|student_code|ticket/i,
   '目录投影不得存储本人身份与登录凭据');
-assert.match(secondClassMain, /visibleCatalogActivities\.isNotEmpty\(\)/,
+assert.match(secondClassMain, /else items\(visibleCatalogActivities, key = /,
   '真实活动广场记录需要显示成原生卡片');
 assert.match(localReader, /includeCatalog = false/);
 assert.match(localReader, /catalogPath='\/sys\/stu\/activity'/);
@@ -565,7 +561,10 @@ assert.match(secondClassMain, /SecondClassSaveReceipt\.validate/);
 assert.doesNotMatch(secondClassHome, /dao\.observe\(|nativeSchoolRecords\(\)/,
     'second-class local entry must reuse the main page, not maintain duplicate UI');
 
-assert.match(secondClassMain, /candidates\.all \{ it\.capturedAt == batch\.capturedAt \}/);
+assert.match(secondClassMain, /val capture = credits\.map \{ it\.capturedAt \}\.distinct\(\)\.singleOrNull\(\)/);
+assert.match(secondClassMain, /val confirmed = capture != null && capture > 0 && binding\?\.capturedAt == capture/);
+assert.match(secondClassMain, /val personal = remember\(records, stamp\) \{ records\.filter \{ it\.kind in setOf\("activity", "activity_summary"\) && it\.capturedAt == stamp \} \}/);
+assert.match(secondClassMain, /val catalogTime = catalog\.map \{ it\.capturedAt \}\.distinct\(\)\.singleOrNull\(\)/);
 assert.doesNotMatch(secondClassMain, /SecondClassActivity\(|HttpURLConnection|CookieManager|addJavascriptInterface|schoolPassword/);
 
 assert.match(cloud, /\/api\/v1\/second-class/);
@@ -581,468 +580,172 @@ assert.match(secondClassMain, /fun SecondClassPage\(/);
 assert.doesNotMatch(secondClass, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
 
 // 课表改为唯一的本机导入来源：以前的云端四态仅保留为旧工具函数。
-const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-const nativeWeekGrid = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WeeklyTimetableGrid.kt');
-const localTimetableEntry = schedulePanel.slice(
-    schedulePanel.indexOf('fun CloudTimetablePanel('),
-    schedulePanel.indexOf('private fun ScheduleVerifiedContent(')
-);
-assert.match(schedulePanel, /if \(data\.lessons\.isEmpty\(\)\)/,
-  '无本机课程走唯一课表设置宿主的空态');
-assert.match(schedulePanel, /LocalTimetableEmptyState\(/);
-assert.match(localTimetableEntry, /onMessages = onMessages/, '课表消息入口由唯一内容页处理');
-assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
-assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
-  '课表不依赖云端、没有旧版重复登录/同步动作');
-assert.match(schedulePanel, /Text\("打开课表设置"\)/);
-assert.doesNotMatch(schedulePanel, /label = "重新导入课表"/);
-assert.match(schedulePanel, /label = "新增课程"/);
-assert.match(schedulePanel, /label = "课表设置"/);
-const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
-const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
-assert.doesNotMatch(timetableSettings, /SettingsGroupTitle\("课程提醒"\)/,
-  '全局上课提醒开关只能保留在通知与提醒二级页');
-assert.match(profileSettings, /LocalCourseReminders\.setEnabled\(context, value\)/,
-  '全局开关必须继续写入现有本地提醒设置');
-assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/,
-  'Android 13+ 运行时通知权限应按用户操作申请');
-assert.match(profileSettings, /ACTION_APP_NOTIFICATION_SETTINGS/,
-  '通知权限只作为通知二级页内的系统入口');
-assert.match(timetableSettings, /internal fun SemesterSettingsPage\(/,
-  '课表设置必须是同 Activity 内原生子页面');
-const timetablePageSource = timetableSettings.slice(
-  timetableSettings.indexOf('internal fun SemesterSettingsPage('),
-  timetableSettings.indexOf('// Keep the existing date chooser; use a numeric wheel for lesson times.')
-);
-assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
-  '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
-assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
-  '课表设置需要填满当前主导航内容窗口');
-assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?XiaoxuBottomSheet\(/,
-  '节次时间轮盘使用共享底部容器，不得回退为全屏设置');
-assert.match(timetableSettings, /XiaoxuBottomSheet\(/,
-  '时间和周数轮盘必须使用统一的底部浮层容器');
-assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
-  '课表节次时间保留当前数字滚轮交互');
-assert.match(schedulePanel, /targetState = settingsOpen/,
-  '课表和设置应复用一个动画内容宿主');
-assert.match(schedulePanel, /label = "timetableSettingsRoute"/,
-  '课表设置推进和返回应具有明确的动画入口');
-assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
-  '课表设置应复用统一阻尼推进与返回动画');
-assert.match(schedulePanel, /if \(!animatedSettingsOpen\) \{/,
-  '默认课表与设置按动画目标状态互斥，不得额外叠加 Dialog');
-assert.match(schedulePanel, /if \(animatedSettingsOpen\) \{\s*SemesterSettingsPage\(/,
-  '课表设置应在同窗口中绘制，不得再建独立 Window');
-assert.match(main, /var scheduleSettingsOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '导航层应保存课表子页面状态');
-assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE && scheduleSettingsOpen\)/,
-  '安卓系统返回键应从课表设置回到课表');
-assert.match(main, /settingsOpen = scheduleSettingsOpen,\s*onSettingsOpenChanged = \{/,
-  '课表路由状态必须由唯一 NativeShell 维护');
-assert.match(main, /MainDestination\.PROFILE -> \{[\s\S]*?AnimatedContent\([\s\S]*?label = "profileTimetableChild"[\s\S]*?if \(timetableChild\)/,
-  '课表设置须作为我的原生二级路由，使用统一二级页转场，不切换主标签页');
-assert.match(main, /settingsOpen = profileSettingsRoute == "timetable-settings"/,
-  '课表设置应直接渲染同一课表设置组件，不能先露出周视图');
-assert.match(main, /onScheduleSettings = \{\s*profileSettingsRoute = "timetable-settings"\s*\}/,
-  '进入课表设置只切换内部路由');
-assert.doesNotMatch(main, /onScheduleSettings = \{\s*current = MainDestination\.SCHEDULE/,
-  '禁止设置入口触发主导航页切换和玻璃残影');
-assert.match(main, /onEditorClosed = \{ profileSettingsRoute = "home" \}/,
-  '从设置添加课程完成或取消应回到设置');
-assert.doesNotMatch(main, /scheduleSettingsFromProfile/,
-  '删去旧跨主标签路由的额外状态');
-assert.match(main, /profileSettingsRoute != "home"/,
-  '设置二级页应处理系统返回并收起主导航');
-assert.match(main, /val showPrimaryNavigation = !messagesOpen &&[\s\S]*?!\(current == MainDestination\.SCHEDULE && scheduleSettingsOpen\) &&[\s\S]*?!\(current == MainDestination\.PROFILE && profileSettingsRoute != "home"\)/,
-  '主导航需共用唯一显隐判断，所有二级页都不能露出底栏或背景采样');
-assert.equal((main.match(/if \(!tabletLayout && showPrimaryNavigation\)/g) || []).length, 2,
-  '底栏本体与 Scaffold 占位必须同时使用统一显隐标记');
-assert.match(main, /if \(tabletLayout && showPrimaryNavigation\)/,
-  '平板侧栏也遵守相同子页面规则');
-assert.match(main, /navBackdrop = if \(!tabletLayout && showPrimaryNavigation/,
-  '没有底栏时不得额外保留全屏玻璃采样层');
-assert.match(main, /profileSettingsRoute == "timetable-editor"/,
-  '新增课程编辑页应保留独立二级路由，不能回退到跨标签状态');
-assert.match(main, /onSettingsFileAction = \{ profileSettingsRoute = "home" \}/,
-  '导入导出只需要退出到设置，不必分派旧字符串动作');
-assert.doesNotMatch(main, /onSettingsAction|timetable-action/,
-  '旧字符串动作分发和泛化二级页状态应彻底退场');
+const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleFeature.kt');
+const nativeWeekGrid = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamTimetable.kt');
+const scheduleHeaderSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleHeader.kt');
+const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleSettingsFeature.kt');
 const courseEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt');
-assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(usePlatformDefaultWidth = false\)/,
-  '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
-assert.match(courseEditor, /\.background\(XiaoxuPalette\.PageGradient\)/,
-  '课程编辑背景必须沿用现有课表设置背景');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "课程信息"\)/,
-  '课程信息必须复用同一玻璃分组组件');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课时间"\)/,
-  '编辑节次不能再出现孤立弹框');
-assert.match(courseEditor, /XiaoxuSegmentedControl\(/,
-  '编辑课程星期须使用与课表设置同一套原生分段选择组件');
-assert.match(courseEditor, /selectedKey = weekday/,
-  '星期选中态必须来自正在编辑的真实课程');
-assert.match(courseEditor, /onSelected = \{ if \(!busy\) weekday = it \}/,
-  '选择星期必须更新已有课程字段而非仅展示');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课周次"\)/);
-assert.match(courseEditor, /compact = true/,
-  '课程星期采用紧凑分段控件');
-assert.match(courseEditor, /enabled = !weekOnly && !busy/,
-  '保存中不允许修改课程周次');
-assert.match(courseEditor, /仅修改本机课表，不会提交到学校教务系统/,
-  '课程编辑须明确告知只改本机');
-assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/,
-  '保留已确认的仅删除选中周次行为');
-assert.match(courseEditor, /onSave\(it, weekOnly\)/,
-  '表单仍须连接已有本机课程编辑回调');
-assert.doesNotMatch(courseEditor, /\n    AlertDialog\(\s*onDismissRequest = \{ if \(!busy\) onDismiss\(\) \}/,
-  '主编辑页不能再使用 AlertDialog');
-const dayCardSource = schedulePanel.slice(
-  schedulePanel.indexOf('private fun LessonCard('),
-  schedulePanel.indexOf('/** 首页与完整课表共用')
-);
-assert.match(dayCardSource, /onClickLabel = "查看课程详情"/,
-  '点击日视图课程应打开与周视图共用的详情抽屉');
-assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ChevronRight|Icons\.Outlined\.ExpandMore/,
-  '紧凑课程卡整行点击打开详情，不再堆叠无用箭头');
-assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ExpandMore/,
-  '不要误导用户课程卡向下展开');
-assert.match(schedulePanel, /color = XiaoxuPalette\.Ink2[\s\S]*?val openCourse:/,
-  '顶部日期信息需使用统一的次级文字颜色');
-assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/);
-assert.match(schedulePanel, /initialViewMode = viewMode/);
-assert.match(schedulePanel, /initialSections = visibleSections/);
-assert.match(schedulePanel, /dailySections = visibleSections/);
-assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, newViewMode\)/);
-assert.doesNotMatch(schedulePanel, /ScheduleViewModeTabs\(|private fun ViewModeTab\(/,
-  '周视图和日视图不得再占用课表顶部');
-assert.match(timetableSettings, /XiaoxuSegmentOption\("week", "周视图"\)/,
- '设置必须保留周视图选项');
-assert.match(timetableSettings, /XiaoxuSegmentOption\("day", "日视图"\)/,
- '设置必须保留日视图选项');
-assert.match(timetableSettings, /XiaoxuSegmentedControl\(/,
- '设置与其它页面必须复用同一原生分段控件');
-assert.match(timetableSettings, /selectedKey = viewMode/,
- '视图选中态必须来自真实用户偏好');
-assert.match(timetableSettings, /onSelected = \{ viewMode = it \}/,
- '点击分段项应更新设置草稿，保存动作仍由完成按钮触发');
-assert.match(timetableSettings, /onSave\(config, viewMode, sections\)/,
- '周日偏好与学期数据必须通过原保存回调提交');
-assert.match(timetableSettings, /DatePicker\(state = dateState/,
-  '日期选择须使用统一 Compose 控件');
-const timetableTimeWheel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuTimeWheel.kt');
-assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
-  '节次时间使用滚动数字选择器而非圆形时钟盘');
-assert.doesNotMatch(timetableSettings, /\bTimePicker\(|rememberTimePickerState/,
-  '不得回退到与参考图不一致的圆形时钟选择');
-assert.match(timetableTimeWheel, /NumberPicker\(context\)/,
-  '数字滚轮复用成熟 Android 原生控件，不手写滚动与回弹物理');
-assert.match(timetableTimeWheel, /HOUR_OPTIONS = \(0\.\.23\)\.toList\(\)/,
-  '小时数字范围必须保持 00–23');
-assert.match(timetableTimeWheel, /MINUTE_OPTIONS = \(0\.\.59\)\.toList\(\)/,
-  '分钟数字范围必须保持 00–59');
-assert.match(timetableTimeWheel, /internal fun XiaoxuNumberWheel\(/,
-  '时间、学期周数和每天节数必须复用唯一原生数字滚轮');
-assert.match(timetableSettings, /XiaoxuNumberWheel\(/,
-  '学期周数和每天节数已使用同一丝滑数字滚轮');
-assert.match(timetableSettings, /selectedNumber = it/,
-  '滚动时只更新临时选择值');
-assert.match(timetableSettings, /if \(choosingSections\) sections = selectedNumber/,
-  '确认才持久更新每天节数草稿');
-assert.match(timetableSettings, /else weeks = selectedNumber\.toString\(\)/,
-  '确认才更新学期周数草稿');
-assert.doesNotMatch(timetableSettings, /options\.forEach \{ number ->/,
-  '旧学期/节数 35 行列表滚动实现应清理');
-assert.match(timetableTimeWheel, /setOnValueChangedListener/,
-  '滚动数字必须更新对应的小时或分钟草稿');
-assert.match(timetableSettings, /LocalTime\.of\(pickedHour, pickedMinute\)/,
-  '确认时间必须使用用户真实选取的数值');
-assert.match(timetableSettings, /!chosen\.isAfter\(stagedStart\)/,
-  '结束时间不可早于或等于开始时间');
-assert.match(timetableSettings, /replaceSectionTime\(/,
-  '保存时仅更新当前节次时间草稿');
-assert.match(timetableSettings, /Icons\.Outlined\.ChevronRight/,
-  '作息列表行使用进入箭头，不显示突兀的蓝色时间胶囊');
-assert.match(timetableSettings, /if \(sectionsMenu \|\| weeksMenu\)/,
-  '节数与周数弹层需统一为可滚动玻璃选择器');
-assert.doesNotMatch(timetableSettings, /android\.app\.(DatePickerDialog|TimePickerDialog)|DropdownMenu\(/,
-  '课表设置不可重新混用系统旧弹窗或漂浮长菜单');
-assert.match(timetableSettings, /monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
-  '未设置学期时仍应允许保存视图偏好');
-assert.match(timetableSettings, /onSave\(config, viewMode, sections\)/);
+const timetableTimeWheel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassWheelPicker.kt');
+const courseDetail = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamCourseDetailSheet.kt');
+const academicGradeArea = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GradesFeature.kt');
+const gradesScreen = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GradesScreen.kt');
+const localTimetableEntry = schedulePanel;
+const timetablePageSource = timetableSettings;
+const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
+assert.match(schedulePanel, /AppSnapshotContent\(data\.lessons\)/, "课表唯一真实本机快照");
+assert.match(schedulePanel, /localImportedScheduleView\(lessons\)\.sourceLabel/, "保留本机来源标注");
+assert.match(schedulePanel, /if \(lessons\.isEmpty\(\)\)[\s\S]*?SystemEmptyState\("本机尚无课程"/, "真实空态");
+assert.match(schedulePanel, /onSettingsClick = \{ actions\.navigate\(AppRoute\.SCHEDULE_SETTINGS\) \}/, "设置入口");
+assert.match(schedulePanel, /onAddClick = if \(data\.lessons is PageSnapshot\.Ready\)/, "只在数据已读取时新增");
+assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/, "读取持久化视图偏好");
+assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, mode\)/, "保存视图偏好");
+assert.match(schedulePanel, /requestedWeek\.takeIf \{ it in weeks \} \?: todayWeek\?\.takeIf \{ it in weeks \}/, "选择有效教学周");
+assert.match(schedulePanel, /onDayClick = \{ selectedDay = it; selectView\("day"\) \}/, "用户选择星期");
+assert.match(schedulePanel, /rememberPagerState\(initialPage = index, pageCount = \{ weeks\.size \}\)/, "保留真实周次翻页");
+assert.match(schedulePanel, /courses\.filter \{ it\.day == selectedDay \}/, "日视图按用户选择过滤");
+assert.match(schedulePanel, /val selected = lessons\.firstOrNull \{ it\.id == selectedId \}/, "详情只用真实课程身份");
+assert.match(schedulePanel, /UpstreamCourseDetailSheet\(/, "统一周日详情");
+assert.match(schedulePanel, /LocalScheduleEditor\.upsert\(lessons, editingId, replacement, editingWeek\.takeIf \{ only \}\)/, "本机编辑保留周次范围");
+assert.match(schedulePanel, /LocalScheduleEditor\.delete\(lessons, requireNotNull\(editingId\), editingWeek\.takeIf \{ only \}\)/, "本机删除保留周次范围");
+assert.match(scheduleHeaderSource, /GlassOptionWheelDialog\(weeks\.map \{ "第 \$it 周" \}, weeks\.indexOf\(currentWeek\)\.coerceAtLeast\(0\)/, "周次轮盘定位当前周");
+assert.match(scheduleHeaderSource, /weeks\.getOrNull\(it\)\?\.let\(onWeekSelect\)/, "有效周次选择");
+assert.match(scheduleHeaderSource, /onAddClick\(\)/, "新增课程可达");
+assert.match(scheduleHeaderSource, /onSettingsClick\(\)/, "课表设置可达");
+assert.match(timetableSettings, /internal fun ScheduleSettingsFeature\(/, "唯一设置页");
+assert.match(timetableSettings, /Modifier\.fillMaxSize\(\)\.verticalScroll/, "共享页面内布局");
+assert.match(timetableSettings, /LiquidSegmentedControl\(options = listOf\("周", "日"\)/, "上游分段控件");
+assert.match(timetableSettings, /selectedIndex = if \(defaultView == "day"\) 1 else 0/, "真实偏好");
+assert.match(timetableSettings, /LocalSemesterConfigStore\.saveViewMode\(context, defaultView\)/, "保存视图偏好");
+assert.match(timetableSettings, /SemesterCalendar\.parse\(dateText, weeksText, periodsText\)/, "学期数据严格验证");
+assert.match(timetableSettings, /actions\.saveScheduleSettings\(config, periodCount\)/, "已有保存接口");
+assert.match(timetableSettings, /date\.dayOfWeek != java\.time\.DayOfWeek\.MONDAY/, "第一周起始必须周一");
+assert.match(timetableSettings, /GlassDatePickerDialog\(/, "统一日期选择");
+assert.match(timetableSettings, /options = \(1\.\.35\)\.map/, "教学周有效范围");
+assert.match(timetableSettings, /options = \(1\.\.24\)\.map/, "每天节数范围");
+assert.match(timetableSettings, /onConfirm = \{ periodCount = it \+ 1; accepted\(\) \}/, "确认节数");
+assert.match(timetableSettings, /GlassTimeRangePickerDialog\(/, "统一起止时间轮盘");
+assert.match(timetableSettings, /java\.time\.LocalTime\.parse\(end\)\.isAfter\(java\.time\.LocalTime\.parse\(start\)\)/, "结束必须晚于开始");
+assert.match(timetableSettings, /updatePeriod\(period, start, end\)/, "只更新目标节次");
+assert.match(timetableSettings, /maxOf\(periodCount, rows\.keys\.maxOrNull\(\) \?: 1\)/, "减少显示节数不丢失原作息");
+assert.match(timetableSettings, /onClick = actions\.importTimetable/, "真实导入");
+assert.match(timetableSettings, /onClick = actions\.exportTimetable/, "真实导出");
+assert.match(timetableTimeWheel, /fun GlassWheelColumn\(/, "上游共享轮盘");
+assert.match(timetableTimeWheel, /fun GlassTimeRangePickerDialog\(/, "统一时间范围选择");
+assert.match(timetableTimeWheel, /fun GlassOptionWheelDialog\(/, "统一数字轮盘");
+assert.match(timetableTimeWheel, /LazyColumn\(/, "惰性滚动轮盘");
+assert.match(courseEditor, /onSave\(it, weekOnly\)/, "保存真实课程");
+assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/, "仅删除选中周");
+assert.match(courseEditor, /GlassFilterCapsule\(label = label\.toString\(\), selected = weekday == key, onClick = \{ weekday = key \}, enabled = !busy\)/, "课程星期交互");
+assert.match(courseEditor, /enabled = !weekOnly && !busy/, "提交时锁定周次");
+assert.match(courseEditor, /GlassFormField\(/, "统一表单");
+assert.match(courseDetail, /LocalCourseReminders\.enabledForCourse\(context, course\.id\)/, "课程提醒来源");
+assert.match(courseDetail, /LocalCourseReminders\.setCourseEnabled\(context, course\.id, enabled\)/, "课程提醒持久化");
+assert.match(courseDetail, /ActivityResultContracts\.RequestPermission\(\)/, "按需运行时授权");
+assert.match(courseDetail, /LocalCourseReminders\.canNotify\(context\)/, "通知权限核验");
+assert.match(courseDetail, /LocalCourseReminders\.reconcileAfterSave\(/, "提醒调度");
+assert.match(nativeWeekGrid, /fun TimetableLayout\(/, "直接上游网格");
+assert.match(nativeWeekGrid, /private fun timetableEntries\(courses: List<ScheduleCourseUi>\)/, "复用重叠分组");
+assert.match(nativeWeekGrid, /if \(entry\.courses\.size == 1\) onCourseClick\(entry\.courses\.first\(\)\) else selectedGroup = entry\.courses/, "重叠课程选择不虚构原始记录");
+assert.match(nativeWeekGrid, /onClick = \{ selectedGroup = null; onCourseClick\(course\) \}/, "点击原始课程");
+assert.match(nativeWeekGrid, /val days = columns\.size/, "按实际日期列布局");
+assert.match(academicGradeArea, /cloud\.grades\.takeIf \{ owner != null && cloud\.gradesOwner == owner \}/, "成绩所有者校验");
+assert.match(academicGradeArea, /cloud\.exams\.takeIf \{ owner != null && cloud\.examsOwner == owner \}/, "考试所有者校验");
+assert.match(gradesScreen, /val semesterListState = rememberLazyListState\(\)/, "上游独立滚动状态");
+assert.match(gradesScreen, /val overallListState = rememberLazyListState\(\)/, "总体独立滚动");
+assert.match(gradesScreen, /val examListState = rememberLazyListState\(\)/, "考试独立滚动");
+assert.match(gradesScreen, /val travel: Dp get\(\) = \(expanded - collapsed\)\.coerceAtLeast\(1\.dp\)/, "上游测量折叠行程");
+assert.match(academicGradeArea, /非实时/, "成绩考试快照口径");
+assert.match(academicGradeArea, /if \(tab == 2\) actions\.readExams\(\) else actions\.readGrades\(\)/, "真实只读接口");
+assert.match(academicGradeArea, /actions\.navigate\(AppRoute\.CONNECTIONS\)/, "数据连接入口");
+assert.doesNotMatch(schedulePanel, /VerifiedLesson\(|HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)/);
+assert.doesNotMatch(timetableSettings, /reminderEnabled: Boolean|wantReminders|android\.app\.(DatePickerDialog|TimePickerDialog)|\bTimePicker\(/);
+assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
+assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/);
+assert.match(profileSettings, /LocalCourseReminders\.setEnabled\(context, value\)/);
+assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/);
+assert.match(profileSettings, /ACTION_APP_NOTIFICATION_SETTINGS/);
+assert.match(rebuildShell, /saveScheduleSettings = \{ calendar, sections ->[\s\S]*?LocalCourseReminders\.reconcileAfterSave\(/);
+assert.match(rebuildShell, /val showPrimary = route\.parent == null/);
+assert.match(rebuildShell, /BackHandler\(enabled = route\.parent != null \|\| routeTrail\.isNotEmpty\(\)\)/);
+assert.match(settingsRoutes, /AppRoute\.SCHEDULE_SETTINGS -> ScheduleSettingsFeature\(data, actions\)/);
+assert.match(settingsRoutes, /route == AppRoute\.GRADES \|\| route == AppRoute\.EXAMS/);
 assert.match(timetablePrefs, /fun loadViewMode\(context: Context\)/);
 assert.match(timetablePrefs, /fun saveViewMode\(context: Context, mode: String\)/);
 assert.match(timetablePrefs, /putString\(VIEW_MODE_KEY, mode\)\.apply\(\)/);
 assert.match(timetablePrefs, /fun loadSections\(context: Context\)/);
 assert.match(timetablePrefs, /fun saveSections\(context: Context, count: Int\)/);
-assert.match(schedulePanel, /Text\("课程详情"/);
-assert.match(schedulePanel, /Text\("课程提醒"/);
-assert.match(schedulePanel, /enabledForCourse\(context, lesson\.sourceId\)/);
-assert.match(schedulePanel, /ContextCompat\.checkSelfPermission\(/,
-  '课程提醒必须区分Android通知运行时权限与通知总开关');
-assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
-  '已经授权但系统通知被禁用时，应打开通知设置而不是重复请求权限');
-assert.match(schedulePanel, /context\.startActivity\(settings\)/,
-  '通知设置入口必须真正连接系统设置');
-const timetableSettingsCallback = schedulePanel.slice(
-  schedulePanel.indexOf('if (animatedSettingsOpen) {'),
-  schedulePanel.indexOf('private fun DayLessonList(')
-);
-assert.match(timetableSettingsCallback, /LocalCourseReminders\.anyEnabled\(context\)/,
-  '修改学期后只有已经启用的提醒需要重新规划');
-assert.match(timetableSettingsCallback, /LocalCourseReminders\.reconcileAfterSave\(/,
-  '保存学期作息仍需更新已存在的单课程提醒');
-assert.doesNotMatch(timetableSettingsCallback,
-  /LocalCourseReminders\.setEnabled\(|reminderPermissionLauncher|ACTION_APP_NOTIFICATION_SETTINGS/,
-  '课表保存不可重复修改全局提醒状态或再申请通知权限');
-assert.doesNotMatch(timetableSettings, /reminderEnabled: Boolean|wantReminders/,
-  '退役的课表提醒开关及其保存参数必须同时删除');
+assert.match(segmentControl, /\.weight\(1f\)[\s\S]*?role = Role\.Tab/);
 
-const weekPickerBody = schedulePanel.slice(
-  schedulePanel.indexOf('private fun WeekSelector('),
-  schedulePanel.indexOf('private fun SelectablePill(')
-);
-assert.match(weekPickerBody, /rememberLazyListState\(/,
-  '周次选择条必须保存真实横向滚动状态');
-assert.match(weekPickerBody, /LaunchedEffect\(weeks, selected\)/,
-  '第10周等当前选中周次必须自动定位至可见范围');
-assert.match(weekPickerBody, /weekListState\.scrollToItem\(/,
-  '周次列表必须随选中项滚动，而非永远从第1周开始');
-assert.match(weekPickerBody, /LazyRow\(state = weekListState/,
-  '周次列表必须绑定滚动状态');
-const settingsHeaderError = timetableSettings.slice(
-  timetableSettings.indexOf('internal fun SemesterSettingsPage('),
-  timetableSettings.indexOf('SettingsGroupTitle("学期与显示")')
-);
-assert.match(settingsHeaderError, /if \(error != null\) \{/,
-  '设置验证错误须在顶部完成按钮附近显示');
-assert.match(timetableSettings, /hasError = errorField == "weeks"/,
-  '学期周数错误须高亮对应设置行');
-assert.match(timetableSettings, /hasError = errorField == "date"/,
-  '学期日期错误须高亮对应设置行');
-assert.doesNotMatch(timetableSettings, /modifier = Modifier\.padding\(top = 14\.dp\)/,
-  '设置错误不得仅显示在节次列表末尾');
-
-assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
-assert.doesNotMatch(schedulePanel, /"全部周次 ▾"|"显示全部周次"|label = "全部",\s*isSelected = selected == ALL_WEEKS/,
-  '课表不得暴露无用途的整学期混合周次入口');
-assert.match(schedulePanel, /if \(weekNumbers\.isNotEmpty\(\) && selectedWeek !in weekNumbers\)/,
-  '导入课程或变更教学周后必须回到有效的具体周次');
-assert.match(schedulePanel, /Text\(if \(currentIndex >= 0\) "第 \$selectedWeek 周 ▾" else "选择周次 ▾"/,
-  '周次栏必须以具体教学周为主要状态');
-
-assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
-assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
-assert.match(schedulePanel, /Icons\.Outlined\.ChevronLeft/);
-assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex \+ 1\]/);
-assert.match(schedulePanel, /Icons\.Outlined\.ChevronRight/);
-assert.match(schedulePanel, /data\.lessons\.filter \{ selectedWeek in it\.weeks \}/);
-assert.match(schedulePanel, /val effectiveWeekday = selectedWeekday/,
-  '用户选了空白星期不能自动跳到另一天');
-assert.match(schedulePanel, /selectedWeekday = tabletWeekday/,
-  '平板需要保持七日网格选中状态与侧栏一致');
-assert.match(schedulePanel, /onSelectWeekday = \{ selectedWeekday = it \}/);
-assert.match(schedulePanel, /WeekdayStrip\(/);
-assert.match(schedulePanel, /WeeklyTimetableGrid\(/);
-assert.match(schedulePanel, /DayLessonList\(/);
-assert.match(schedulePanel, /CourseDetailBottomSheet\(/);
-assert.match(schedulePanel, /ModalBottomSheet\(/);
-assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/,
-  '课程详情应引用当前筛选真实课程');
-assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层写死课程');
-assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
-assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
-// Indexed occupancy is equivalent to the former per-cell lesson filter, while
-// avoiding a full list scan for every slot during Compose recompositions.
-assert.match(nativeWeekGrid, /for \(section in lesson\.startSection\.coerceAtLeast\(1\)\.\.lesson\.endSection\.coerceAtMost\(maxSection\)\)/);
-assert.match(nativeWeekGrid, /buckets\[lesson\.weekday\]\[section\]\.add\(lesson\)/);
-assert.match(nativeWeekGrid, /val available = occupancy\[day\]\[section\]/);
-assert.match(nativeWeekGrid, /val next = occupancy\[day\]\[probe\]/);
-assert.match(nativeWeekGrid, /for \(day in 1\.\.7\)/);
-assert.match(nativeWeekGrid, /onLessonClick\(first\)/);
-assert.match(nativeWeekGrid, /val dayWidth = if \(compact\) \(maxWidth - labelWidth - 8\.dp\) \/ 7/,
-  '周日不能被挤出屏幕：七日按当前设备宽度分配');
-assert.match(nativeWeekGrid, /first\.teacher\.isNotBlank\(\)/);
-assert.match(nativeWeekGrid, /if \(next != available\) break/,
-  '不同课程交叠时必须分段而非合成一张假课程');
-assert.match(nativeWeekGrid, /overlapChoices = available/);
-assert.match(nativeWeekGrid, /role = Role\.Tab/);
-assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
-assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)[\s\S]*?onRefresh = \{ scope\.launch \{ cloud\.refresh\(\) \} \}/,
-  '只有首页的顶栏提供云端刷新，课表页仍使用自己的原生导航');
-assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)/,
-  '成绩页面入口仍为独立原生内容页');
-assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
-  '考试页面与成绩统一页内间距');
-const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> Content('),
-    main.indexOf('AcademicDestination.SERVICES -> Content('));
-assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 2,
-  '成绩与考试须使用唯一的玻璃空态组件，禁止两套自绘白卡');
-assert.match(academicGradeArea, /title = "成绩尚未读取"/,
-  '成绩未取得本人真实数据时明确为空态');
-assert.match(academicGradeArea, /title = "考试安排尚未读取"/,
-  '考试未读取前不能显示模拟考试安排');
-assert.match(academicGradeArea, /actionLabel = "连接青果教务",\s*onAction = openProfile/,
-  '成绩操作必须打开现有学校连接中心');
-assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction = openProfile/,
-  '考试操作必须打开现有学校连接中心');
-assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
-  '未核验数据不能混入成绩或考试页面');
-
-const statusTabSource = workspace.slice(workspace.indexOf('private fun TaskStatusTab('),
-    workspace.indexOf('/** 轻量分组标题',workspace.indexOf('private fun TaskStatusTab(')));
-assert.match(statusTabSource, /selectable\(selected = active, role = Role\.Tab, onClick = onClick\)/,
-  '任务三态筛选须具备可访问的选中态，不只是视觉高亮');
-assert.match(workspace, /\.selectableGroup\(\)/,
-  '任务三态筛选须成组供无障碍导航');
-assert.match(statusTabSource, /XiaoxuRadius\.tile/,
-  '任务筛选圆角必须复用唯一设计系统');
-// messageUi is loaded before these assertions; messageCenter is declared later.
-const messageSearchSource = messageUi.slice(
-    messageUi.indexOf('private fun MessageSearchField('),
-    messageUi.indexOf('private fun FilterRow('));
-assert.match(messageSearchSource, /focusedContainerColor = XiaoxuPalette\.GlassCard/,
-  '消息搜索框需与列表共用玻璃材质');
-assert.match(messageSearchSource, /GlassBorder/,
-  '消息搜索框描边须取自唯一组件调色板');
-assert.equal((timetableSettings.match(/XiaoxuGroupSurface\s*\{/g) || []).length, 3,
-  '课表设置的三个分组必须直接复用设计系统的玻璃容器');
-assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/,
-  '课表设置不得恢复已移除的重复分组包装');
-const groupedGlassSource = designSystem.slice(
-    designSystem.indexOf('internal fun XiaoxuGroupSurface('),
-    designSystem.indexOf('/** 连续分组设置', designSystem.indexOf('internal fun XiaoxuGroupSurface(')));
-assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.group\)/,
-  '课表设置分组圆角必须与所有设置页同源');
-assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
-  '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
-assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.Line/,
-  '内容分组应使用轻量中性描边，不叠加玻璃高光');
-assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
-  '普通分组继续保持原有上下4dp内边距；课表设置独立保持0dp');
-
+assert.match(messageUi, /GlassFormField\(/, '消息搜索复用共享表单');
+assert.match(timetableSettings, /InsetGroupedSection\(header = "基础设置"\)/);
+assert.match(timetableSettings, /InsetGroupedSection\(header = "节次时间"/);
+assert.match(timetableSettings, /InsetGroupedSection\(header = "课表文件"\)/);
+assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/);
 
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
-const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
-assert.doesNotMatch(messageCenter, /private val TileShape\s*=/,
-  '消息中心不得恢复未使用的页面级形状常量');
-assert.match(messageCenter, /fun filterNotices\(/);
-assert.match(messageCenter, /state\.notices/);
-assert.match(messageCenter, /state\.pendingWechatCount/);
-assert.match(messageCenter, /state\.publicError/);
-assert.match(messageCenter, /noticesPartial/);
-assert.match(messageCenter, /openArticle\(notice\.url\)/);
-assert.match(messageCenter, /未连接校序云端/);
-assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
-assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
-
-const messagePillSource = messageCenter.slice(
-  messageCenter.indexOf('private fun MessagePill('),
-  messageCenter.indexOf('private fun MessageCountLine('));
-assert.match(messagePillSource, /XiaoxuPalette\.GlassTrack/,
-  '官方消息筛选未选中态与导航共用轻玻璃材质');
-assert.match(messagePillSource, /XiaoxuSpacing\.glassStroke/,
-  '官方消息筛选不可恢复旧1dp灰色硬描边');
-
-const skeletonSource = messageCenter.slice(
-  messageCenter.indexOf('private fun MessageSkeleton('));
-assert.match(skeletonSource, /height\(76\.dp\)/,
-  '消息占位不应在内容为空时占据过厚的灰色长卡');
-assert.match(skeletonSource, /background\(XiaoxuPalette\.GlassTrack\)/,
-  '消息加载占位必须采用统一玻璃轨道材质');
-assert.match(messageCenter, /container = MaterialTheme\.colorScheme\.errorContainer/,
-  '云端公告读取失败仍显示明确的错误语义');
-
-const messageBannerSource = messageCenter.slice(
-  messageCenter.indexOf('private fun MessageBanner('),
-  messageCenter.indexOf('private fun MessageErrorCard('));
-assert.match(messageBannerSource, /XiaoxuPalette\.GlassBorder/,
-  '官方通知状态横幅采用统一柔和玻璃边界');
-assert.doesNotMatch(messageBannerSource, /border\(1\.dp, XiaoxuPalette\.Line/,
-  '状态横幅禁止恢复旧1dp灰色硬边');
-const noticeDetailSource = messageCenter.slice(
-  messageCenter.indexOf('internal fun NoticeDetailSheet('),
-  messageCenter.indexOf('private fun SheetMetaRow('));
-assert.match(noticeDetailSource, /text = notice\.title/,
-  '官方公告标题仍来自真实读取记录');
-assert.doesNotMatch(noticeDetailSource, /background\(XiaoxuPalette\.BrandSoft\)/,
-  '官方公告玻璃抽屉不再额外嵌套实心标题卡片');
-assert.match(designSystem, /internal fun XiaoxuDialogPrimaryButton\(/,
-  '弹窗主按钮必须由统一设计系统维护');
-assert.match(designSystem, /XiaoxuDialogPrimaryButton\(onClick = onDismiss\)/,
-  '完成按钮必须复用统一胶囊主按钮');
-assert.match(noticeDetailSource, /XiaoxuDialogPrimaryButton\(/,
-  '官网原文按钮必须复用完成按钮的胶囊组件');
-assert.match(noticeDetailSource, /onClick = \{ openArticle\(notice\.url\) \}/,
-  '官网链接跳转行为必须保留');
-assert.doesNotMatch(noticeDetailSource, /RoundedCornerShape\(14\.dp\)/,
-  '公告不得恢复旧 14dp 按钮圆角');
-const secondaryActionSource = panels.slice(panels.indexOf('private fun SecondaryAction('));
-assert.match(secondaryActionSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
-  '我的连接次要操作统一玻璃描边而非旧1dp灰色硬边');
-
-
-// 消息中心来源分区（Issue #263）：官方公告与微信候选必须各有分区标题与真实计数，
-// 顶部不能再用单一「官方来源」徽标覆盖整页。
-assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
-assert.match(messageCenter, /state\.notices\.isNotEmpty\(\)/,
-  "只有已读取的公告数量非零时，顶部来源标签才显示计数");
-assert.match(messageCenter, /暂无已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
-assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
-assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle\)/,
-  '官方通知的真实数量只在来源分段栏显示，不再堆额外标题');
-assert.match(messageCenter, /title = "微信候选"/);
-assert.match(messageCenter, /badge = "本人云端"/);
-assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 2,
-  '只有微信审核保留来源身份行，官方通知标题与数量归入单一分段栏');
-assert.doesNotMatch(messageCenter, /MessageFooterNote\(/,
-  '消息中心禁止持续显示面向开发人员的来源免责声明');
-assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
-assert.doesNotMatch(messageCenter, /private fun SourceChip\(/,
-  '来源摘要卡已退出消息主布局，防止第二套来源容器回流');
-assert.ok(messageCenter.includes('val noticeTitle = "官方通知" +'),
-  '官方来源分段标题必须仍显示真实公告数量');
-
-// 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
-assert.match(messageCenter, /onClickLabel = "查看公告详情与官网链接"/,
-  '紧凑海报式公告卡仍须打开真实官方详情');
-assert.doesNotMatch(messageCenter, /查看全文/, '公告详情不得声称查看全文');
-assert.match(messageCenter, /onClickLabel = "查看公告详情与官网链接"/);
-assert.match(messageCenter, /XiaoxuSheet\(onDismiss = onDismiss, title = "公告详情"\)/,
-  '公告详情必须复用唯一玻璃弹层');
-assert.doesNotMatch(messageCenter, /ModalBottomSheet\(/,
-  '消息页不能再创建第二套底部弹层容器');
-assert.match(messageCenter, /正文请在学校官网查看/,
-  '仅有官方元数据时不编造公告正文');
-const officialNoticeDetail = messageCenter.slice(
-  messageCenter.indexOf('internal fun NoticeDetailSheet('),
-  messageCenter.indexOf('private fun SheetMetaRow(')
-);
-assert.doesNotMatch(officialNoticeDetail, /text = "关闭"/,
-  '公告详情仅使用共享弹层的完成按钮，不能重复关闭');
-assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
-
-// 搜索范围只覆盖官方公告，微信候选只用已有审核面板呈现。
-assert.match(messageCenter, /WechatReviewPanel\(/);
-assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/);
-
-// 触控与读屏：筛选 48dp、单选组 + selected、窄屏内边距与可滚动详情。
-assert.match(messageCenter, /\.selectableGroup\(\)/);
-assert.match(messageCenter, /\.selectable\(\s*selected = isSelected,\s*role = Role\.Tab,/);
-assert.match(messageCenter, /\.heightIn\(min = 48\.dp\)/);
-assert.match(messageCenter, /maxWidth < 380\.dp/);
-assert.match(designSystem, /verticalScroll\(rememberScrollState\(\)\)/,
-  '统一底部弹层必须支持内容滚动');
-assert.match(messageCenter, /mergeDescendants = true/);
-assert.match(messageCenter, /rememberSaveable \{ mutableStateOf\(MSG_FILTER_ALL\) \}/);
-assert.match(messageCenter, /var openedId by rememberSaveable/);
-
-// App 原生微信审核：只通过现有 Owner Session 读取真实候选、二次确认后提交。
-// 后端沿用已上线的同源 POST + 人工审核事务，绝不新增微信采集器。
-const wechatReview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WechatReviewPanel.kt');
+const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenterFeature.kt');
+const stepEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
+const importPreview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt');
+const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppDialog.kt');
+const wechatReview = messageCenter;
+const taskBoard = localTaskUi;
 const reviewRoute = read('functions/api/v1/wechat/candidates/[id].js');
-assert.match(messageCenter, /WechatReviewPanel\(/);
-assert.doesNotMatch(messageCenter, /WechatSourceCard\(/);
+assert.match(messageCenter, /fun filterNotices\(/, "公告检索");
+assert.match(messageCenter, /filterNotices\(state\.notices, query, filter\)\.distinctBy \{ it\.url \}/, "真实公告与去重");
+assert.match(messageCenter, /pendingWechatLabel\(state\.pendingWechatCount, state\.authenticated, state\.wechatError\)/, "待审数量含账户及错误状态");
+assert.match(messageCenter, /state\.publicError != null && state\.notices\.isNotEmpty\(\)/, "明确缓存数据");
+assert.match(messageCenter, /if \(state\.noticesPartial\) item \{ AppNotice/, "部分读取失败");
+assert.match(messageCenter, /MessagePhase\.NotConnected -> item \{ SystemEmptyState\("尚未读取公告"/, "未读取不同于空列表");
+assert.match(messageCenter, /MessagePhase\.Failed -> item \{ AppNotice\(phase\.message, error = true\)/, "真实错误语义");
+assert.match(messageCenter, /LiquidSegmentedControl\(listOf\("官方通知", "微信审核"\)/, "独立来源");
+assert.match(messageCenter, /state = if \(showWechat\) reviewList else officialList/, "各来源滚动状态");
+assert.match(messageCenter, /InsetGroupedSection\(header = "微信候选"\)/, "微信来源独立分组");
+assert.match(messageCenter, /if \(state\.authenticated\) \{\s*items\(state\.wechatCandidates, key = \{ it\.id \}\)/, "仅账户内候选");
+assert.match(messageCenter, /var filter by rememberSaveable \{ mutableStateOf\(MSG_FILTER_ALL\) \}/, "恢复筛选状态");
+assert.match(messageCenter, /var openedUrl by rememberSaveable/, "恢复真实公告身份");
+assert.match(messageCenter, /state\.notices\.firstOrNull \{ it\.url == openedUrl \}/, "选中真实公告");
+assert.match(messageCenter, /maxWidth >= 840\.dp && !showWechat/, "宽屏双栏与手机统一内容");
+assert.match(messageCenter, /AppDialog\(usePortal = true, onDismissRequest = \{ openedUrl = null \}, title = \{ Text\("公告详情"\) \}/, "共用公告浮层");
+assert.match(messageCenter, /Text\(notice\.title, style = MaterialTheme\.typography\.titleMedium\)/, "真实标题");
+assert.match(messageCenter, /正文请在学校官网查看/, "无正文数据不得编造");
+assert.match(messageCenter, /LiquidButton\([^\n]*onClick = \{ openArticle\(notice\.url\) \}\)/, "官网原文入口");
+assert.match(messageCenter, /GlassFormField\(query, \{ query = it\.take\(60\) \}/, "共享检索表单");
+assert.match(messageCenter, /GlassFilterCapsule\(label = option\.label, selected = filter == option\.key/, "共享公告筛选");
+assert.match(messageCenter, /fun pendingWechatShortLabel\(/, "区分待审计数未知");
+assert.match(messageCenter, /key\(state\.ownerId, candidate\.id\)/, "候选详情按账号及ID隔离");
+assert.match(messageCenter, /val fresh = state\.authenticated && state\.pendingWechatCount != null && state\.wechatError == null/, "旧候选不可审核");
+assert.match(messageCenter, /reviewingCandidate\?\.let \{ candidate ->[\s\S]*?WechatCandidateReview\(candidate, state, actions,/, "审核使用同一个弹窗");
+assert.match(messageCenter, /if \(pendingDecision == null\) \{/, "二次确认而非独立窗口");
+assert.match(messageCenter, /Button\(enabled = fresh && !reviewing && !failed,[\s\S]*?actions\.reviewWechatCandidate\(item\.id, decision, owner\)/, "确认后才通过原接口提交");
+assert.match(messageCenter, /没有摘要，请核对微信原消息/, "候选摘要缺失提示");
+assert.match(messageCenter, /核对原消息后逐条确认/, "人工审核");
+assert.match(stepEditor, /AppDialog\(/, "步骤删除共享弹窗");
+assert.match(stepEditor, /dao\.removeStep\(root, step\.id\)/, "真实本机删除");
+assert.match(stepEditor, /onDismissRequest = \{ if \(!busy\) deleting = null \}/, "写入期间禁止误关闭");
+assert.match(importPreview, /if \(decreased && !confirmedReduced\) confirmedReduced = true/, "导入减少二次确认");
+assert.match(importPreview, /HorizontalDivider\(color = MaterialTheme\.colorScheme\.outlineVariant/, "共享主题分隔线");
+assert.match(importPreview, /onDismissRequest = \{ if \(!saving\) onDismiss\(\) \}/, "导入期间禁止关闭");
+assert.match(bottomActions, /DialogProperties\(usePlatformDefaultWidth = false\)/, "原生窗口回退");
+assert.match(bottomActions, /val dialogWidth = minOf\(/, "动态窗口宽度");
+assert.match(bottomActions, /window\?\.setDimAmount\(DialogScrimAlpha\)/, "唯一遮罩");
+assert.match(bottomActions, /host\.show\(onDismiss = \{ currentDismiss\(\) \}\)/, "同窗口弹窗宿主");
+assert.match(bottomActions, /host\.dismiss\(handle, notify = false\)/, "退出释放弹窗");
+assert.match(bottomActions, /semantics \{ paneTitle = "对话框" \}/, "读屏对话框语义");
+assert.match(localTaskUi, /private fun LocalTaskSourcePicker\(/, "任务分类唯一选择器");
+assert.match(localTaskUi, /options = listOf\("不标注"\) \+ TASK_SOURCES\.map \{ it\.label \}/, "真实分类");
+assert.match(localTaskUi, /selectedIndex = TASK_SOURCES\.indexOfFirst \{ it\.code == source \} \+ 1/, "恢复真实分类");
+assert.match(localTaskUi, /onSelect = \{ index -> onSelect\(TASK_SOURCES\.getOrNull\(index - 1\)\?\.code\) \}/, "保存真实分类编码");
+assert.match(localTaskUi, /dao\.insert\(LocalTask\(/, "本机写入");
+assert.match(localTaskUi, /onDismissRequest = \{ if \(!saving\) onDismiss\(\) \}/, "保存期间禁止关闭");
+assert.match(localTaskUi, /GlassDatePickerDialog\(/, "统一日期选择");
+
+assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie|READ_SMS|READ_CONTACTS/);
+assert.doesNotMatch(messageCenter, /AcademicNotice\(|查看全文|全部已读|提取为任务|标记为已读|AlertDialog\(|ModalBottomSheet\(/);
+assert.doesNotMatch(stepEditor, /AlertDialog\(/);
+assert.doesNotMatch(importPreview, /XiaoxuCard\(/);
+assert.doesNotMatch(bottomActions, /LocalConfiguration\.current\.screenHeightDp/);
+assert.doesNotMatch(localTaskUi, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
 assert.match(cloud, /data class WechatCandidate/);
 assert.match(cloud, /wechatCandidates = candidates \?: state\.wechatCandidates/);
 assert.match(cloud, /reviewStatus"\) != "needs_review"/);
@@ -1051,81 +754,28 @@ assert.match(cloud, /\/api\/v1\/wechat\/candidates\/\$candidateId/);
 assert.match(cloud, /JSONObject\(\)\.put\("decision", decision\)/);
 assert.match(cloud, /reviewWechatCandidate[\s\S]*?sessionEpoch/);
 assert.match(cloud, /clearAccountSnapshots\(/);
-assert.match(wechatReview, /ModalBottomSheet\(/);
-assert.match(wechatReview, /if \(pendingDecision != null\)/,
-  '微信候选必须在同一弹窗内二次确认，不叠加系统对话框');
-assert.doesNotMatch(wechatReview, /AlertDialog\(/,
-  '微信候选二次确认不应重复叠加弹窗');
-assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/,
-  '人工确认仍须调用原有授权审核接口');
-assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/);
-assert.match(wechatReview, /本条候选没有摘要；请前往微信核实原消息/);
-assert.match(wechatReview, /候选摘要 · 请核对原消息后确认/);
-assert.doesNotMatch(wechatReview, /HttpURLConnection|openConnection|WebView|CookieManager|READ_SMS|READ_CONTACTS/);
 assert.match(reviewRoute, /authorize\(context\)/);
 assert.match(reviewRoute, /sec-fetch-site/);
 assert.match(reviewRoute, /reviewWechatCandidate\(auth\.db,auth\.userId/);
 
-const stepEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
-const importPreview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt');
-assert.match(stepEditor, /XiaoxuBottomActionSheet\(/,
-  '步骤删除采用统一确认组件');
-assert.match(stepEditor, /dao\.removeStep\(root, step\.id\)/,
-  '保留本机 Room 删除事务');
-assert.doesNotMatch(stepEditor, /AlertDialog\(/,
-  '步骤删除不应叠加第二层弹窗');
-assert.match(importPreview, /if \(decreased && !confirmedReduced\) confirmedReduced = true/,
-  '课表导入记录减少必须二次确认');
-assert.match(importPreview, /HorizontalDivider\(color = XiaoxuPalette\.Line/,
-  '长课程列表保留连续分隔线');
-assert.doesNotMatch(importPreview, /XiaoxuCard\(/,
-  '预览列表不能重新嵌套大卡片');
-
-// 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
-const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
-const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
-assert.match(bottomActions, /BoxWithConstraints\(/,
-  '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
-assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* 0\.88f/,
-  '底部浮层高度必须相对可用空间限制');
-assert.match(bottomActions, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
-  '底部浮层须避让状态栏、导航栏和键盘');
-assert.doesNotMatch(bottomActions, /LocalConfiguration\.current\.screenHeightDp/,
-  '键盘展开后不能沿用整屏静态高度');
-assert.match(bottomActions, /dismissEnabled: Boolean = true/,
-  '共享弹窗必须允许耗时操作禁用误关闭');
-assert.match(bottomActions, /enabled = dismissEnabled/,
-  '耗时操作时遮罩和取消按钮不能仍响应');
-
-assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,
-  '个人分类选择应改用统一的底部操作弹窗');
-assert.match(bottomActions, /stateDescription = "已选择"/,
-  '选中状态必须对无障碍服务可见');
-assert.match(bottomActions, /indication = ripple\(/,
-  '底部弹窗按钮必须有清晰的触控反馈');
-assert.match(taskBoard, /TASK_SOURCES/);
-assert.match(taskBoard, /dao\.insert\(LocalTask\(/);
-assert.match(taskBoard, /本人标注/);
-assert.doesNotMatch(taskBoard, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
-
 const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskBackup.kt');
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
-assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/,
+assert.match(settingsRoutes, /AppRoute\.TASK_BACKUP -> LazyColumn \{ item \{ LocalTaskBackupPanel\(\) \} \}/,
   '本机备份与恢复只能由账户与数据二级页面打开');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
+assert.match(settingsIndex, /"任务备份",[\s\S]*?actions\.navigate\(AppRoute\.TASK_BACKUP\)/,
   '本机备份仍可通过唯一入口进入');
-const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutPage.kt');
-assert.match(profileSettings, /"about" -> item \{\s*AboutPage\(onOpenLicenses/,
+const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutFeature.kt');
+assert.match(settingsRoutes, /AppRoute\.ABOUT -> AboutFeature\(\{ actions\.navigate\(AppRoute\.LICENSES\) \}/,
   '关于校序应使用单独的品牌信息页面');
-assert.match(aboutPage, /AboutInfoRow\("开源许可", onClick = onOpenLicenses\)/,
+assert.match(aboutPage, /AppGroupedEntry\("开源许可与致谢", showDivider = false, onClick = onOpenLicenses\)/,
   '开源许可从关于页进入，不在设置首页重复');
-assert.match(aboutPage, /XiaoxuGroupedSection\(title = "项目致谢"\)/,
+assert.match(aboutPage, /InsetGroupedSection\(header = "项目"\)/,
   '关于页保留开源署名入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "账户与数据"\)/,
+assert.match(settingsIndex, /header = "数据与安全"/,
   '账户与备份入口须保留在设置首页同一分组，不改变二级路由');
 assert.doesNotMatch(main, /if \(showLocalBackup\) item|CompactActionRow\("第二课堂记录"/,
   '移除退役的旧工具入口和向下展开式备份');
-assert.doesNotMatch(profileSettings, /"工具" ->|第二课堂记录/,
+assert.doesNotMatch(settingsIndex, /"工具" ->|第二课堂记录/,
   '业务记录不应混入设置');
 assert.doesNotMatch(main, /云端第二课堂个人快照（可选）|按需使用系统文件选择器，不自动上传本机任务/,
   '我的页面默认不再展示多余解释性小字');
@@ -1165,12 +815,12 @@ assert.match(backupSource, /onBusyChange\(true\)/,
   '本机备份开始时需向父页面通知繁忙状态');
 assert.match(backupSource, /onBusyChange\(false\)/,
   '本机备份完成后需解除按钮锁定');
-assert.match(workspace, /onBusyChange = \{ backupBusy = it \}/,
-  '备份浮层关闭控制应与真实文件操作状态关联');
-assert.match(workspace, /LocalTaskBackupPanel\(\s*embedded = true,\s*onBusyChange = \{ backupBusy = it \}/,
-  '任务备份复用弹窗内的简洁版本，禁止套双层卡片');
-assert.match(workspace, /if \(showTaskBackup\) \{\s*var backupBusy by remember \{ mutableStateOf\(false\) \}\s*XiaoxuBottomSheet\(/,
-  '任务备份浮层在真实文件操作期间不可误关闭');
+assert.match(taskBackupPanel, /if \(uri != null && !busy\) \{/,
+  '文件操作期间禁止并发备份');
+assert.match(taskBackupPanel, /enabled = !busy,/,
+  '真实文件操作期间锁定按钮');
+assert.match(settingsRoutes, /AppRoute\.TASK_BACKUP -> LazyColumn \{ item \{ LocalTaskBackupPanel\(\) \} \}/,
+  '独立二级备份页复用唯一备份面板');
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 
@@ -1201,26 +851,21 @@ const metadataOnly = catalogObserver
   .replace("getResponseHeader('content-type')", "");
 assert.doesNotMatch(metadataOnly, /document\.cookie|localStorage|sessionStorage|response\.text\(|response\.json\(|headers\.get\(|getResponseHeader\(|XMLHttpRequest\.prototype\.send\s*=/);
 
-const localSchoolUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
+const localSchoolUi = panels;
 assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?android:exported="false"/);
 assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
 assert.match(main, /provider == "ncwu"/);
 assert.match(main, /LocalQingguoImportActivity::class\.java/);
-assert.match(main, /ProfileSettingsPage\([\s\S]*?startSchoolAuthorization = startSchoolAuthorization,/,
-  '我的页保留原学校授权回调，不另建授权系统');
-assert.match(main, /recentImport = localCaptureReturn,\s*localTasks = localTasks,\s*onMessages = \{ messagesOpen = true \}/,
-  '本人读取结果与消息入口仍要传给二级页');
+assert.match(rebuildShell, /authorize = startSchoolAuthorization, connectLocal = openLocalSchool/);
+assert.match(main, /nativeSchoolLauncher = registerForActivityResult/);
 assert.match(main, /ActivityResultContracts\.StartActivityForResult/);
 assert.match(main, /nativeSchoolLauncher\.launch\(/);
 assert.match(main, /result\.resultCode == Activity\.RESULT_OK/);
 assert.match(main, /LocalSchoolImportReceipt\(/);
 assert.match(main, /localCaptureReturn = lastLocalCapture/);
-assert.match(main, /if \(localCaptureReturn != null\) \{/);
-assert.match(main, /if \(localCaptureReturn\.provider == "chaoxing"\) MainDestination\.TASKS/);
-assert.match(main, /else \{ academic = AcademicDestination\.SECOND_CLASS; MainDestination\.ACADEMIC \}/);
-assert.match(panels, /startSchoolAuthorization: \(String\) -> Unit/);
-assert.match(panels, /startSchoolAuthorization\(id\)/);
-assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
+assert.match(rebuildShell, /LaunchedEffect\(localCaptureReturn\)/);
+assert.match(rebuildShell, /goTo\(if \(receipt\.provider == "chaoxing"\) AppRoute\.TASKS else AppRoute\.SECOND_CLASS\)/);
+assert.match(rebuildShell, /cloud\.completeSchoolReturn\(provider\)/);
 assert.match(manifest, /android:scheme="xiaoxu" android:host="\$\{schoolAuthHost\}"/);
 assert.match(appGradle, /schoolAuthHost: 'school-auth-return'/,
   'The normal application must retain its existing authorization return URI');
@@ -1249,105 +894,44 @@ assert.match(read('public/index.html'), /xiaoxu-android-return\.js/);
 assert.match(appReturn, /sessionStorage\.removeItem\(KEY\)/);
 assert.match(appReturn, /xiaoxu:\/\/school-auth-return/);
 assert.doesNotMatch(appReturn, /document\.cookie|schoolPassword|CAS_TICKET/);
-assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
-assert.match(localSchoolUi, /课表在课表页查看/,
-  '青果本机课表入口保持可达，不重复堆技术说明');
-assert.match(localSchoolUi, /XiaoxuExpandableGlassRow\(/,
-  '三个本机平台入口须共用玻璃展开组件');
-assert.match(localSchoolUi, /mutableStateOf\(justImported != null\)/,
-  '读取成功自动显示真实本机回执');
-assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevation = 1\.dp\)/,
-  '删除本机连接中的旧 Material 灰色卡片阴影');
-assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
-assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/,
-  '主页必须只展示已导入的本机课表，不可回退云端');
-assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
-assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
-assert.match(workspace, /HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
-assert.match(workspace, /学习通 · 本机读取/);
-// Only source-ID-verified official records may affect task completion.
-assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
-assert.match(workspace, /localEvidence\.filterKeys \{ it !in represented \}/);
-assert.match(workspace, /通知、学习计划和课程作业共用本机读取结果/);
-
-// Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
-assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
-// 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
-assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek,[\s\S]*?today, localTasks, dependencies, taskSteps, state\.ownerId, schoolBinding\)[\s\S]*?facetWorkspaceTasks\(/,
-  '任务中心按真实任务与当前筛选条件计算可见记录');
-assert.match(workspace, /searchExecutionRoots\(searchWorkspaceTasks\(all, filter, "", today\)/, '任务仍使用真实搜索结果');
-assert.match(workspace, /"pending", "now" -> isActionableWorkspaceTask\(task\)/,
-  '待完成不能包含学习通未知或未关联的旧通知');
-assert.match(workspace, /"verify" -> requiresChaoxingVerification\(task\)/,
-  '历史未知学校状态必须保留人工核对筛选');
-assert.match(workspace, /label = "待完成", count = all\.count\(::isActionableWorkspaceTask\)/,
-  '任务中心待完成数量须与可执行待办一致');
-assert.match(workspace, /val pending = all\.count\(::isActionableWorkspaceTask\)/,
-  '首页待完成数量不得包含未核对旧通知');
-assert.match(workspace, /filter = "verify"/,
-  '学习通待核对必须可以单独选择，不依赖其它分组');
-assert.match(workspace, /if \(showSchoolRecords\) \{/,
-  '本机学习通快照应可收纳，避免默认铺满任务页');
-assert.ok(workspace.indexOf('title = "其他云端待办"') <
-    workspace.indexOf('title = "微信任务"') &&
-    workspace.indexOf('title = "微信任务"') <
-    workspace.indexOf('title = "本机任务"'),
-  '任务按课程、审核通过微信、本机三个来源独立排序');
-assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
-  '任务中心不能重复承载群消息候选审核；必须归属消息中心');
-assert.match(messageCenter, /WechatReviewPanel\(/,
-  '消息中心继续保留原生微信候选审核');
-assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不可嵌入海报版演示');
-
-assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
-assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是独立展示组件');
-assert.match(workspace, /title = "本机任务"/, '本机待办须有独立分区');
-assert.match(workspace, /title = "其他云端待办"/, '云端课程任务须有独立分区');
-assert.match(workspace, /title = "微信任务"/, '已审核微信任务须有独立分区');
-assert.match(workspace, /本机读取记录/, '快照须标注来源徽标');
-assert.match(workspace, /含上次云端快照/,
-  '上次云端任务必须明确标注快照，不可冒充新读取');
-assert.match(workspace, /DueUi\("日期未记录", "云端任务没有已核实的截止日期"/,
-  '云端无截止来源时只显示日期未记录，不虚构学校核验结果');
-assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
-assert.match(workspace, /if \(task.storage == "cloud"\) \{\s*return DueUi\("记录 \$text",/,
-  '未经来源核实的云端日期只能称记录日期，不得直接标为学校逾期作业');
-assert.match(workspace, /!task.done && date.isBefore\(today\)/,
-  '本人填写的实际逾期任务仍须保留过期提醒');
-assert.doesNotMatch(workspace, /visible\.take\(|visible\.size > 80/, '任务中心使用懒列表展示全部筛选结果，不得静默截断任务');
-assert.match(workspace, /heightIn\(min = 64\.dp\)/, '任务行触控区域须 ≥48dp');
-assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
-  '任务行须有完整读屏描述');
-assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
-assert.match(workspace, /采集时间/);
-assert.match(schedulePanel, /本机导入 · 待本人核对/);
-assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
-assert.match(panels, /LocalSchoolConnectionPanel\(/);
-assert.ok(panels.indexOf('LocalSchoolConnectionPanel(') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
-assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
-assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider && it\.kind != "account_binding" \}/);
-assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
-assert.match(localSchoolUi, /已从本机数据库重新读取/);
-
-assert.match(localSchoolUi, /fun LocalSchoolRecordSection\(/,
-  '本机历史读取仍有独立只读组件，不丢真实记录');
-assert.match(localSchoolUi, /title = "手机本机读取"/,
-  '本机保存记录列表使用原生展开标题');
-assert.match(localSchoolUi, /subtitle = "已保存 \$\{rows\.size\} 条本机记录"/,
-  '历史记录折叠态仍显示真实数量');
-assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardColors|CardDefaults\.cardElevation/,
-  '本机读取不得混入旧 Material 实心卡片体系');
-assert.match(localSchoolUi, /查看本机全部/);
-assert.match(localSchoolUi, /val prioritized = if \(justImported == null\) list else/);
-assert.match(localSchoolUi, /item\.capturedAt/);
-assert.match(localSchoolUi, /不代表当前官网状态/);
+assert.match(localSchoolUi, /header = "本机学校读取"/);
+assert.match(localSchoolUi, /actions\.connectLocal\("ncwu"\)/);
+assert.match(localSchoolUi, /actions\.connectLocal\("chaoxing"\)/);
+assert.match(localSchoolUi, /actions\.connectLocal\("second_class"\)/);
+assert.match(localSchoolUi, /localRows\?\.filter \{ it\.kind != "account_binding" \}\?\.groupBy \{ it\.provider \}/);
+assert.match(localSchoolUi, /localStatuses\[provider\]/);
+assert.match(localSchoolUi, /rows\.maxOf \{ it\.capturedAt \}/);
+assert.match(localSchoolUi, /已保存 \$\{rows\.size\} 条/);
+assert.match(localSchoolUi, /AppGroupedEntry\("查看本机课表", onClick = \{ actions\.navigate\(AppRoute\.SCHEDULE\) \}\)/);
+assert.match(localSchoolUi, /AppGroupedEntry\("查看作业与任务", onClick = \{ actions\.navigate\(AppRoute\.TASKS\) \}\)/);
+assert.match(localSchoolUi, /AppGroupedEntry\("查看课程进度", onClick = \{ actions\.navigate\(AppRoute\.STUDY_PROGRESS\) \}\)/);
+assert.match(localSchoolUi, /actions\.navigate\(AppRoute\.SECOND_CLASS\)/);
+assert.match(rebuildShell, /data class LocalSchoolImportReceipt\(/);
+assert.match(appWorkspace, /rememberSnapshotRows\(nativeDao\) \{ nativeDao\.observe\(\) \}/);
+assert.match(settingsRoutes, /lessons\.filter \{ it\.weekday == day && week in it\.weeks \}/);
+assert.match(settingsRoutes, /all\.count\(::isActionableWorkspaceTask\)/);
+assert.match(settingsRoutes, /all\.count\(::requiresChaoxingVerification\)/);
+assert.match(workspaceLogic, /nativeChaoxingWorkSourceId\(record\)/);
+assert.match(workspaceLogic, /localEvidence\.filterKeys \{ it !in represented \}/);
+assert.match(workspaceLogic, /internal fun searchWorkspaceTasks\(/);
+assert.match(workspaceLogic, /"pending", "now" -> isActionableWorkspaceTask\(task\)/);
+assert.match(workspaceLogic, /"verify" -> requiresChaoxingVerification\(task\)/);
+assert.match(taskWorkspaceForComposerGate, /val visible = remember\(combined, filter, query, sourceFilter, onlyThisWeek, today\)/);
+assert.match(taskWorkspaceForComposerGate, /combined\.count\(::isActionableWorkspaceTask\)/);
+assert.match(taskWorkspaceForComposerGate, /"verify" to "待核验"/);
+assert.match(taskWorkspaceForComposerGate, /items\(visible, key = \{ it\.key \}\)/);
+assert.match(taskWorkspaceForComposerGate, /val cloud = data\.cloud\.tasks\.takeIf \{ data\.cloud\.authenticated && data\.cloud\.tasksFresh \}\.orEmpty\(\)/);
+assert.match(taskWorkspaceForComposerGate, /云端任务尚未核验最新状态/);
+assert.match(taskWorkspaceForComposerGate, /showDivider = false, onClick = \{ detailKey = task\.key \}/);
+assert.doesNotMatch(taskWorkspaceForComposerGate, /WechatCandidateReview\(|PosterDemo|visible\.take\(|visible\.size > 80/);
+assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/);
+assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardColors|CardDefaults\.cardElevation/);
+assert.match(readContracts, /本机导入（待本人核对）/);
 assert.match(localNative, /EXTRA_RETURN_KIND/);
 assert.match(localNative, /EXTRA_SAVED_COUNT/);
 assert.match(localNative, /setResult\(Activity\.RESULT_OK, Intent\(\)/);
 assert.match(main, /if \(permitted && count in 1\.\.5000\)/);
-assert.match(workspace, /items\(count = minOf\(capturedHomework\.size, 5000\)/);
+assert.match(taskWorkspaceForComposerGate, /items\(visible, key = \{ it\.key \}\)/);
 assert.doesNotMatch(main + localSchoolUi, /ownerCookie|schoolPassword|CAS_TICKET/);
 for (const host of ['i.chaoxing.com','dekt.ncwu.edu.cn']) assert.ok(localNative.includes(host));
 assert.doesNotMatch(localNative, /"ncwu" to "https:/);
@@ -1396,7 +980,7 @@ assert.match(main, /if \(provider == "ncwu"\) \{\s*startActivity\(Intent\(this@M
   '本机青果入口仍通过数据连接中心的官方来源选择器可达');
 assert.doesNotMatch(main, /\bopenLocalImport\b|\bSchedulePage\(/,
   '旧课表转发回调与空代理页面不应继续存在');
-assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\(/,
+assert.match(settingsRoutes, /ScheduleFeature\(data, actions,/,
   '课表路由应直接渲染本机课表');
 // Timetable persistence must not parse on the cold-start UI thread.
 const startup = main.slice(main.indexOf('override fun onCreate'), main.indexOf('private fun importTimetableFile'));
@@ -1409,8 +993,8 @@ assert.match(main, /if \(LocalCourseReminders\.enabled\(applicationContext\)\)/,
   '提醒维护必须默认跳过未启用的用户');
 assert.match(cloud, /coroutineScope\s*\{\s*launch\s*\{\s*refreshNotices\(\)\s*\}\s*launch\s*\{\s*refreshPrivate\(\)/);
 assert.match(cloud, /withContext\(Dispatchers\.IO\) \{ session\.load\(\) \}/);
-assert.match(schedulePanel, /本机导入/);
-assert.match(schedulePanel, /待本人核对/);
+assert.match(readContracts, /本机导入/);
+assert.match(readContracts, /待本人核对/);
 assert.match(importer, /https:\/\/jwmis\.ncwu\.edu\.cn\//);
 assert.match(importer, /uri\.scheme == "https"/);
 assert.match(importer, /setAcceptThirdPartyCookies\(this, false\)/);
@@ -1527,375 +1111,93 @@ assert.match(plainInvalid.__xiaoxuExtract().error, /不完整/,
  '字段数量异常必须失败，不能只导入可识别子集');
 
 // Issue #268 第一阶段：统一设计系统 + 五页 Shell + 首页样板（纯 UI，不改数据来源）。
-const design = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
-assert.match(design, /object XiaoxuPalette/, '设计系统须集中定义调色板');
-assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
-assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
-assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
-assert.match(design, /val card: Dp = 18\.dp/, '普通内容卡采用18dp圆角');
-assert.match(design, /val group: Dp = 20\.dp/, '外层分组采用20dp圆角');
-assert.match(design, /val list: Dp = 14\.dp/, '课程、公告和连续列表采用14dp行级圆角');
-assert.match(design, /val tile: Dp = 12\.dp/, '快捷小块使用12dp圆角');
-assert.match(design, /val modal: Dp = 28\.dp/, '弹层使用独立28dp圆角，不能跟随内容卡缩小');
-assert.match(workspace, /val rowRadius = XiaoxuRadius\.list/, '独立任务列表行不使用分组大圆角');
-assert.match(schedulePanel, /shape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '课程卡必须使用列表级圆角');
-assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '公告骨架与正式卡片圆角相同');
-assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
-  '保留唯一原生玻璃展开控件');
-assert.match(design, /fun XiaoxuGlassDialog\(/,
-  '必须存在同一居中玻璃详情容器');
-assert.match(design, /BoxWithConstraints\(/,
-  '居中玻璃表单必须按可见窗口高度布局');
-assert.match(design, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
-  '居中玻璃表单不能遮挡键盘或系统栏');
-const glassRowDialogSource = design.slice(design.indexOf('fun XiaoxuExpandableGlassRow('),
-  design.indexOf('fun MetricCard('));
-assert.match(glassRowDialogSource, /if \(expanded\) \{\s*XiaoxuGlassDialog\(/,
-  '平台与二课的详情应使用浮层，不再在卡片内向下展开');
-assert.doesNotMatch(glassRowDialogSource, /AnimatedVisibility\(/,
-  '禁止在详情卡片内重新引入向下展开');
-assert.match(profileSettings, /"connections" -> item \{/,
-  '数据连接详情独立成二级页面，而非旧版工具浮层');
-assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
-  '云端同步详情不得顶开本机连接列表');
-assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.95f\)/,
-  '统一玻璃卡透明度，避免彩色底透出硬灰边');
-
-assert.match(design, /label = "glass-row-chevron"/,
-  '展开箭头动画与其他页面共用时序');
-assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
-  '玻璃描边必须保持为单一轻量尺寸，避免肉眼可见硬灰边');
-assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.74f\)/,
-  '保留全局轻色描边作为普通卡片后备');
-assert.match(design, /val GlassRim = Brush\.linearGradient\(/,
-  '悬浮控件使用同源光学高光而非深色外圈');
-assert.match(design, /val GlassModalFallback = Brush\.linearGradient\(/,
-  '独立窗口无法采样背景时保证可读的玻璃降级材质');
-assert.match(design, /glassChrome: Boolean = false/,
-  '不能对长列表内容卡默认叠加高成本玻璃');
-assert.match(design, /Brush\.linearGradient\(/,
-  '全局背景使用一致的淡蓝紫渐变，不得各页面覆盖');
-
-assert.match(design, /val hero: Dp = 28\.dp/, '重要卡与底部弹层圆角须统一为28dp');
-assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
-assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
-assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
-assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
-assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
-  '主导航只构建当前页面，不同时合成两个页面');
-assert.doesNotMatch(main, /targetState = current,/,
-  '主导航不能恢复 AnimatedContent 的双屏叠加');
-assert.match(main, /label = "academicChild"/, '教务总览和详情必须共用整页转场宿主');
-assert.match(main, /if \(initialState == AcademicDestination\.OVERVIEW\) "home" else "detail"/,
-  '教务详情返回必须识别逆向滑动，不能直接替换页面');
-assert.match(main, /label = "profileTimetableChild"/,
-  '我的→课表设置必须进入二级页面动画，不可直接换掉设置宿主');
-assert.match(main, /if \(timetableChild\)/,
-  '课表设置应作为我的页面子路由渲染');
-assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
-  '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
-const pageMotionJvmTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransitionTest.kt');
-assert.match(pageMotionJvmTest, /fun everySecondaryRouteUsesImmediateTransition\(/,
-  'JVM 回归验证设置、课表和教务即时切页');
-assert.match(pageMotion, /internal fun xiaoxuSettingsRouteTransition\(/,
-  '仅保留业务仍调用的无动画二级路由函数');
-assert.doesNotMatch(pageMotion, /fun xiaoxuPrimaryPageTransition\(/,
-  '主标签已采用直接单页组合，不再保留过时动画接口');
-assert.doesNotMatch(design, /PageSwitchMs|SettingsDetailMs/,
-  '移除未使用的页面动画计时常量');
-assert.match(pageMotion, /targetContentEnter = EnterTransition\.None/,
-  '新页面不能播放淡入/位移动效');
-assert.match(pageMotion, /initialContentExit = ExitTransition\.None/,
-  '旧页面不能播放淡出/位移动效');
-assert.match(pageMotion, /sizeTransform = null/,
-  '禁用动画期间的容器尺寸调整');
-assert.doesNotMatch(pageMotion, /fadeIn|fadeOut|slideIn|slideOut|scaleIn|scaleOut|spring\(|tween\(/,
-  '禁用页面级动效以恢复即时切换性能');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
-  '无动画切页须保留每栏滚动与筛选状态');
-assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
-  '设置页不得直接替换内容丢失过渡');
-assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
-  '课表设置也必须使用同一无位移动效');
-assert.match(main, /label = "academicChild"/,
-  '教务多个二级页保留其单独的内容转场宿主');
-assert.match(main, /label = "profileTimetableChild"/,
-  '我的到课表设置继续使用原生子页面宿主');
-assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
-  '五个主页面仅组合当前标签内容并保留边界裁剪');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,
-  '主标签切换时以完整不透明页面绘制，旧页面内容不得穿透');
-assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
-  '设置二级页须保持方向明确的推进与返回');
-assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
-  '设置转场必须裁剪页边界，防止滑动时文字越界');
-assert.match(profileSettings, /Column\(\s*modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
-  '每个设置二级页必须自行绘制不透明背景，不能透出上一页');
-assert.match(profileSettings, /horizontalAlignment = Alignment\.CenterHorizontally/,
-  '设置内容在平板居中对齐，不应再出现整页偏左的宽屏布局');
-assert.match(profileSettings, /modifier = Modifier\.weight\(1f\)\.xiaoxuPageWidth\(\)/,
-  '设置二级页面复用统一内容宽度');
-assert.doesNotMatch(profileSettings, /SettingsEntry\("校序 Academic OS"/,
-  '设置首页不应保留重复品牌入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "其他"\)/,
-  '关于校序必须保留在「其他」分组，不占据设置首页首屏');
-assert.match(main, /label = "profileTimetableChild"/,
-  '我的→课表设置仍走同一二级页宿主');
-assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{/,
-  '课表设置子页面必须用整页背景阻断旧卡片重影');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "academicChild"/,
-  '教务子页面转场必须裁剪边界');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\),\s*verticalArrangement = Arrangement\.spacedBy\(8\.dp\)/,
-  '教务详情需全幅不透明背景，避免切页文字叠印');
-assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
-  '不允许恢复主导航文字重影交叉淡入');
-assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
-assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
-assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
-assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
-const primaryCardSource = design.slice(design.indexOf('fun XiaoxuCard('),
-  design.indexOf('/** 同一个分段选择器', design.indexOf('fun XiaoxuCard(')));
-assert.match(primaryCardSource, /XiaoxuSpacing\.glassStroke/,
-  '最常用玻璃卡必须使用设计系统的0.5dp边缘，而不是遗留的0.75dp硬灰边');
-assert.doesNotMatch(primaryCardSource, /\.shadow\(/,
-  '普通玻璃卡不得重新叠加可见灰色投影');
-
-assert.doesNotMatch(design, /fun XiaoxuHero\(/, '已无生产调用的旧渐变主卡不得由静态门禁强制保留');
-assert.match(design, /fun MetricCard\(/, '须有统计卡');
-assert.match(design, /fun CourseTile\(/, '须有课程色块');
-assert.match(design, /fun SectionHeader\(/, '须有分区标题');
-assert.match(design, /fun SourceBadge\(/, '须有来源徽标');
-assert.match(design, /fun XiaoxuToolbarAction\(/, '工具区图标应只有一套组件');
-assert.ok(workspace.includes('XiaoxuToolbarAction('), '任务页复用统一工具图标');
-assert.ok(workspace.includes('taskScope.launch { client.refreshPrivate() }'),
-  '统一工具图标不能移除真实刷新动作');
-assert.match(design, /fun StatusChip\(/, '须有状态标签');
-assert.match(design, /fun XiaoxuSheet\(/, '任务和消息必须共用详情容器');
-assert.match(design, /fun XiaoxuEmpty\(/, '保留实际使用的统一空态');
-assert.match(design, /fun XiaoxuStatePanel\(/, '复用统一空态容器');
-assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
-assert.match(design, /fun QuickEntry\(/, '快捷入口须是共享组件');
-assert.doesNotMatch(design, /WebView|HttpURLConnection|CookieManager/,
-  '设计系统只画界面，不得触碰网络');
-assert.doesNotMatch(design, /import io\.github\.x07xh\.xiaoxu\.data\./,
-  '设计系统不得依赖数据层');
-assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
-assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
-assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
-const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/FloatingBottomBar.kt');
-const primaryNavigation = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryNavigation.kt');
-assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.GlassIndicator/,
-  '悬浮导航选中玻璃材质须取自唯一设计系统');
-assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
-  '悬浮导航旧设备回退继续使用统一调色板');
-const navGeometry = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryBottomGeometry.kt');
-const glassChrome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/NorthGlassNavChrome.kt');
-const northIcon = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthPhosphorNavigationIcon.kt');
-const northMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthNavigationIconPlayback.kt');
+// Active upstream design, navigation and home contracts. Historical pixel constants
+// belong to the deleted V1 design system, not the current Compose renderer.
+const design = [glassKit, pageScaffold, windowHost, dialogHost, uiTheme, systemUi, sharedFrame].join('\n');
+const primaryNavigation = rebuildShell;
+assert.match(glassKit, /private val GlassCardShape = RoundedCornerShape\(24\.dp\)/, "上游分组统一形状");
+assert.match(glassKit, /\.clip\(GlassCardShape\)[\s\S]*?\.border\(0\.5\.dp, glassBorderColor\(\), GlassCardShape\)/, "同源轻边");
+assert.match(glassKit, /internal fun glassSurfaceColor\(\): Color/, "统一壁纸可读材质");
+assert.match(glassKit, /rememberGlassAccessibilityMode\(\)\.highContrast/, "高对比度回退");
+assert.match(uiTheme, /CourseSelectorTheme\(content = content\)/, "直接上游主题");
+assert.match(dialogHost, /cornerRadius = GlassRecipe\.DialogCornerDp\.dp/, "上游弹层圆角");
+assert.match(windowHost, /LocalGlassWindowOwner\.current === view && !isolatePage/, "同窗口不重复创建背景");
+assert.match(windowHost, /rememberCombinedBackdrop\(wallpaper, page\)/, "弹窗共用背景");
+assert.match(windowHost, /if \(page != null\) Modifier\.layerBackdrop\(page\)/, "上游页面采样层");
+assert.match(windowHost, /LocalGlassLensAnchor provides controlAnchor/);
+assert.match(windowHost, /LocalGlassLensModalAnchor provides modalAnchor/);
+assert.match(windowHost, /LocalDialogHost provides dialogs\s*\n/);
+assert.match(windowHost, /DialogHost\(dialogs\)/, "唯一弹窗宿主");
+assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\)/);
+assert.match(motionHost, /val frame = state\.transform\(page\)/);
+assert.match(motionHost, /fun pageSpring\(\)/, "复用统一动效");
+assert.match(rebuildShell, /NavigationPages\(navigationMotion,/);
+assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/, "按路由保存状态");
+assert.match(rebuildShell, /val accountKey by remember\(cloud\) \{ derivedStateOf \{[\s\S]*?if \(cloud\.state\.authenticated\) "cloud:" \+ cloud\.state\.ownerId\.orEmpty\(\) else "local"/, "账号隔离");
+assert.match(rebuildShell, /val showPrimary = route\.parent == null/, "子页隐藏底栏");
+assert.match(rebuildShell, /NavBarMetrics\.contentInset\(\)/, "导航占位来自上游");
+assert.match(rebuildShell, /if \(phoneDock\) CapsuleNavigationBar\(/, "唯一手机底栏");
+assert.match(rebuildShell, /if \(wide\) NavigationRail/, "宽屏侧栏");
+assert.match(navDock, /return \(blockPadding\(\) \* 2 \+ trackHeight\(\) \+ navigationBar - 16\.dp\)/, "导航与内容占位一致");
+assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/, "上游光学采样");
+assert.match(navDock, /haptics\.performHapticFeedback\(HapticFeedbackType\.ContextClick\)/, "真实切换触觉反馈");
+assert.match(navDock, /else iconPlayback\.replay\(index\)/, "重复点击仅重播图标");
+assert.match(navDock, /private fun FallbackNavigationBar\(/, "设备不支持时降级");
+assert.match(settingsRoutes, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/, "统一内容宽度");
+assert.match(pageScaffold, /SystemTopBar\(/, "同源顶栏");
+assert.match(settingsRoutes, /private fun HomeFeature\(/, "首页真实入口");
+assert.match(settingsRoutes, /if \(maxWidth >= 680\.dp\)/, "响应式双栏");
+assert.match(settingsRoutes, /homeCoursePreview\(lessons\.filter \{ it\.weekday == day && week in it\.weeks \}\.sortedBy \{ it\.startSection \}\)/, "按实际本机课程日期过滤");
+assert.match(settingsRoutes, /if \(week == null\) "本机课表" else "今日课程"/, "未知教学周不冒称今日");
+assert.match(settingsRoutes, /if \(lessons\.isEmpty\(\)\) AppGroupedEntry\("导入课表", onClick = actions\.importTimetable\)/, "空课表直接导入");
+assert.match(settingsRoutes, /actions\.openLocalCourse\(lesson\.id, lesson\.weekday\)/, "首页与课表共用实际课程详情");
+assert.match(settingsRoutes, /combineWorkspaceTasks\(tasks, cloud, native\.orEmpty\(\)\)/, "聚合实际任务");
+assert.match(settingsRoutes, /data\.cloud\.tasks\.takeIf \{ data\.cloud\.authenticated && data\.cloud\.tasksFresh \}/, "拒绝未核验云端任务");
+assert.match(settingsRoutes, /部分任务来源尚未读取或核验/, "来源未确认明确提示");
+assert.match(settingsRoutes, /if \(id != null\) actions\.openLocalTask\(id\) else actions\.navigate\(AppRoute\.TASKS\)/, "任务真实入口");
+assert.match(settingsRoutes, /data\.cloud\.publicError != null && notices\.isNotEmpty\(\)/, "首页公告缓存标识");
+assert.match(settingsRoutes, /actions\.openArticle\(notice\.url\)/, "真实公告原文");
+assert.match(settingsRoutes, /actions\.navigate\(AppRoute\.GRADES\)/, "成绩路由");
+assert.match(settingsRoutes, /actions\.navigate\(AppRoute\.EXAMS\)/, "考试路由");
+assert.match(settingsRoutes, /actions\.navigate\(AppRoute\.SECOND_CLASS\)/, "第二课堂路由");
+assert.match(settingsRoutes, /actions\.navigate\(AppRoute\.STUDY_PROGRESS\)/, "学习进度路由");
+assert.match(settingsRoutes, /actions\.navigate\(AppRoute\.CAMPUS_RUN\)/, "校园记录路由");
+assert.match(workspaceLogic, /task\.storage == "local" && !task\.done/, "近期截止仅本人任务");
+assert.match(workspaceLogic, /!it\.isBefore\(today\) && !it\.isAfter\(today\.plusDays\(3\)\)/, "近期截止不混入逾期");
+assert.doesNotMatch(design, /WebView|HttpURLConnection|CookieManager/);
+assert.doesNotMatch(design, /import io\.github\.x07xh\.xiaoxu\.data\./);
 assert.match(appGradle, /io\.github\.kyant0:backdrop:2\.0\.0-alpha03/);
 assert.match(appGradle, /io\.github\.kyant0:shapes:1\.2\.0/);
-assert.match(main, /rememberLayerBackdrop\(\)/);
-assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/);
-assert.match(main, /PrimaryBottomNavigationReserve\(glass = navBackdrop != null\)/);
-assert.equal((main.match(/Scaffold\(/g) || []).length, 1,
-  '主壳层只能有一套 Scaffold');
-assert.doesNotMatch(main, /\bFloatingBottomBar\(/,
-  '实际底栏统一经过 PrimaryBottomNavigation 适配器');
-assert.match(primaryNavigation, /FloatingBottomBar\(/);
-assert.match(primaryNavigation, /PrimaryBottomNavigationReserve\(/);
-assert.match(navGeometry, /val contentReserve: Dp get\(\) = trackHeight \+ topPadding \+ bottomPadding/);
-assert.match(navGeometry, /trackHeight = track/);
-assert.match(floatingBar, /rememberCombinedBackdrop\(backdrop, tintLayer\)/,
-  '透镜必须合并当前页面与原版前景采样');
-assert.match(floatingBar, /Modifier\.northGlassTrack\(/);
-assert.match(floatingBar, /Modifier\.northGlassIndicator\(/);
-assert.match(floatingBar, /onDragCancel = \{/);
-assert.match(floatingBar, /drag\.updateValue\(currentIndex\.toFloat\(\)\)/,
-  '中断拖拽不能误选新页面');
-assert.match(floatingBar, /currentHaptics\.performHapticFeedback\(HapticFeedbackType\.ContextClick\)/,
-  '导航拖拽选中后应仅反馈一次触感');
-assert.match(floatingBar, /if \(index != safeIndex\) \{\s*haptics\.performHapticFeedback/,
-  '点击当前标签不得重复导航，实际切换才触发原版触感');
-assert.match(floatingBar, /iconPlayback\?\.replay\(index\)/,
-  '重复点击当前标签仍可重播原版图标动画');
-assert.doesNotMatch(floatingBar, /if \(index == safeIndex\) iconPlayback\?\.replay\(index\)\s*onSelect\(index\)/,
-  '禁止同一标签重触发页面刷新和动画');
-assert.match(glassChrome, /fun Modifier\.northGlassTrack\(/);
-assert.match(glassChrome, /fun Modifier\.northGlassIndicator\(/);
-assert.match(northIcon, /NorthPhosphorNavigationIcon\(/);
-assert.match(northMotion, /rememberNorthNavigationIconPlayback\(/);
-assert.match(design, /fun XiaoxuGlassDialog\(/,
-  '#361 共享玻璃浮层实现必须保留；设置路由不再依赖旧工具 Dialog');
-assert.match(appGradle, /xiaoxuRuntimeTest/,
-  '不能用旧 #353 Gradle 覆盖 #351 本机运行时安全测试配置');
+assert.match(appGradle, /xiaoxuRuntimeTest/);
+assert.match(main, /XiaoxuTheme \{/);
+assert.doesNotMatch(main, /private const val PageSwitchMs/);
+assert.match(settingsIndex, /wrapContentWidth\(androidx\.compose\.ui\.Alignment\.CenterHorizontally\)/);
+assert.match(settingsIndex, /header = "应用与支持"/);
+assert.doesNotMatch(workspace, /private fun HomeHero\(|resolveHomeCourseIndex|selectedHomeCourseKey|TodayScheduleBlock\(/);
+assert.doesNotMatch(settingsRoutes, /下一节课|倒计时为|else state\.lessons/);
 
-assert.match(primaryNavigation, /NavigationRailItemDefaults\.colors/,
-  '侧栏选中态须统一配色，不在 MainActivity 重复维护');
-assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
-assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\) \{[\s\S]*?XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
-  '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
-const compactGreeting = workspace.slice(workspace.indexOf('private fun HomeGreeting('),
-    workspace.indexOf('private fun HomeSection(', workspace.indexOf('private fun HomeGreeting(')));
-assert.match(compactGreeting, /Row\(/,
-  '日期和问候同排展示，不额外占用一层大标题');
-assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
-  '首页问候不得在全局标题下重复显示一个大标题');
-const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
-assert.match(homeQuickEntry, /background\(XiaoxuPalette\.GlassCard\)/,
-  '首页学业入口和全 App 普通卡片使用同一轻玻璃材质');
-assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassRim/,
-  '首页学业快捷入口不能回退到实心白卡和灰色硬描边');
-
-// Editorial report visual adaptation: make scrollable content readable without
-// surrounding every status or list with another glass card.
-const editorialHome = workspace.slice(workspace.indexOf('private fun HomeMetricsBlock('),
-  workspace.indexOf('private fun HomeTaskRow('));
-assert.match(editorialHome, /HorizontalDivider\(color = XiaoxuPalette\.Ink, thickness = 1\.dp\)/,
-  '首页开放式统计区须保留明确视觉分界');
-assert.match(editorialHome, /if \(maxWidth < 420\.dp\)/,
-  '小屏学业入口应自动降为双列');
-for (const [start, end, label] of [
-  ['private fun HomeTodoBlock(', 'private fun HomeNoticesBlock(', '优先处理'],
-  ['private fun HomeNoticesBlock(', 'private fun HomeHomeworkBlock(', '校园动态'],
-  ['private fun HomeHomeworkBlock(', 'private fun HomeTaskRow(', '学习通本机作业']
-]) {
-  const from = workspace.indexOf(start);
-  const until = workspace.indexOf(end, from + 1);
-  assert.ok(from >= 0 && until > from, label + '必须保留原有页面组件');
-  const section = workspace.slice(from, until);
-  assert.doesNotMatch(section, /XiaoxuCard\(/,
-    label + '列表应使用开放式分隔行，而不是嵌套整张玻璃卡');
-  assert.match(section, /HorizontalDivider\(color = XiaoxuPalette\.Line/,
-    label + '列表保留轻量行分隔');
-}
-assert.match(workspace, /state\.publicError\?\.let/,
-  '官方公告失败提示不能因视觉重构消失');
-assert.match(workspace, /work\.capturedAt/,
-  '本机学习通记录的采集时间不能因视觉重构消失');
-assert.match(workspace, /HomeTaskRow\(task, today, onOpen/,
-  '首页待办必须继续进入既有任务详情');
-
-// Fourth pass: verify large-tablet centering and small-screen typography
-// adaptation without introducing multiple scrolling owners or fake counters.
-const homeReadingLayout = workspace.slice(workspace.indexOf('val homeListState = rememberLazyListState()'),
-    workspace.indexOf('val selectedLesson =', workspace.indexOf('val homeListState = rememberLazyListState()')));
-assert.match(homeReadingLayout, /BoxWithConstraints\(Modifier\.fillMaxSize\(\), contentAlignment = Alignment\.TopCenter\)/,
-    '今日页在宽屏应居中放置阅读栏，不贴屏幕左边');
-assert.match(homeReadingLayout, /widthIn\(max = 1200\.dp\)\.fillMaxWidth\(\)\.fillMaxHeight\(\)/,
-    '今日页必须保持单一有界的 LazyColumn 滚动栏');
-const homeMetricLayout = workspace.slice(workspace.indexOf('private fun HomeMetricsBlock('),
-    workspace.indexOf('private fun HomeQuickBlock('));
-assert.match(homeMetricLayout, /if \(maxWidth < 360\.dp\)/,
-    '未来七天的双行说明应在窄屏避免互相挤压');
-assert.match(homeMetricLayout, /clickable\(role = Role\.Button, onClickLabel = "打开待完成任务"/,
-    '开放式数字指标仍是可访问的操作入口');
-assert.match(homeMetricLayout, /clickable\(role = Role\.Button, onClickLabel = "打开近期截止任务"/,
-    '第二个数字指标也应保留明确触控语义');
-const taskReadingLayout = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
-    workspace.indexOf('private fun TaskGroupHeader('));
-assert.match(taskReadingLayout, /wrapContentWidth\(Alignment\.CenterHorizontally\)/,
-    '任务中心宽屏应居中，不能整条阅读列贴左');
-assert.match(taskReadingLayout, /widthIn\(max = 860\.dp\)/,
-    '任务中心保持有界内容宽度');
-const academicReadingLayout = main.slice(main.indexOf('private fun Content('),
-    main.indexOf('private fun CompactPageHeading('));
-assert.match(academicReadingLayout, /Box\(Modifier\.fillMaxSize\(\), contentAlignment = Alignment\.TopCenter\)/,
-    '教务的阅读内容须与顶栏使用同一个居中基准');
-assert.match(academicReadingLayout, /widthIn\(max = 860\.dp\)\.fillMaxWidth\(\)\.fillMaxHeight\(\)/,
-    '教务详情维持单一滚动栏，不新增嵌套滚动');
-const academicHeadingLayout = main.slice(main.indexOf('private fun AcademicPage('),
-    main.indexOf('private fun AcademicEditorialSection('));
-assert.match(academicHeadingLayout, /Box\(Modifier\.fillMaxWidth\(\), contentAlignment = Alignment\.TopCenter\)/,
-    '教务顶栏应与平板内容栏水平对齐');
-
-assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
-assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
-assert.ok(workspace.includes('private fun HomeCourseList('), '首页使用统一课程列表');
-const homeCourseBlock = workspace.slice(workspace.indexOf('private fun HomeCourseList('),
-  workspace.indexOf('private fun HomeCourseRecordRow('));
-assert.match(homeCourseBlock, /if \(hasTimetable && lessons\.isEmpty\(\)\) \{/,
-  '首页有课表但当天无课时，应显示紧凑提示而非多余的厚玻璃空卡');
-assert.match(homeCourseBlock, /暂无本机课程记录/,
-  '未知当前教学周时仅描述本机记录，不推定学校官方无课');
-assert.match(homeCourseBlock, /else \{\s*HomeSection\([\s\S]*?XiaoxuCard\(contentPadding = 12\.dp\)/,
-  '仅有课程记录或未导入课表时渲染实际列表或导入入口');
-assert.match(homeCourseBlock, /if \(hasTimetable && lessons.isEmpty\(\)\) \{\s*[\s\S]*?Row\(/,
-  '本机当日无课时用单行对齐提示替代独立厚卡');
-assert.doesNotMatch(homeCourseBlock, /caption = "\$weekdayLabel/,
-  '首页课程不重复铺设周次来源诊断文案');
-
-const homeRowSource = workspace.slice(workspace.indexOf('private fun HomeCourseRecordRow('),
-    workspace.indexOf('private fun HomeMetricsBlock(', workspace.indexOf('private fun HomeCourseRecordRow(')));
-assert.match(homeRowSource, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
-  '首页课程行与消息及任务列表使用一致的最小触控高度');
-assert.match(schedulePanel, /Modifier\.width\(4\.dp\)\.heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
-  '课表课程色条沿用既有高度并复用设计系统，课程颜色不改变');
-assert.ok(workspace.includes('HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })'),
-  '课程行点击复用原详情');
-assert.ok(workspace.includes('homeCoursePreview(lessons).forEachIndexed'),
-  '首页一次最多显示四条课程记录');
-assert.ok(workspace.includes('xiaoxuCourseColor(lesson.id.ifBlank { lesson.title })'),
-  '首页和课表必须共享稳定的课程颜色');
-assert.doesNotMatch(workspace.slice(workspace.indexOf('val hero: @Composable'), workspace.indexOf('val tasks: @Composable')),
-  /HomeHero\(/, '首页不能继续调用旧轮播');
-assert.doesNotMatch(workspace, /resolveHomeCourseIndex|selectedHomeCourseKey|onSelectCourse\(/,
-  '首页旧轮播状态须清退');
-assert.match(workspace, /private fun HomeQuickAction\(/,
-  '学业入口使用单个紧凑共享入口组件');
 const homeCourseSequence = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/HomeCourseSequenceTest.kt');
-assert.match(homeCourseSequence, /firstFourPreserveSequenceFromLongList/, '首页列表必须保持记录顺序');
-assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
-assert.match(workspace, /HomeQuickAction\("成绩"/, '首页学业入口须指向真实子页面');
-assert.match(workspace, /HomeQuickAction\("考试"/);
-assert.match(workspace, /HomeQuickAction\("第二课堂"/);
-assert.match(workspace, /HomeQuickAction\("学习通"/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/,
-  '首页只能依据本机导入课表进行星期匹配');
-assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
-assert.match(workspace, /XiaoxuTone\.Neutral/, '无课表时须展示明确空态');
-assert.match(workspace, /TextButton\(onClick = openFileImport\) \{ Text\("导入课表"\) \}/,
- '首页没有课表时必须保留实际可点击的本机课表导入按钮');
-assert.match(main, /openFileImport = openFileImport/, '主导航须连接已有文件选择器');
-assert.match(main, /openGrades = [^,]*AcademicDestination\.GRADES/s, '成绩须打开教务真实子页面');
-assert.match(main, /openExams = [^,]*AcademicDestination\.EXAMS/s, '考试须打开教务真实子页面');
-assert.match(main, /openSecondClass = \{ openSecondClass\(\) \}/);
-assert.match(workspace, /HomeCourseDetailSheet\(selectedLesson/, '首页课程点击须复用课表原生详情');
-assert.match(schedulePanel, /internal fun HomeCourseDetailSheet\(/, '课表页面应暴露同一原生详情');
-assert.match(workspace, /WorkspaceTaskDetailSheet\(/, '首页和任务中心应复用任务详情');
-assert.match(workspace, /NoticeDetailSheet\(selectedNotice/, '首页公告应复用消息中心详情');
-assert.match(messageCenter, /internal fun NoticeDetailSheet\(/);
-assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/);
-assert.match(workspace, /clickable\(onClickLabel = "查看公告详情"\)/);
-assert.match(workspace, /One scroll owner on phones AND tablets/, '平板应采用整页单一滚动');
-assert.doesNotMatch(workspace, /TodayScheduleBlock\(/, '首页不应重复展示同一组课程');
-assert.doesNotMatch(workspace, /下一节课|倒计时为/, '缺少作息时间时不允许推断下一节课');
-assert.doesNotMatch(workspace, /else state\.lessons/, '本机课表不能回退旧云端数据');
-assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '云端任务快照须披露数量');
-assert.match(workspace, /含上次云端快照 /, '云端旧记录必须保留快照标签');
-assert.match(workspace, /云端日期仅供参考/,
-  '首页只保留一次云端日期来源提示，不伪称学校正式截止日');
-assert.match(workspace, /countUpcomingLocalDeadlines\(all, today\)/,
-  '首页近期截止使用单一已测试的来源安全统计函数');
-assert.match(workspace, /task.storage == "local" && !task.done/,
-  '近期截止仅统计本人填写的未完成任务');
-assert.match(workspace, /!it.isBefore\(today\) && !it.isAfter\(today.plusDays\(3\)\)/,
-  '历史逾期记录不得混入未来三天的近期截止统计');
+assert.match(homeCourseSequence, /firstFourPreserveSequenceFromLongList/);
 const dueTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/WorkspaceDueProvenanceTest.kt');
 assert.match(dueTest, /upcomingCountRequiresLocalNotOverdueAndNotDone/,
   '真实JVM用例须覆盖本人逾期及云端未核验日期');
 assert.match(dueTest, /weeklyFiltersDoNotTreatCloudRecordsAsVerifiedSchoolDueDates/,
   '真实JVM用例须拒绝把云端未核实日期标为本周学校作业');
-assert.match(workspace, /未命名|已保存|待完成/, '首页显示本人真实任务数据');
+assert.match(settingsRoutes, /visibleWorkspaceTasks\(combineWorkspaceTasks\(tasks, cloud, native\.orEmpty\(\)\), archivedKeys\)/, '首页显示本人真实任务数据');
+assert.match(settingsRoutes, /all\.count\(::isActionableWorkspaceTask\)/, '首页统计真实待办');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出调试日志');
 // 课表主页面继续保留本机导入及来源分离门禁。
 assert.doesNotMatch(cloud, /scheduleStatus|scheduleFetchedAt|val lessons: List<VerifiedLesson> = emptyList/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/);
-assert.match(schedulePanel, /fun localImportedScheduleView\(/);
-assert.match(schedulePanel, /本机课表 · 离线查看/);
-assert.match(schedulePanel, /sourceLabel = "本机导入 · 待本人核对"/,
+assert.match(readContracts, /fun localImportedScheduleView\(lessons: List<VerifiedLesson>\)/);
+assert.match(readContracts, /lessons = lessons,/);
+assert.match(schedulePanel, /AppNotice\(localImportedScheduleView\(lessons\)\.sourceLabel\)/);
+assert.match(readContracts, /sourceLabel = "华水青果 · 本机导入（待本人核对）"/,
   "课表仍需明确来源与核对状态，界面不得强制重复显示课块统计");
-assert.match(panels, /enabled = id != "ncwu"/,
-  '青果的旧服务器课表同步不可被当做成绩同步');
+assert.match(panels, /actions\.syncAuthorizedSchool\("second_class"\)/,
+  '仅保留第二课堂的授权同步入口');
+assert.doesNotMatch(panels, /actions\.syncAuthorizedSchool\((?!\s*"second_class"\s*\))/,
+  '青果旧服务器课表同步不可被当做成绩同步，其他平台不得复用第二课堂入口');
 
 
 const localSourceTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/LocalTimetableSourceTest.kt');
@@ -1907,157 +1209,98 @@ assert.match(localSourceTest, /replacingImportDoesNotMergeStaleLocalLessons/);
 assert.doesNotMatch(schedulePanel, /sealed interface ScheduleUiState|fun deriveScheduleUiState\(/,
   'Retired cloud timetable display logic must not return');
 
-// 课表视觉只检查仍然渲染的本机页面，停止约束旧海报/云端样式。
-const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-assert.match(scheduleVisual, /XiaoxuCard\(/);
-assert.match(scheduleVisual, /private fun SchedulePageHeading\([\s\S]*?Text\(\s*"我的课表"/,
-  '本机课表空态与有课程态须使用同一标题组件');
-assert.doesNotMatch(scheduleVisual, /label = "重新导入课表"/);
-assert.match(timetableSettings, /title = "导入课表"/);
-assert.match(scheduleVisual, /XiaoxuToolbarAction\(/, '课表工具操作和其他原生页面必须共用组件');
-assert.doesNotMatch(scheduleVisual, /SchedulePageHeading\(onMessages\)\s*Text\(/,
-  "课表顶部不得恢复重复的操作文字栏");
-assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/);
-assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/);
-assert.match(scheduleVisual, /WeekSelector\(/);
-assert.match(scheduleVisual, /ModalBottomSheet\(/);
+// Verify the active upstream schedule components, not the retired ScheduleScreen.
+assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt', import.meta.url)), false,
+  '已退役的课表页面不得恢复');
+assert.match(schedulePanel, /WeekHeaderCompact\(/, '统一课表周选择');
+assert.match(scheduleUi, /fun WeekHeaderCompact\(/, '周选择复用公共课表头');
+assert.match(scheduleUi, /fun TimetableLayout\(/, '课表使用上游布局');
+assert.match(scheduleUi, /fun CourseCard\(/, '课块使用上游实现');
+assert.match(scheduleUi, /ModalBottomSheet\(onDismissRequest = onClose/, '详情使用既有底部弹窗');
+assert.match(timetableSettings, /title = "导入课表"/, '保留课表导入入口');
+assert.doesNotMatch(scheduleUi, /XiaoxuCard\(|XiaoxuToolbarAction\(|SchedulePageHeading\(/,
+  '旧课表设计系统不得重新引入');
 
+// Current UI contracts replace retired poster-era layout assertions.
+// Data-layer checks below are preserved verbatim; historical visual requirements
+// that are not equivalent to the current UI remain subject to device QA.
+const campusRunUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CampusRunFeature.kt');
+assert.match(taskWorkspaceForComposerGate, /SystemStatStrip\(items = listOf\("待办" to combined\.count\(::isActionableWorkspaceTask\)[\s\S]*?"待核验" to combined\.count\(::requiresChaoxingVerification\)[\s\S]*?"已完成" to combined\.count\(::considerCompleteInTaskList\)/, '统计基于真实记录');
+assert.match(taskWorkspaceForComposerGate, /onSelect = \{ filter = filters\[it\]\.first \}/, '任务状态筛选真实生效');
+assert.match(taskWorkspaceForComposerGate, /items\(visible, key = \{ it\.key \}\)/, '任务列表使用稳定来源 key');
+assert.match(taskWorkspaceForComposerGate, /onlyThisWeek by rememberSaveable/, '保留截止日期筛选');
+assert.match(taskWorkspaceForComposerGate, /GlassFilterCapsule\(label = "本周日期", selected = onlyThisWeek, toggle = true,[\s\S]*?onClick = \{ onlyThisWeek = !onlyThisWeek \}/, '本周筛选可解除');
+assert.match(taskWorkspaceForComposerGate, /sourceFilter = "all"; onlyThisWeek = false; query = ""/, '清除来源及日期筛选');
+assert.match(taskWorkspaceForComposerGate, /data\.cloud\.tasks\.takeIf \{ data\.cloud\.authenticated && data\.cloud\.tasksFresh \}/, '不将陈旧云端任务当作当前记录');
+assert.match(taskWorkspaceForComposerGate, /val localId = task\.key\.removePrefix\("local:"\)\.toLongOrNull\(\)\.takeIf \{ task\.storage == "local" \}/, '本机写入仅针对本机任务');
+assert.match(taskWorkspaceForComposerGate, /val canToggleWechat = task\.storage == "cloud" && task\.provider == "wechat" &&\s*task\.revision >= 0 && data\.cloud\.authenticated && data\.cloud\.tasksFresh && !ownerId\.isNullOrBlank\(\)/, '微信写入须来源、版本、新鲜度及本人绑定');
+assert.match(taskWorkspaceForComposerGate, /actions\.updateWechatTask\(task\.key\.removePrefix\("cloud:"\), task\.revision, value, ownerId\)/, '微信写入携带版本及本人绑定');
+assert.match(taskWorkspaceForComposerGate, /val saved = actions\.updateLocalTask\(localId, value\)[\s\S]*?if \(saved && value\) lastCompletedLocalId = localId/, '本机写入成功才允许撤销');
+assert.match(taskWorkspaceForComposerGate, /if \(actions\.updateLocalTask\(undoTask\.id, false\)\)/, '撤销复用真实写入');
+assert.match(taskWorkspaceForComposerGate, /未确认云端任务更新，请刷新后重试/, '未确认不能误报成功');
+assert.match(taskWorkspaceForComposerGate, /TaskCompletionCheckbox\([\s\S]*?checked = task\.done, enabled = !saving/, '保存时禁止重复写入');
+assert.match(taskWorkspaceForComposerGate, /combined\.firstOrNull \{ it\.key == detailKey \}/, '详情从实际记录回查');
+assert.match(taskWorkspaceForComposerGate, /AppDialog\(onDismissRequest = \{ detailKey = null \}, title = \{ Text\(task\.title\) \}/, '详情共用统一弹窗');
+assert.match(taskWorkspaceForComposerGate, /平台记录只读，不修改学校提交状态/, '官方状态仅供查看');
+assert.match(taskWorkspaceForComposerGate, /微信任务完成状态仅为本人整理，不代表学校提交状态/, '个人完成与官方提交分离');
+assert.match(taskWorkspaceForComposerGate, /if \(task\.sourceExternalId\.isNullOrBlank\(\)\) "尚未确认当前官方作业身份"/, '未确认来源不得冒充官方任务');
+assert.match(taskWorkspaceForComposerGate, /actions\.connectLocal\("chaoxing"\)/, '官方核对入口保留');
+assert.match(taskWorkspaceForComposerGate, /LocalTaskEditSheet\(task, actions\.localTaskDao/, '编辑已有本机任务');
+assert.match(taskWorkspaceForComposerGate, /if \(addingCloud\) CloudTaskEditor\(data\.cloud, actions,/, '保留真实云端编辑器');
+assert.match(taskWorkspaceForComposerGate, /actions\.localTaskDao\.remove\(deleting\.id\)/, '删除仅针对本机任务');
+assert.match(workspace, /trustedChaoxingPlatformStatus\(/, '学校状态通过可信来源校验');
+assert.match(workspace, /"wechat" -> "wechat"/, '微信来源不靠标题猜测');
+assert.match(workspace, /facetWorkspaceTasks\(/, '来源及日期筛选使用纯函数');
+assert.doesNotMatch(taskWorkspaceForComposerGate, /WechatReviewPanel\(|WechatCandidateReview\(|PosterDemo|RealAcademicTaskHub\(/, '任务中心不恢复重复审核或旧页面');
+assert.match(messageCenter, /LiquidSegmentedControl\(listOf\("官方通知", "微信审核"\)/, '消息复用分段控件');
+assert.match(messageCenter, /val officialList = rememberLazyListState\(\)/, '公告独立滚动状态');
+assert.match(messageCenter, /val reviewList = rememberLazyListState\(\)/, '审核独立滚动状态');
+assert.match(messageCenter, /state = if \(showWechat\) reviewList else officialList/, '来源滚动状态隔离');
+assert.match(messageCenter, /items\(state\.wechatCandidates, key = \{ it\.id \}\)/, '显示真实候选记录');
+assert.match(messageCenter, /val fresh = state\.authenticated && state\.pendingWechatCount != null && state\.wechatError == null &&\s*state\.wechatCandidates\.any \{ it == item \}/, '审核要求新鲜本人候选');
+assert.match(messageCenter, /actions\.reviewWechatCandidate\(item\.id, decision, owner\)/, '审核走本人绑定事务');
+assert.match(messageCenter, /openArticle\(notice\.url\)/, '公告保留官方链接');
+assert.match(messageCenter, /fun pendingWechatLabel\(count: Int\?, authenticated: Boolean, wechatError: String\? = null\)/);
+assert.match(messageCenter, /fun pendingWechatShortLabel\(count: Int\?, authenticated: Boolean, wechatError: String\? = null\)/);
+assert.match(messageCenter, /wechatError != null -> "\$count（快照）"/);
+assert.match(messageCenter, /wechatError != null -> "待审核候选 \$count 条（快照，本次读取失败）"/);
+assert.match(messageCenter, /count == null -> "数量未读取"/);
+assert.match(messageCenter, /pendingWechatLabel\(state\.pendingWechatCount, state\.authenticated, state\.wechatError\)/, '实际展示传入读取错误');
+assert.match(readContracts, /if \(state\.noticeFetchedAt\.isNullOrBlank\(\)\) return MessagePhase\.NotConnected/, '未读取不得冒充真实空公告');
+assert.doesNotMatch(messageCenter, /PosterDemo|模拟群聊|高数练习要求与参考\.pdf|未读红点|群成员/, '不恢复虚构消息');
+assert.match(panels, /header = "本机学校读取"/);
+assert.match(panels, /header = "云端学校授权"/);
+assert.doesNotMatch(panels, /示例学号|演示头像|张三|同学您好/, '不得伪造本人身份');
+assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data, actions\)/);
+assert.match(settingsRoutes, /AppRoute\.MESSAGES -> MessageCenterFeature\(data, actions\)/);
+assert.match(settingsRoutes, /AppRoute\.SECOND_CLASS -> SecondClassContent\(data\.nativeRecords/);
+assert.match(settingsRoutes, /actions\.navigate\(AppRoute\.CAMPUS_RUN\)/);
+assert.match(settingsRoutes, /actions\.navigate\(AppRoute\.MESSAGES\)/);
+assert.match(settingsRoutes, /header = "教务查询"/);
+assert.match(settingsRoutes, /header = "学习与活动"/);
+assert.match(campusRunUi, /key\(scope\) \{ CampusRunScopedFeature\(scope\) \}/, '校园跑按账号隔离状态');
+assert.match(campusRunUi, /暂无本机校园跑记录。不会展示示例里程或假进度。/);
+assert.doesNotMatch(campusRunUi, /\bCardDefaults\b|\bCard\s*\(/, '不恢复独立卡片体系');
+assert.match(rebuildShell, /dao\.trySetCompleted\(id, value\)/);
+assert.match(rebuildShell, /cloud\.setWechatTaskCompleted\(id, revision, completed, owner\)/);
+assert.match(rebuildShell, /cloud\.reviewWechatCandidate\(id, decision, owner\)/);
+assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule|private fun MessagesPage\(/, '唯一真实导航');
+assert.doesNotMatch(settingsIndex, /XiaoxuCard\(|XiaoxuGroupSurface\(/, '设置使用公共分组');
+for (const label of ['账号与教务','学习与课程','数据与安全','应用与支持']) {
+  assert.ok(settingsIndex.includes('header = "' + label + '"'), label + ' settings group remains reachable');
+}
+assert.match(settingsIndex, /"任务备份",[\s\S]*?actions\.navigate\(AppRoute\.TASK_BACKUP\)/, '备份恢复可达');
+const wechatMutation = cloud.slice(cloud.indexOf('suspend fun setWechatTaskCompleted('),
+  cloud.indexOf('suspend fun addCloudTask(', cloud.indexOf('suspend fun setWechatTaskCompleted(')));
 
-// Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
-// 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.match(workspace, /private fun TaskStatusTab\(/, '三态统计筛选必须可操作');
-assert.match(workspace, /One continuous status strip/, '三项统计必须位于同一个白色容器中');
-assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Alignment\.CenterVertically\)/,
-  '三项统计应采用上下标签和数量而非横排大卡');
-assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
-assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
-assert.match(workspace, /Text\("本周日期"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
-assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
-assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
-assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '首次进入任务中心的课程任务必须默认折叠');
-assert.match(workspace, /onClick = \{ showCourseTasks = !showCourseTasks \}/,
-  '课程任务仍支持直接展开与收起');
-assert.match(workspace, /item\(key = "group:course"\)/,
-  '保留稳定分组 key 以维护 LazyColumn 的可视位置');
-assert.doesNotMatch(workspace, /requestScrollToItem\(/,
-  '不得以变动的数值索引强行定位，导致其他任务分组跳跃');
-assert.match(workspace, /if \(showCourseTasks\) \{/,
-  '课程列表显示必须只由当前展开状态控制');
-assert.match(workspace, /item\(key = "group:course"\)/,
-  '课程任务分组必须使用稳定 LazyColumn key 保留位置');
-assert.match(workspace, /item\(key = "group:wechat"\)/,
-  '微信分组必须使用稳定 key，而非依赖前面的项目索引');
-assert.match(workspace, /var showWechatTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '首次进入任务中心的微信任务必须默认折叠');
-assert.match(workspace, /var showPersonalTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '首次进入任务中心的本机任务必须默认折叠');
-assert.doesNotMatch(workspace, /var showOfficialAudit by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '旧云端作业读取分组已经退役');
-assert.match(workspace, /var showSchoolRecords by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '首次进入任务中心的本机读取必须默认折叠');
-const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
-  workspace.indexOf('/** 首页与任务中心共用任务详情'));
-assert.match(taskHubRegion, /verticalArrangement = Arrangement\.spacedBy\(0\.dp\)/,
-  '任务列表应取消 LazyColumn 默认行间距以连接同组任务');
-assert.match(taskHubRegion,
-  /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = cloudRows\.size\)/,
-  '云端任务维持逐条 lazy item 与稳定 key，不允许合并成一次性大 Column');
-assert.match(taskHubRegion,
-  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = localRows\.size\)/,
-  '本机任务维持逐条 lazy item 与稳定 key');
-assert.match(workspace, /private fun ConnectedTaskShell\(/,
-  '任务行使用共享首尾圆角与连接线容器');
-assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
-  '相邻任务之间必须只有轻分割线');
-assert.match(workspace, /index == total - 1 -> RoundedCornerShape\(/,
-  '任务分组最后一条保留与玻璃外壳一致的底部圆角');
-assert.match(workspace, /joinedRows = true,/,
-  '课程、微信和本机任务分组须与所属任务行衔接为单层玻璃列表');
-assert.match(workspace, /label = "task-group-chevron"/,
-  '任务分组折叠箭头须使用共享动画时序');
-assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.rotate\(chevronRotation\)/,
-  '分组状态改变时只旋转箭头，不重新绘制业务数据');
-
-assert.match(designSystem, /val listRowMin: Dp = 68\.dp/,
-  '任务与消息共用同一紧凑最小行高');
-assert.match(workspace, /val groupRadius = XiaoxuRadius\.group/,
-  '任务列表首尾圆角必须沿用唯一设计系统');
-assert.match(workspace, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
-  '任务行仍由内容扩展且使用统一最小行高');
-assert.match(messageCenter, /heightIn\(min = 64\.dp\)/,
-  '公告紧凑行保持不低于64dp的触控区');
-assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.list\)/,
-  '官方消息卡片圆角必须与其他页面统一');
-
-
-const compactTaskHeader = workspace.slice(workspace.indexOf('private fun TaskGroupHeader('),
-  workspace.indexOf('private fun TaskSectionHeader('));
-assert.doesNotMatch(compactTaskHeader, /XiaoxuCard\(/,
-  '任务列表分组不应再套独立大卡造成页面拼接感');
-assert.match(compactTaskHeader, /heightIn\(min = 64\.dp\)/,
-  '精简分组后仍须保留可触控的最小高度');
-assert.match(compactTaskHeader, /background\(XiaoxuPalette\.GlassCard\)/,
-  '展开分组必须使用与正文连续的玻璃材质');
-assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\)\) append\("，"\)\.append\(badge\)/,
-  '有实际来源状态时保留无障碍描述，普通任务不追加无用小字');
-assert.match(compactTaskHeader, /if \(expanded && \(badge\.isNotBlank\(\) \|\| note\.isNotBlank\(\)\)\)/,
-  '仅在展开且有额外说明时占用第二行，默认保持紧凑');
-assert.doesNotMatch(workspace, /title = "群消息任务候选"|showCandidates/,
-  '任务中心不得再展示待审核微信群消息区块或保存其折叠状态');
-assert.match(workspace, /title = "微信任务"/,
-  '审核通过的微信任务必须在任务中心独立成组');
-assert.match(workspace, /var showWechatTasks by rememberSaveable/,
-  '微信任务独立于课程/本机分组折叠');
-assert.match(taskHubRegion,
-  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size\s*[,\)]/,
-  '微信任务必须维持独立带 key 的 LazyColumn 列表');
-assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
-  '审核通过微信任务保持独立缓存分组');
-assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
-  '云端任务保持独立缓存分组');
-assert.match(workspace, /"wechat" -> "微信任务"/,
-  '原生任务标题与筛选菜单必须识别微信来源');
-assert.match(workspace, /"wechat" -> "wechat"/,
-  '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
-assert.match(messageCenter, /val wechatTitle = "微信审核" \+/,
-  '微信审核标签仍由真实候选计数生成');
-assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_WECHAT, wechatTitle\)/,
-  '微信候选入口必须留在消息中心的唯一来源选择器');
-assert.match(messageCenter, /WechatReviewPanel\(/,
-  '已保存候选只允许从消息中心审核');
-assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
-  '任务中心不得恢复重复微信审核器');
-assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
-assert.match(workspace, /taskMenuOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '低频任务管理收进默认关闭的更多菜单');
-assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showCloudEditor\) \{[\s\S]*?CloudTaskEditor\(client\)/,
-  '云端新建使用独立浮层');
-assert.doesNotMatch(workspace, /showManager && showLocal|jumpTo =/,
-  '移除已淘汰的内联编辑器与固定索引跳转');
-assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ onTaskTap\(row\) \}/,
-  '本机任务使用来源 key 直达编辑弹层，不需要先进入详情');
-assert.match(workspace, /dao\.trySetCompleted\(id, checked\)/,
-  '首页任务中心勾选必须在 Room 事务里核对前置依赖');
 assert.match(db, /suspend fun trySetCompleted\(taskId: Long, completed: Boolean\): Boolean[\s\S]*?unfinishedDependencyCount\(taskId\)[\s\S]*?setCompleted\(taskId, completed\)/,
   '所有本机任务视图共享单事务的前置依赖完成门禁');
 assert.match(db, /UPDATE local_tasks SET due = :due WHERE id = :id/,
   '快捷设置日期仅更新 due，不覆盖任务标题与来源');
-assert.match(workspace, /val pendingLocalTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
-  '本机任务仅即时预览状态，Room 仍是事实来源');
-assert.match(workspace, /LaunchedEffect\(localTasks\) \{[\s\S]*?pendingLocalTaskUpdates\.remove\(key\)/,
-  'Room 确认或删除后清理待保存预览');
-assert.match(workspace, /pendingLocalTaskUpdates\.remove\(row\.key\)[\s\S]*?本机任务保存失败，请重试/,
-  '本机任务写入失败后必须回滚');
-assert.match(workspace, /checked = displayDone,[\s\S]*?enabled = actionEnabled/,
-  '本机任务预览应立即反馈且防止重复提交');
 assert.match(reminder, /internal fun changedLocalReminderIds\(/,
   '只协调截止日期或完成状态真正变化的提醒任务');
 assert.match(reminder, /affectedIds\.forEach \{ taskId ->/,
   '删除任务或变更截止时间必须逐个处理受影响的 WorkManager ID');
-assert.match(workspace, /task\.storage == "local" && onToggleLocal != null/,
-  '云端任务不可复用本机完成操作或假装已提交到学校');
 assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,
   '微信审核任务必须复用本人云端任务写接口而不是只读装饰勾选框');
 assert.match(cloud, /it\.provider == "wechat" && it\.revision == revision/,
@@ -2066,68 +1309,12 @@ assert.match(cloud, /request\("\/api\/v1\/assignments\/\$id", "POST", body, auth
   '微信任务个人完成使用 Android 支持的 POST 且携带原有本人认证');
 assert.match(cloud, /put\("localStatus", if \(completed\) "done" else "todo"\)/,
   '微信任务勾选只操作个人状态，不更改学校官方提交状态');
-assert.match(workspace, /onToggleWechat = if \(state\.tasksFresh && row\.revision >= 0\)/,
-  '只有本次新鲜读取并携带版本号的微信任务才能勾选');
-assert.match(workspace, /task\.category == "wechat" && onToggleWechat != null/,
-  '微信任务复用可点击 Checkbox，普通云端任务继续保持只读');
-assert.match(workspace, /actionEnabled = !pendingWechatTaskUpdates\.containsKey\(row\.key\)/,
-  '仅锁定正在提交的单条微信任务，其它任务仍可交互');
-assert.match(workspace, /val pendingWechatTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
-  '微信任务勾选应立即显示临时状态而不提前更改真实统计');
-assert.match(workspace, /pendingWechatTaskUpdates\[row\.key\] = checked/,
-  '点击立即反馈，不等待网络返回才能勾选');
-assert.match(workspace, /pendingWechatTaskUpdates\.remove\(row\.key\)/,
-  '成功确认与失败回滚均清理临时状态');
-assert.match(workspace, /val secondary = when \{\s*isPending -> "保存中…"/,
-  '尚未收到云端回执时必须在唯一辅助行明确显示保存中');
-assert.doesNotMatch(workspace, /modifier = Modifier\.animateItem\(/,
-  '展开课程任务时不能再让微信列表补间移动并产生跳跃');
 assert.match(cloud, /preferConfirmedWechatRevisions\(it, state\.tasks\)/,
   '旧的并发读取不得覆盖已确认的微信任务状态');
-const wechatMutation = cloud.slice(cloud.indexOf('suspend fun setWechatTaskCompleted('),
-  cloud.indexOf('suspend fun addCloudTask(', cloud.indexOf('suspend fun setWechatTaskCompleted(')));
 assert.doesNotMatch(wechatMutation, /refreshPrivate\(\)\s*val updated/,
   '成功写入个人状态不应再等待整套云端多页面刷新');
 assert.match(wechatMutation, /committedRevision != revision\.toLong\(\) \+ 1L/,
   '不验证后端已提交版本就不能标记为完成');
-
-assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })'),
-  '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
-assert.ok(workspace.includes('含上次云端快照'),
-  '未核验云端数据不得被统计描述为最新');
-assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
-  '任务来源必须复用共享来源标签');
-assert.ok(!workspace.includes('WechatReviewPanel('),
-  '任务中心只展示已保存任务，不能复制微信候选审核器');
-assert.ok(messageCenter.includes('WechatReviewPanel('),
-  '消息中心保留唯一原生审核器和真实候选计数');
-assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/,
-  '待审核数量仍以消息中心真实读取结果为准');
-assert.match(workspace, /var openedTaskKey by rememberSaveable/, '任务详情选中状态应可保存');
-assert.match(workspace, /val selectedTask = all\.firstOrNull/, '任务详情仅从已有真实记录回查');
-assert.match(workspace, /XiaoxuBottomSheet\(\s*title = "任务详情"/,
-  '任务详情必须使用共享原生底部浮层');
-assert.match(workspace, /Text\("来源与日期"/,
-  '任务详情须区分来源和时间');
-assert.match(workspace, /Text\("前置关系"/,
-  '任务详情区分前置条件');
-assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/,
-  '任务卡片必须可以真实点击');
-assert.match(workspace, /task\.storage == "cloud"/, '任务来源必须区分云端与本机');
-assert.match(workspace, /云端历史快照；日期与完成情况可能已变化/,
-  '任务详情必须区分历史快照与当前同步成功');
-assert.match(workspace, /onVerifyChaoxing = \{ openLocalSchool\("chaoxing"\) \}/,
-  '学习通相关云端任务详情必须可以打开官方页面进行人工核对');
-assert.match(workspace, /selectedTask.provider == "chaoxing"/,
-  '只有学习通相关任务显示学习通核对入口');
-assert.match(workspace, /尚未确认当前官方作业身份/,
-  '没有可信来源 ID 的旧记录必须提供人工核对入口');
-assert.match(workspace, /已识别官方作业身份/,
-  '只有可信 work 元组才可标识已识别官方作业身份');
-assert.match(workspace, /trustedChaoxingPlatformStatus\(/,
-  '学习通状态必须通过后端受信任来源元数据校验，不按标题猜测');
-assert.match(workspace, /上次官方同步：/,
-  '学校提交状态须单独显示为历史同步结果，不混入个人完成状态');
 assert.match(cloud, /val sourceExternalId: String\? = null/,
   '学籍任务需保留可信作业来源 ID');
 assert.match(cloud, /val officialStatus: String\? = null/,
@@ -2136,266 +1323,7 @@ assert.match(cloud, /source_external_id/,
   '学校任务来源应读取已有 API 的稳定 external ID');
 assert.match(cloud, /platform_status/,
   '学校任务应读取已有 API 的可信平台状态');
-assert.match(workspace, /本机记录 · 离线保存/,
-  '任务详情须标注本机来源');
-assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)/,
-  '本机详情编辑现有任务而非打开新建表单');
-assert.match(workspace, /LocalTaskEditSheet\(task = editingLocal, dao = dao/);
 assert.match(db, /UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id/);
-assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
-  '消息页使用 56dp 紧凑标题，不再包一层大卡');
-assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
-  '官方公告与微信候选使用共享来源徽标');
-assert.match(messageCenter, /WechatReviewPanel\(/,
-  '保留原生微信候选逐条审核');
-assert.match(messageCenter, /NoticeDetailSheet\(/,
-  '保留公告真实详情及官方链接');
-assert.ok(panels.includes('XiaoxuCard {'),
-  '个人中心和学校连接卡采用共享样式');
-assert.doesNotMatch(panels, /SchoolReaderSection\(|SectionHeader\(title = "数据连接"\)/,
-  '二级数据连接已有页面标题，不得再叠加无效包装层及同名标题');
-assert.ok(panels.includes('LocalSchoolConnectionPanel('),
-  '不得移除原生学校读取入口');
-assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
-  '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
-
-// Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
-assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
-assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
-assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
-assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
-assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
-assert.match(workspace, /filter = "pending"/,
-  '待完成统计卡应真实切换过滤器');
-assert.match(workspace, /filter = "done"/,
-  '已完成统计卡应真实切换过滤器');
-
-assert.match(workspace, /showCloudEditor = true/);
-assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
-  '窄屏任务分区标题必须给来源和条数预留空间');
-// Issue #275：消息中心与「我的」按七张海报/四屏 HTML 精细化，只换视觉层级，
-// 真实来源、审核事务与数据边界一律不动。
-assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
-  '消息顶栏不再重复展示英文装饰标题');
-assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
-assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
-assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
-assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
-  '官方与微信来源使用共享原生分段组件');
-assert.match(messageCenter, /Box\(Modifier\.size\(7\.dp\)\.clip\(CircleShape\)/,
-  'B2 公告使用紧凑状态圆点，避免重复大图标造成视觉拥挤');
-assert.match(messageCenter, /private fun SourceSectionHeader\(/,
-  '保留列表内的来源标题与状态语义');
-assert.match(messageCenter, /private fun MessageHeader\(onRefresh:/,
-  '消息统一使用紧凑页头');
-assert.match(messageCenter, /XiaoxuToolbarAction\(/,
-  '消息刷新及返回须复用工具按钮');
-assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
-assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
-  '海报里的智能摘要与未读红点不能写进真实消息页');
-
-assert.match(panels, /fun ProfileHeroCard\(/,
-  '真实账户概览保留在数据连接二级页，不在我的首页复制卡片');
-assert.match(panels, /XiaoxuCard\(contentPadding = 14\.dp\)/,
-  '我的页面账户信息应为紧凑白色状态卡');
-assert.doesNotMatch(panels, /我的学习空间|学校账号各自授权；本机读取不依赖校序云端登录/,
-  '账户区不得恢复大面积旧版宣传卡及解释文字');
-assert.match(profileSettings, /"connections" -> item \{/,
-  '真实学校读取入口归属我的 → 数据连接二级页面，不回退独立首页容器');
-assert.match(panels, /title = "云端同步"/,
-  '云端授权应继续收纳为独立可操作区域');
-assert.match(main, /private fun CompactPageHeading\(/,
-  '教务业务页仍复用紧凑标题，设置页标题由 ProfileSettingsPage 唯一维护');
-assert.match(main, /topBar = \{\},/,
-  'Scaffold 顶栏不随五个标签跳动，避免切页时整体内容高度变化');
-assert.match(main, /applyStatusBarInset = false/,
-  '首页顶栏移动到页面内后应使用Scaffold既有状态栏内边距，不可重复下移');
-assert.match(design, /then\(if \(applyStatusBarInset\) Modifier\.statusBarsPadding\(\) else Modifier\)/,
-  '统一顶栏允许复用Scaffold安全区，同时保持原有独立顶栏默认行为');
-assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)/,
-  '首页顶栏必须成为唯一一级页面内容，不影响其他页面的 Scaffold 几何');
-assert.match(main, /onMessages = \{ messagesOpen = true \}/,
-  '页面消息中心入口应继续可达');
-assert.doesNotMatch(main, /Content\(withTopInset = true\)|\.fillMaxSize\(\)\.statusBarsPadding\(\)/,
-  'Scaffold 已处理状态栏，不能重复添加顶部安全区');
-assert.match(main, /if \(academicRoute != AcademicDestination\.OVERVIEW\)/,
-  '教务各详情页在 AnimatedContent 当前目标页面统一原生返回，不叠加二级标签');
-assert.doesNotMatch(main, /val visibleTabs = listOf\(/,
-  '教务总览操作行已承担导航，不能再重复显示四项标签');
-assert.match(main, /academic != AcademicDestination\.OVERVIEW/,
-  '所有教务详情统一支持系统返回至总览');
-assert.match(main, /fun AcademicActionRow\(/,
-  '教务入口必须使用连续可点击操作行');
-assert.match(main, /AcademicDestination\.OVERVIEW -> Content\(topPadding = 6\.dp\)/,
-  '教务总览须收紧标题和内容之间的空白');
-const academicOverviewSource = main.slice(
-    main.indexOf('AcademicDestination.OVERVIEW -> Content('),
-    main.indexOf('AcademicDestination.SECOND_CLASS ->', main.indexOf('AcademicDestination.OVERVIEW -> Content('))
-);
-assert.match(academicOverviewSource, /AcademicEditorialSection\(title = "教务"\)/,
-  '成绩和考试须归入教务分类');
-assert.match(academicOverviewSource, /AcademicEditorialSection\(title = "校园生活"\)/,
-  '第二课堂和校园服务须归入校园生活分类');
-assert.doesNotMatch(academicOverviewSource, /XiaoxuCard\(/,
-  '教务连续分组内部不能再套第二层方形卡片');
-assert.match(main, /private fun AcademicEditorialSection\(/,
-  '教务分区复用编辑式布局组件，不添加第二套导航');
-const academicEditorial = main.slice(main.indexOf('private fun AcademicEditorialSection('),
-  main.indexOf('private fun AcademicActionRow('));
-assert.match(academicEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
-  '教务分区用开放式细线与标题组织');
-assert.doesNotMatch(academicEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
-  '教务分区不应重新叠加大卡片');
-const academicAction = main.slice(main.indexOf('private fun AcademicActionRow('));
-assert.match(academicAction, /heightIn\(min = 60\.dp\)/,
-  '教务入口保持足够触控高度');
-assert.match(academicAction, /onClickLabel = "打开\$title"/,
-  '教务入口保持有意义的无障碍点击描述');
-assert.doesNotMatch(academicAction, /background\(XiaoxuPalette\.BrandSoft\)/,
-  '教务入口不新增蓝色装饰瓷砖');
-assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
-  '设置首页使用开放式分组而非复制组件库');
-for (const label of ['学习与课程', '账户与数据', '其他']) {
-  assert.ok(profileSettings.includes('SettingsEditorialSection(title = "' + label + '")'),
-    label + ' 原有导航分组需完整保留');
-}
-const settingsEditorial = profileSettings.slice(profileSettings.indexOf('private fun SettingsEditorialSection('),
-  profileSettings.indexOf('private fun SettingsDivider('));
-assert.match(settingsEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
-  '设置首页用细线组织内容');
-assert.doesNotMatch(settingsEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
-  '设置首页分组不得嵌套内容玻璃卡');
-assert.match(profileSettings, /"connections" -> item \{/,
-  '实际连接页必须继续在原二级路由内');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
-  '备份恢复入口仍可达');
-
-
-assert.doesNotMatch(academicOverviewSource, /"未读取"/,
-  '教务总览只做导航，未核验状态留在真实详情页');
-
-assert.match(main, /AcademicActionRow\("第二课堂"/,
-  '真实第二课堂必须保留直接可达入口');
-assert.match(main, /CampusRunPanel\(cloud\)/,
-  '校园跑/学校服务真实面板不可在 UI 精简时丢失');
-const campusRunUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CampusRunPanel.kt');
-assert.match(campusRunUi, /fun CampusRunPanel\(client: CloudClient\)/,
-  '校园跑继续使用原有 CloudClient 会话作用域');
-assert.match(campusRunUi, /key\(scope\) \{ CampusRunScopedPanel\(scope\) \}/,
-  '切换账号时必须重置本机校园跑 UI 状态');
-assert.equal((campusRunUi.match(/XiaoxuCard\(/g) || []).length, 2,
-  '校园跑锁定态与记录态必须共用唯一玻璃卡片');
-assert.doesNotMatch(campusRunUi, /\bCardDefaults\b|\bCard\s*\(/,
-  '校园跑不得恢复独立 Material3 Card 容器');
-assert.match(main, /SecondClassPage\(\)/,
-  '第二课堂独立内容仍须可达');
-
-assert.match(panels, /fun ProfileMetric\(/, '我的页真实指标格');
-
-const profileMetricSource = panels.slice(panels.indexOf('private fun ProfileMetric('),
-  panels.indexOf('private fun CloudAuthorizationSection(', panels.indexOf('private fun ProfileMetric(')));
-assert.doesNotMatch(profileMetricSource, /background\(XiaoxuPalette\.SurfaceAlt\)/,
-  '我的账户统计不能再各自嵌套灰色背景小卡，保持单层玻璃信息结构');
-assert.match(profileMetricSource, /MaterialTheme\.typography\.titleMedium/,
-  '我的真实数值须保持可读字级');
-
-assert.match(panels, /fun SettingRow\(/, '我的页分组设置行');
-assert.match(panels, /fun PlatformStatusCard\(/, '三个学校平台需真实状态卡');
-assert.match(panels, /通用头像（未接入真实头像）/, '没有真实头像时只放通用图标');
-assert.match(panels, /maxWidth >= 600\.dp/, '我的页平板双列');
-assert.match(panels, /count \{ it\.sessionState == "active" \}/, '平台计数只数真实 active 会话');
-assert.match(panels, /"（快照）"/, '未刷新的云端任务必须标注快照');
-assert.doesNotMatch(panels, /示例学号|演示头像|张三|同学您好/,
-  '不得用演示身份冒充本人账号');
-
-assert.match(wechatReview, /fun WechatCandidateRow\(/, '候选卡抽出独立行组件');
-assert.match(wechatReview, /contentDescription = wechatKindLabel/, '候选行需读屏说明');
-assert.doesNotMatch(wechatReview, /未读|群成员|已读状态/,
-  '不得伪造群成员数或已读状态');
-
-// PR #281 review 修复：微信待审核数量必须区分「本次成功读取」与「缓存快照」。
-// wechatError != null 表示本次候选读取失败，pendingWechatCount 是上次保留的旧值，不能冒充最新。
-assert.match(messageCenter,
-  /fun pendingWechatLabel\(count: Int\?, authenticated: Boolean, wechatError: String\? = null\)/,
-  '长文案须接收 wechatError 以区分快照');
-assert.match(messageCenter,
-  /fun pendingWechatShortLabel\(count: Int\?, authenticated: Boolean, wechatError: String\? = null\)/,
-  '短文案须接收 wechatError 以区分快照');
-assert.match(messageCenter, /wechatError != null -> "\$count（快照）"/,
-  '读取失败但保留旧数量时短文案须标（快照）');
-assert.match(messageCenter, /wechatError != null -> "待审核候选 \$count 条（快照，本次读取失败）"/,
-  '长文案须说明是本次读取失败的快照');
-assert.match(messageCenter, /count == null -> "数量未读取"/,
-  '数量为空时不得伪造为 0');
-assert.match(messageCenter, /state\.authenticated && state\.wechatError == null &&/,
-  '微信标签仅在会话正常且计数有效时展示真实数量');
-assert.match(messageCenter, /pendingWechatShortLabel\(\n\s*state\.pendingWechatCount,\n\s*state\.authenticated,\n\s*state\.wechatError\n\s*\)/,
-  '微信候选分区头须把 wechatError 传给短文案');
-assert.match(wechatReview, /pendingWechatLabel\(pendingCount, state\.authenticated, state\.wechatError\)/,
-  '微信候选卡头部须把 wechatError 传给长文案');
-assert.match(panels, /state\.wechatError != null -> state\.pendingWechatCount\.toString\(\) \+ "（快照）"/,
-  '我的页待审核指标须在读取失败时标快照');
-assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
-  '我的页数量为空须显示未读取，不得伪造 0');
-
-// #286 修复：只能使用一套真实数据界面，移除 PosterDemo 与空操作。
-assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule/,
-  '主导航不得重新出现演示版/真实版切换');
-assert.match(primaryNavigation, /PrimaryTabs = listOf\(\s*MainDestination\.HOME,\s*MainDestination\.SCHEDULE,\s*MainDestination\.TASKS,\s*MainDestination\.ACADEMIC,\s*MainDestination\.PROFILE/,
-  '唯一导航配置为今日、课表、任务、校园、我的');
-assert.doesNotMatch(main, /private val PrimaryTabs|NavigationRail\(/,
-  '业务壳层不能重建第二套导航表或侧栏组件');
-assert.doesNotMatch(main, /MainDestination\.MESSAGES/, '消息不占底栏');
-assert.match(main, /onMessages = \{ messagesOpen = true \}/, '全局消息入口');
-assert.match(main, /openAcademic = \{ current = MainDestination\.ACADEMIC; academic = AcademicDestination\.OVERVIEW \}/,
-  '教务快捷入口打开总览');
-assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/,
-  '消息中心复用真实数据');
-assert.match(main, /useStatusBarInset = false, onBack = \{ messagesOpen = false \},/,
-  '消息页面直接传入返回来源页的回调，无重复中间包装组件');
-assert.match(main, /localTasks = localTasks, localLessons = localLessons/,
-  '本机提醒聚合仅使用本机 Room 任务与本机课表，不冒充官方公告');
-assert.match(main, /BackHandler\(enabled = messagesOpen\)/,
-  '系统返回键也必须关闭消息页并恢复原一级页');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
-  '页面状态跨导航保留');
-assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
-  '消息来源采用共享玻璃分段控件');
-assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle\)/,
-  '仍须保留官方通知来源');
-assert.match(messageCenter, /sourceTab == MSG_FILTER_WECHAT/, '区分微信与官方来源');
-assert.match(messageCenter, /onBack: \(\(\) -> Unit\)\? = null/,
-  '消息提供返回回调');
-assert.match(messageCenter, /WechatReviewPanel\(/,
-  '真实消息布局不得绕过微信审核事务');
-assert.doesNotMatch(messageCenter, /PosterDemo|模拟群聊|高数练习要求与参考\.pdf/,
-  '真实消息中心不得展示海报演示消息和附件');
-
-// Navigation V2 P1: source-scoped message scroll and evidence-based empty states.
-assert.match(messageCenter, /val officialListState = rememberLazyListState\(\)/,
-    '官方公告必须保存独立滚动位置');
-assert.match(messageCenter, /val wechatListState = rememberLazyListState\(\)/,
-    '微信审核必须保存独立滚动位置');
-assert.match(messageCenter, /state = if \(showWechat\) wechatListState else officialListState/,
-    '切换来源时不可沿用另一个来源的列表滚动位置');
-assert.match(messageCenter, /if \(state\.noticeFetchedAt\.isNullOrBlank\(\)\) return MessagePhase\.NotConnected/,
-    '仅官方公告本人读取证据可证明真实空状态，微信或登录状态不能冒充');
-assert.match(messageCenter, /学校公开公告无需登录校序云端/,
-    '首次尚未读取官方公告需要可操作的空状态');
-assert.match(workspace, /filter == "done" && onlyThisWeek/,
-    '已完成与本周截止冲突须说明而非提示数据丢失');
-assert.match(workspace, /清除本周截止筛选/,
-    '任务空状态需要直接撤销冲突筛选');
-
-console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
-
-// The shell must not stack a global banner above the local timetable heading.
-assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)/);
-assert.doesNotMatch(main, /private fun MessagesPage\(/, '消息使用唯一原生页面');
-const unifiedSchedule = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-assert.match(unifiedSchedule, /private fun SchedulePageHeading\(/);
-assert.match(unifiedSchedule, /label = "消息中心",\s*onClick = onMessages/,
-  '课表消息入口复用统一工具按钮但保留原回调');
 
 // Automatic reads reuse the bounded local session, never credentials or a new Activity.
 const autoDriver=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassAutoReadDriver.kt');
@@ -2412,25 +1340,87 @@ assert.doesNotMatch(autoControls,/rememberCoroutineScope|refreshIfDue/, 'foregro
 assert.match(main,/override fun onStop\(\)[\s\S]*secondClassAutoJob\?\.cancel\(\)/);
 
 
-// Settings switches use a single high-contrast component, even when disabled.
-const switchFiles = [
-  'ui/ProfileSettingsPage.kt',
-  'ui/SecondClassAutoReadControls.kt',
-  'ui/ScheduleScreen.kt'
-];
-for (const name of switchFiles) {
-  const source = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/' + name);
-  assert.match(source, /XiaoxuSettingsSwitch\s*\(/, name + ': shared switch');
-  assert.doesNotMatch(source, /\bSwitch\s*\(/, name + ': no unstyled switch');
+// Active pages use the shared upstream switch, not the retired settings switch.
+const switchSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamLiquidSwitch.kt');
+assert.match(profileSettings, /LiquidSwitch\(/);
+assert.match(autoControls, /LiquidSwitch\(/);
+assert.match(switchSource, /val disabledTrackColor = if \(isLightTheme\)/);
+assert.match(switchSource, /if \(!enabled\) disabled\(\)/);
+assert.doesNotMatch(profileSettings + autoControls, /\bSwitch\s*\(/, '禁止无样式开关回流');
+assert.doesNotMatch(timetableSettings + localTaskUi, /\b(?:XiaoxuSettingsSwitch|LiquidSwitch|Switch)\s*\(/, '课表和任务编辑不复制全局通知开关');
+assert.match(timetableSettings, /LiquidSegmentedControl\(options = listOf\("周", "日"\)/);
+assert.match(timetableSettings, /LocalSemesterConfigStore\.saveViewMode\(context, defaultView\)/);
+
+// Preserve the upstream inset contract and reuse the same window on standalone entries.
+assert.match(pageScaffold, /contentWindowInsets = WindowInsets\.safeDrawing\.only\(WindowInsetsSides\.Bottom\)/);
+assert.match(secondClassHome, /GlassWindowHost\s*\{/);
+assert.match(secondClassHome, /GlassPageScaffold\(title = "第二课堂"/);
+assert.doesNotMatch(secondClassHome, /Surface\(Modifier\.fillMaxSize\(\)/);
+const upstreamBarTheme = read('apps/xiaoxu-android/app/src/main/java/com/tyust/course/ui/theme/Theme.kt');
+assert.match(upstreamBarTheme, /window\.isNavigationBarContrastEnforced = false/);
+
+// A local reminder adapter must delegate row chrome to the shared upstream group.
+assert.match(profileSettings, /private fun ReminderToggleRow\([\s\S]*?\) \{\s*InsetGroupedRow\([\s\S]*?trailing = \{ LiquidSwitch\(/);
+
+// The upstream Scaffold is used directly; don't reintroduce an independent page host or dock reserve.
+assert.doesNotMatch(sharedFrame, /fun AppPageFrame\(/);
+assert.match(settingsRoutes, /GlassPageScaffold\(title = route\.title, onBack = back\)/);
+assert.match(rebuildShell, /LocalAppOverlayBottomInset provides navBarContentInset/);
+assert.doesNotMatch(rebuildShell, /RebuildDockMetrics/);
+assert.match(pageScaffold, /if \(LocalDialogHost\.current == null\)/);
+
+assert.match(rebuildShell, /val phoneDock = !wide && showPrimary/);
+
+assert.match(dialogHost, /private fun SystemDialogContent\(/);
+assert.match(dialogHost, /LocalGlassLensAnchor provides nestedLensAnchor/);
+assert.match(dialogHost, /LocalGlassLensModalAnchor\.current/);
+assert.doesNotMatch(dialogHost, /fun AppDialogBody\(/);
+
+// Original upstream glass icon button replaces Material's naked back arrow.
+assert.match(pageScaffold, /SystemIconButton\(Icons\.AutoMirrored\.Filled\.ArrowBack/);
+assert.match(systemUi, /fun AnimatedIconButton\(/);
+assert.match(systemUi, /fun SystemIconButton\(/);
+assert.match(systemUi, /\.adaptiveGlassChip\(/);
+
+// Upstream navigation retains at most one outgoing page and blocks its pointer events.
+assert.doesNotMatch(motionHost, /retainOutgoing/);
+assert.match(motionHost, /if \(page != state\.target\) Box\(Modifier\.fillMaxSize\(\)\.pointerInput/);
+assert.match(rebuildShell, /LocalLoadingActive provides active/);
+assert.match(rebuildShell, /if \(active\) inboxTaskId \?: reminderTaskId else null/);
+
+// Shared freshness is the original MainActivity contract, not a per-page animation engine.
+assert.match(rebuildShell, /LocalPageGlassFreshness provides lensFreshness/);
+assert.match(rebuildShell, /if \(consumed\.y != 0f\) lensFreshness\?\.onScroll\(\)/);
+assert.match(rebuildShell, /lensFreshness = lensFreshness/);
+assert.match(windowHost, /freshness = LocalPageGlassFreshness\.current/);
+assert.match(navDock, /modifier = modifier, lensFreshness = lensFreshness/);
+
+// Upstream MainActivity chrome must be drawn outside of the page capture.
+assert.match(windowHost, /layerBackdrop\(page\)[\s\S]*?\{ content\(\) \}[\s\S]*?\{ chrome\(\) \}[\s\S]*?DialogHost\(dialogs\)/);
+assert.match(rebuildShell, /GlassOverlayHost\(modifier = Modifier\.fillMaxSize\(\)\)/);
+assert.doesNotMatch(rebuildShell, /\bGlassWindowHost\(/, '根页面直接使用上游 MainActivity 渲染结构');
+assert.match(rebuildShell, /Modifier\.layerBackdrop\(capturedPageBackdrop\)[\s\S]*?Canvas\(Modifier\.fillMaxSize\(\)\.layerBackdrop\(wallpaperBackdrop\)\)[\s\S]*?CompositionLocalProvider\(LocalNavigationMotion provides barMotion\)[\s\S]*?if \(phoneDock\) CapsuleNavigationBar\(/);
+assert.match(rebuildShell, /val barMotion = rememberNavigationMotionState\(selectedNavigationIndex, accountKey \+ ":tabs", reducedMotion\)/);
+assert.match(rebuildShell, /val navigationMotion = rememberNavigationMotionState\(route\.ordinal, accountKey \+ ":routes", reducedMotion\)/);
+assert.match(rebuildShell, /val navBarBackdrop = capturedPageBackdrop \?: wallpaperBackdrop/);
+assert.doesNotMatch(rebuildShell, /rememberCombinedBackdrop\(/, '根导航不重复合成完整页面');
+assert.match(rebuildShell, /backdrop = navBarBackdrop\.takeIf/);
+assert.doesNotMatch(rebuildShell, /backdrop = wallpaperBackdrop/);
+
+// Verify removed legacy components have no remaining Kotlin references at the exact CI checkout.
+const retiredUiSourceRoot = new URL('../apps/xiaoxu-android/app/src/', import.meta.url);
+function verifyRetiredUi(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const child = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir);
+    if (entry.isDirectory()) verifyRetiredUi(child);
+    else if (entry.name.endsWith('.kt')) {
+      assert.doesNotMatch(readFileSync(child, 'utf8'), /\bxiaoxuSettingsRouteTransition\b|\bAppEntry\s*\(|\bInitialPageLoad\s*\(|\bReportInitialPageReady\s*\(/, 'retired UI reference: ' + child.pathname);
+    }
+  }
 }
-assert.doesNotMatch(timetableSettings, /XiaoxuSettingsSwitch\s*\(|\bSwitch\s*\(/,
-  '课表设置不再维护全局提醒开关');
-assert.doesNotMatch(localTaskUi, /XiaoxuSettingsSwitch\s*\(|\bSwitch\s*\(/,
-  '任务编辑页不应存在重复的通知总开关');
-assert.match(designSystem, /fun XiaoxuSettingsSwitch\(/);
-assert.match(designSystem, /uncheckedThumbColor\s*=/);
-assert.match(designSystem, /disabledUncheckedTrackColor\s*=/);
-const semesterSettingsUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
-assert.match(semesterSettingsUi, /Text\("默认课表视图"/);
-assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,
-  'default timetable view must use the compact inline choice, not a full-row segmented bar');
+verifyRetiredUi(retiredUiSourceRoot);
+assert.equal(existsSync(new URL('main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt', retiredUiSourceRoot)), false);
+
+// CI reference inventory found no external use of the abandoned deferred-mount path.
+assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/InitialPageLoad.kt', import.meta.url)), false,
+  '已退役的延迟页面挂载组件不得恢复');

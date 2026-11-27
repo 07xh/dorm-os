@@ -16,11 +16,9 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -108,9 +106,9 @@ fun LocalTaskBackupPanel(
             Text(
                 "本机任务、个人步骤与前置关系",
                 style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Button(
+            LiquidButton(style = LiquidButtonStyle.SolidTinted, 
                 onClick = { create.launch("xiaoxu-local-tasks.json") },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
@@ -119,7 +117,7 @@ fun LocalTaskBackupPanel(
                 Spacer(Modifier.width(8.dp))
                 Text(if (busy) "正在处理…" else "导出本机任务")
             }
-            OutlinedButton(
+            LiquidButton(style = LiquidButtonStyle.SolidSurface, 
                 onClick = { open.launch(arrayOf("application/json", "text/plain")) },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
@@ -131,7 +129,7 @@ fun LocalTaskBackupPanel(
             Text(
                 "恢复仅合并新记录，重复项跳过；不清空当前任务。",
                 style = MaterialTheme.typography.bodySmall,
-                color = XiaoxuPalette.Ink2
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -146,7 +144,7 @@ fun LocalTaskBackupPanel(
             Text(
                 it,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (it.contains("失败")) XiaoxuPalette.Danger else XiaoxuPalette.Ink,
+                color = if (it.contains("失败")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = if (embedded) 0.dp else 14.dp)
             )
         }
@@ -168,20 +166,20 @@ fun LocalTaskBackupPanel(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Outlined.Info, contentDescription = null,
-                        tint = XiaoxuPalette.Brand)
+                        tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
                     Text(
                         if (guidanceExpanded) "收起备份说明" else "查看备份说明",
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium,
-                        color = XiaoxuPalette.Ink
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-                        tint = XiaoxuPalette.Ink3)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (guidanceExpanded) {
                     HorizontalDivider(
-                        color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp,
                         modifier = Modifier.padding(horizontal = 18.dp)
                     )
                     Column(
@@ -199,12 +197,12 @@ private fun BackupGuidance() {
         Text(
             "更换手机或重新安装前，请先导出备份。不同签名的安装包通常无法直接覆盖升级；卸载旧版会丢失本机数据。旧版若不支持导出，新版无法替它找回。",
             style = MaterialTheme.typography.bodySmall,
-            color = XiaoxuPalette.Ink2
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             "JSON 备份文件未加密，包含本机任务、个人步骤、关系及来源标识；不包含学校账号登录凭据或学校原始记录。请勿公开分享含个人信息的备份。",
             style = MaterialTheme.typography.bodySmall,
-            color = XiaoxuPalette.Ink2
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

@@ -72,3 +72,229 @@ Distribution warning: combining the GPLv3 UI adaptation with the existing
 non-commercial SleepDown-derived animation code has NOT been cleared for
 public redistribution. This is a development/QA integration; publicly
 distributing APKs requires a separate license compatibility/source review.
+
+------------------------------------------------------------------
+2026-11-25 Android UI rebuild (development branch)
+Historical attribution above is retained for prior source versions.
+The old SleepDown-derived navigation files and prior NorthGlass navigation
+files have been removed from the new UI branch. The replacement dock uses
+existing Kyant backdrop/shapes dependencies and an independently written
+material-selection policy, informed by CourseSelector's public architecture.
+No upstream CapsuleNavigationBar.kt or GlassKit.kt source was imported in
+this commit. Remaining source and license compatibility still require review
+before distribution; this notice is not a release clearance.
+
+------------------------------------------------------------------
+2026-11-25 direct upstream reuse (development branch)
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors (upstream history).
+GlassKit.kt -> ui/UpstreamGlassKit.kt: GlassIconChip, InsetGroupedSection,
+InsetGroupedRow, GlassProgressBar. Adapted package/imports, local theme
+instead of wallpaper manager, Compose animation defaults.
+GlassPerformancePolicy.kt -> ui/GlassPerformancePolicy.kt: package change only.
+Local adapter keeps the existing API 33+ rendering gate.
+GPL text already bundled; entire distribution/license compatibility review
+still required before releasing an APK.
+
+------------------------------------------------------------------
+2026-11-25 direct navigation source replacement
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported NavigationIconMotion.kt,
+NavigationIconPlayback.kt, PhosphorNavigationIcon.kt, AppSymbolSpec enum,
+NavTab from CapsuleNavigationBar.kt, and NavigationIconMotionTest.kt.
+Adapted package names, destination-to-symbol mapping and theme bindings.
+Phosphor geometry: MIT license, Copyright (c) 2023 Phosphor Icons; bundled license
+assets/licenses/phosphor-icons.txt. Outer backdrop container remains for now;
+full upstream optical/drag dependencies and release review are pending.
+
+------------------------------------------------------------------
+2026-11-25 upstream shared UI replacement
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported ScreenMetrics.kt,
+lerpDp/lerpSp from CollapsingGlassHeader.kt, SystemTopBar, SystemEmptyState,
+SystemSectionHeader and SystemListItem from SystemUi.kt. Changes: package,
+local theme bindings, shell-owned insets, optional backdrop. Adaptive dock
+geometry uses upstream responsive dimensions; not a full optical port.
+
+------------------------------------------------------------------
+2026-11-25 upstream timetable replacement
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. Imported ScheduleDomain,
+ScheduleOverlap, ScheduleLocation, ScheduleFocus, ScheduleDetail model,
+TimetableLayout, TimetableBackground, CourseCard, text measurement and
+schedule card colors/borders from upstream schedule and UI sources.
+Adapted package, theme/dialog/icon bindings and maximum imported week count
+(35, matching Xiaoxu's existing local import contract). ScheduleFeature
+binds the existing Xiaoxu local timetable and semester settings; no new
+storage or network client. Full upstream header/pager/agenda/sheet pending.
+
+------------------------------------------------------------------
+2026-11-25 upstream schedule navigation and motion reuse
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported MotionTokens.kt,
+MotionProfile (without unrelated navigation transition dependency),
+ScheduleDateText.kt, ScheduleWeekLabel from ScheduleHeader.kt,
+ScheduleWeekPagerSync.kt and its original tests. Adapted package names,
+platform reduce-motion binding and local sparse-week mapping. No changes to
+school interfaces or timetable storage. Full course sheet and day agenda pending.
+
+------------------------------------------------------------------
+2026-11-25 upstream course agenda and detail layout reuse
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported ScheduleDayCourse and
+ScheduleNotice from ScheduleAgendaContent.kt, scheduleGlassSheen from
+ScheduleGlass.kt, information layout and DetailInfoTile/DetailInfoLine
+from CourseDetailContent.kt. Local bindings: system reduced motion,
+Material icons, existing ModalBottomSheet, Xiaoxu LocalCourseReminders and
+LocalSemesterConfigStore. Full upstream glass dialog host, custom course
+editing and study-slot planner were not imported. Day/week selection uses
+existing view-mode preference; no new store or school client.
+
+------------------------------------------------------------------
+2026-11-25 upstream schedule settings layout reuse
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported basic date and period
+count rows and period time list layout from ScheduleSettingsScreen.kt.
+Adapted to Xiaoxu's existing page route, calendar validation and storage;
+Material input dialogs replace the not-yet-ported glass wheel pickers.
+No new storage, account manager, or automatic school synchronization.
+
+------------------------------------------------------------------
+2026-11-26 upstream grades page and liquid controls
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. GradesScreen.kt,
+MeasuredGradesHeader.kt, GradeRowIdentity.kt, the split LiquidSelectionComponents.kt port
+and its picker, action rail, glass surface and lens dependencies are reused
+with Xiaoxu package, shared-window and verified snapshot bindings. The grades
+screen has a Back action and preserves plain-text snapshot notes and missing
+values. Exams use the existing owner-bound read pipeline. Xiaoxu's second-class
+term trigger uses the same picker alongside the existing points heading.
+
+------------------------------------------------------------------
+2026-11-25 unified tasks and settings
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. SettingsRow directly reused from
+SettingsScreen.kt; profile and connection groups use the existing ported
+InsetGroupedSection, InsetGroupedRow and shared read feedback. Task page
+reuses Xiaoxu's existing task projection, status filters and transactional DAO.
+
+------------------------------------------------------------------
+2026-11-25 navigation optics
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. DampedDragAnimation.kt,
+DragGestureInspector.kt, GlassMaterial.kt, platform optics from
+PhysicalLensSurface.kt / GlassCompat.kt and CapsuleNavigationBar gesture
+and velocity deformation logic reused; local route and fallback adapters.
+
+------------------------------------------------------------------
+2026-11-25 common input components
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. GlassFilterCapsule.kt,
+GlassFormField.kt and GlassTextField from GlassKit.kt reused with local theme,
+accessibility and non-nested optical fallback.
+
+------------------------------------------------------------------
+2026-11-25 wheel picker and switch
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. GlassWheelPicker.kt and
+LiquidComponents.kt LiquidSwitch fallback reused with shared dialog host,
+accessibility settings and asynchronous controlled-state adapter.
+
+------------------------------------------------------------------
+2026-11-25 shared segmented control and dialog layout
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. LiquidSelectionComponents.kt
+fallback control and SystemUi.kt SystemDialogContent layout adapted to the
+existing local state, theme, native dialog window and performance policy.
+
+------------------------------------------------------------------
+2026-11-25 offscreen glass engine
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. GlassFrameQueue, GlassLens,
+GlassLensEngine, GlassLensRenderer, GlassLensShader, GlassLensCapture,
+GlassLensFrameIdentity, GlassLensGeometry, GlassLensFreshness, GlassLensRegion,
+GlassChipAppearance, remaining PhysicalLensSurface functions and corresponding
+pure JVM tests reused; package, theme invalidation and diagnostics adapted.
+
+------------------------------------------------------------------
+2026-11-25 offscreen glass device tests
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. GlassLensRendererTest,
+GlassLensGeometryDeviceTest and GlassLensCaptureDeviceTest reused with
+package/theme adaptation and existing isolated runtime build.
+
+------------------------------------------------------------------
+2026-11-25 shared dialog portal and sheet
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. DialogHost.kt,
+ScheduleBottomSheetState.kt, GlassSheetSurface.kt and DialogHostStateTest.kt
+reused with local package/theme and gated native-window fallback.
+
+------------------------------------------------------------------
+2026-11-25 thumb and segmented optical rendering
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. ThumbLens.kt and upstream
+switch/segment platform effects adapted to isolated track-only sources and
+existing performance and accessibility policy.
+
+------------------------------------------------------------------
+2026-11-25 timetable period labels
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. ScheduleScreen.kt period-time
+column layout reused with existing local schedule and calendar data.
+
+
+R36: Direct upstream visual source, znjhahaha/zhengfang-apk, commit bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, GPL-3.0. Original theme, wallpaper, readability, indication and appearance sources retain original package. App theme coordinator adapted to existing Activity; no public APK distribution until license compatibility verified.
+
+------------------------------------------------------------------
+2026-11-25 unified upstream window/page foundation
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. Complete GlassKit.kt,
+AnimatedCount.kt, PageLoadingIcon.kt, ModuleMotion.kt, GlassOverlayHost.kt,
+GlassWindowHost.kt, GlassPageScaffold.kt and SettingsScreen layout reused.
+SystemTopBar and SystemStatusBadge restored from SystemUi.kt. Local package,
+real Xiaoxu routes, shell insets and existing device fallback adapted.
+
+------------------------------------------------------------------
+2026-11-25 shared academic list page layout
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. SemesterGradesContent and
+ExamScheduleContent list/header layout adapted in AcademicSnapshotList.kt;
+GradeRefreshStatus reused. Shared existing upstream wheel dialog and page
+host; owner-scoped readonly snapshots remain the sole data source. No
+upstream exam writes, unsupported statistics, or export actions imported.
+
+------------------------------------------------------------------
+2026-11-25 shared upstream navigation motion
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. NavigationMotion.kt replaces
+partial ScheduleMotionProfile.kt; NativeShell uses upstream NavigationPages,
+NavigationMotionState and ModuleMotion timeline for the existing AppRoute set.
+Only the active business page is composed; outgoing-page drawing is disabled
+to avoid duplicate reminders, data readers and dialog side effects. System
+reduced-motion preference and original route history are preserved. No data
+or network layer changes. Compilation and device validation remain pending.
+
+------------------------------------------------------------------
+2026-11-25 complete upstream capsule navigation source
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. CapsuleNavigationBar.kt and
+ChromaticFringe.kt replace the partial RebuildCapsuleDock and standalone
+NavTab rendering; the existing route-to-symbol and device tier adapters
+remain. Upstream glass track, indicator, gesture, minimized capsule and
+fallback renderers are retained. Xiaoxu currently enables optical navigation
+only on its existing supported API 33+ tier; no API 31/32 expansion or
+scroll-driven minimization is claimed. License compatibility, compilation
+and device validation remain pending before any public APK distribution.
+
+------------------------------------------------------------------
+2026-11-25 application host consolidation
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. NavScrollIntent.kt,
+PageDataState.kt, InitialPageLoad.kt and original regression tests imported.
+MainActivity.kt shell pattern adapted to Xiaoxu routes, account-scoped UI
+state and one window/overlay host. No new business data store or network
+preparation; existing workspace remains responsible for reads. Existing
+single-live-page policy and physical bottom inset reserve retained.
+ScheduleGrid and collapsing header source adaptations also retain verified
+local dates and school data only. Build/device verification pending.

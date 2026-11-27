@@ -1,6 +1,9 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,12 +78,13 @@ internal fun LocalTaskDependencyGraphDialog(
     }
     val total = allNodes.size
     val focusTitle = allNodes.firstOrNull { it.task.id == focusedTaskId }?.task?.title
-    XiaoxuSheet(onDismiss = onDismiss, title = "本机任务关系图") {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("本机任务关系图") }, text = {
+        Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "按前置关系从上到下排列，箭头表示完成前置后才解锁下一阶段。" +
                 "仅包含本人设置的本机任务，不改变学校或云端任务。",
             style = MaterialTheme.typography.bodySmall,
-            color = XiaoxuPalette.Ink2
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (layers.isNotEmpty()) {
             OutlinedTextField(
@@ -99,7 +103,7 @@ internal fun LocalTaskDependencyGraphDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("追踪链路：" + focusTitle,
                         style = MaterialTheme.typography.labelMedium,
-                        color = XiaoxuPalette.Ink2,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         modifier = Modifier.weight(1f))
                     TextButton(onClick = { focusedTaskId = null }) {
@@ -113,13 +117,13 @@ internal fun LocalTaskDependencyGraphDialog(
                 if (dependencies.isEmpty()) "还没有建立先后关系。可在本机任务编辑页添加前置任务。"
                 else "依赖关系暂时无法展示，请检查或重新编辑本机任务。",
                 style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink2
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else if (shown.isEmpty()) {
             Text(
                 "没有匹配的关联任务。可修改搜索关键词或查看全部。",
                 style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink2
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             Column(
@@ -135,13 +139,13 @@ internal fun LocalTaskDependencyGraphDialog(
                                 "↓ 前置完成后解锁",
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = XiaoxuPalette.Ink2
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
                             "阶段 ${level + 1} · ${visible.size} 项",
                             style = MaterialTheme.typography.titleSmall,
-                            color = XiaoxuPalette.Ink,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold
                         )
                         visible.forEach { node ->
@@ -163,13 +167,13 @@ internal fun LocalTaskDependencyGraphDialog(
                     "当前链路/搜索找到 ${scoped.size} 个关联任务，已展示 ${shown.size} 个。" +
                         "可以缩小搜索范围或选中任务追踪。",
                     style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else if (search.isNotBlank() || focusTitle != null) {
                 Text(
                     "当前显示 ${scoped.size} / 全图 ${total} 项关联任务。",
                     style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -180,7 +184,8 @@ internal fun LocalTaskDependencyGraphDialog(
             Icon(Icons.Outlined.AccountTree, contentDescription = null)
             Text("编辑本机任务与前置关系", modifier = Modifier.padding(start = 8.dp))
         }
-    }
+        }
+    }, confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } })
 }
 
 @Composable
@@ -197,12 +202,12 @@ private fun LocalTaskGraphNodeRow(
         unfinished > 0 -> "等待 ${unfinished} 项前置"
         else -> "现在可做"
     }
-    val shape = RoundedCornerShape(XiaoxuRadius.card)
+    val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier.fillMaxWidth()
             .clip(shape)
-            .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .clickable(onClickLabel = "编辑任务“${task.title}”的前置关系") {
                 onEditTask(task.id)
             }
@@ -214,26 +219,26 @@ private fun LocalTaskGraphNodeRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Icon(Icons.Outlined.AccountTree, contentDescription = null, tint = XiaoxuPalette.Ink2)
+        Icon(Icons.Outlined.AccountTree, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(task.title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = XiaoxuPalette.Ink,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 state,
                 style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (node.prerequisites.isNotEmpty()) {
                 Text(
                     "← " + node.prerequisites.joinToString("、") { it.title },
                     style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2, overflow = TextOverflow.Ellipsis
                 )
             }
@@ -241,7 +246,7 @@ private fun LocalTaskGraphNodeRow(
                 Text(
                     "→ " + node.unlocks.joinToString("、") { it.title },
                     style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2, overflow = TextOverflow.Ellipsis
                 )
             }

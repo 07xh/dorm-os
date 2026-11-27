@@ -124,39 +124,48 @@ test('switching the visible owner while catalog is read rejects entire snapshot'
 test('single-page second-class keeps verified data and no duplicate refresh',()=>{
   const page=readFileSync(
     'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt','utf8');
-  assert.match(page,/LazyColumn\(/, 'one lazy scroll list instead of three stacked scroll views');
+  const ui=readFileSync(
+    'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AcademicSnapshotList.kt','utf8');
+  assert.equal((page.match(/\bLazyColumn\(/g)||[]).length,1);
   assert.doesNotMatch(page,/catalogScroll|activitiesScroll|scoresScroll|sectionOptions/);
   for(const heading of ['积分概览','我的活动','活动广场','积分明细'])
     assert.ok(page.includes('"'+heading+'"'),'missing section '+heading);
-  assert.match(page,/secondClassPoints\(schoolTotal\) \?: "—"/,
-    'missing official total is unknown, not fabricated zero');
-  assert.match(page,/if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
-    'do not show personal activity count without a complete batch');
-  assert.match(page,/val catalogActivities = all\.filter/,
-    'catalog list reads only persisted validated local records');
-  assert.match(page,/visibleCatalogActivities\.isNotEmpty\(\)/,
-    'nonempty verified official catalog renders native cards');
-  assert.match(page,/if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/);
+  assert.match(page,/secondClassPoints\(total\) \?: "—"/);
+  assert.match(page,/if \(summary == null\) "未读取" else "\$\{activities\.size\} 项"/);
+  assert.match(page,/it\.provider == "second_class" && it\.sourceHost == "dekt\.ncwu\.edu\.cn"/);
+  assert.match(page,/binding\?\.capturedAt == capture/);
+  assert.match(page,/if \(!confirmed\)[\s\S]*?return@AppSnapshotContent/);
+  assert.match(page,/it\.capturedAt == stamp/);
+  assert.match(page,/val catalog = remember\(records\) \{ records\.filter/);
+  assert.match(page,/val visibleCatalogActivities = remember\(catalog, activeCatalogFilter\) \{ catalog\.filter/);
+  assert.match(page,/catalogTime == null \|\| visibleCatalogActivities\.isEmpty\(\)/);
+  assert.match(page,/else items\(visibleCatalogActivities/);
+  assert.match(page,/if \(catalogTime != null && catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/);
   assert.doesNotMatch(page,/row\.reviewStatus == "approved"/);
-  assert.match(page,/XiaoxuGlassDialog\(/, 'details use existing glass dialog, not inline expansion');
-  const header = page.slice(page.indexOf('item(key = "points_header")'),
-    page.indexOf('item(key = "metrics")'));
-  assert.match(header,/Text\("积分概览"/);
-  assert.match(header,/DropdownMenu\(/,'term selector stays in the overview title row');
-  assert.doesNotMatch(page,/item\(key = "term_selector"\)/,
-    'no separate term card beneath the summary');
-  const breakdown = page.slice(page.indexOf('item(key = "term_breakdown")'),
-    page.indexOf('item(key = "activities_header")'));
-  assert.match(breakdown,/Text\("积分明细"/);
-  assert.doesNotMatch(breakdown,/secondClassCategories\(/,
-    'six categories must not be expanded in the default scroll list');
-  assert.match(page,/if \(detailRecord\.kind == "credits"\)/,
-    'points are only expanded inside the glass dialog');
+  assert.match(page,/AppDialog\(onDismissRequest/);
+  const header = page.slice(page.indexOf('item(key = "credits-overview")'),
+    page.indexOf('item(key = "activity-header")'));
+  assert.match(header,/Text\("积分概览", Modifier\.weight\(1f\)/);
+  assert.match(header,/AcademicTermPicker\(termTitles, selected/);
+  assert.match(header,/正在同步 · 保留当前数据/);
+  assert.match(header,/AcademicReadAction\("手动读取", refreshing\)/);
+  // Upstream liquid picker replaces the previous option wheel; index 0 is the all-terms choice.
+  assert.match(ui,/SystemPicker\(/);
+  assert.match(ui,/options = listOf\(allLabel\) \+ terms/);
+  assert.match(ui,/onSelect = \{ index -> onSelect\(terms\.getOrNull\(index - 1\)\) \}/);
+  assert.match(ui,/enabled = terms\.isNotEmpty\(\)/);
+  assert.doesNotMatch(page,/item\(key = "term_selector"\)/);
+  const breakdown = page.slice(page.indexOf('InsetGroupedRow(title = "积分明细"'),
+    page.indexOf('item(key = "activity-header")'));
+  assert.match(breakdown,/title = "积分明细"/);
+  assert.doesNotMatch(breakdown,/secondClassCategories\(/);
+  assert.match(page,/if \(row\.kind == "credits"\)[\s\S]*?secondClassCategories\(row\)/);
   assert.match(page,/if \(refreshing\) return/);
   assert.match(page,/refreshing = true[\s\S]*reader\.launch/);
   assert.match(page,/val receipt = if \(result\.resultCode == Activity\.RESULT_OK\) SecondClassSaveReceipt\.validate/);
   assert.match(page,/val succeeded = receipt != null/);
   assert.match(page,/refreshing = false/);
-  assert.match(page,/enabled = !refreshing/);
+  assert.match(page,/AcademicReadAction\("手动读取", refreshing\)/);
+  assert.match(ui,/TextButton\(onClick = onRead, enabled = !busy\)/);
   assert.match(page,/onRefreshResult\?\.invoke\(false\)/);
 });

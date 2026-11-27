@@ -38,6 +38,7 @@ android {
     }
     buildFeatures {
         compose true
+        buildConfig true // Upstream lens debug-only diagnostics.
     }
     // Offline runtime fixtures have independent storage and no INTERNET permission.
     if (project.hasProperty('xiaoxuRuntimeTest')) {
@@ -59,6 +60,13 @@ android {
         // Signing is performed by the release job after all checks pass.
         // No public debug-key fallback is permitted for formal releases.
         release {
+            // Explicit isolated performance build uses the same release optimizer.
+            if (project.findProperty('xiaoxuPerformanceQa')?.toString() == 'true') {
+                applicationIdSuffix '.performanceqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 性能验证'
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-performance-qa'
+                resValue 'string', 'school_auth_return_host', 'school-auth-return-performance-qa'
+            }
             debuggable false
             minifyEnabled true
             shrinkResources true
@@ -100,7 +108,12 @@ dependencies {
     baselineProfile(project(':benchmark'))
     // Mature MIT HTML parser, same parsing layer used by the reference client.
     implementation 'org.jsoup:jsoup:1.21.2'
+    // Same upstream wallpaper image pipeline dependencies.
+    implementation 'androidx.exifinterface:exifinterface:1.3.6'
+    implementation 'com.squareup.okio:okio:3.6.0'
     testImplementation 'junit:junit:4.13.2'
+    // Upstream navigation tests use virtual time; keep the test dependency compatible with Kotlin 2.2.
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2'
     // JVM tests exercise JSONObject with a real implementation, not Android stubs.
     testImplementation 'org.json:json:20240303'
     androidTestImplementation 'androidx.test:runner:1.7.0'

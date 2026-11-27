@@ -20,6 +20,10 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -71,6 +75,7 @@ private fun parseWeekList(text: String): List<Int> {
  * 编辑课程与课表设置采用同一个全屏玻璃分组页面，不再使用狭窄系统表单弹窗。
  * 数据校验、仅修改选中周次和删除确认维持原有行为。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CourseEditorDialog(
     original: VerifiedLesson?,
@@ -124,7 +129,7 @@ internal fun CourseEditorDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             modifier = Modifier.fillMaxSize()
-                .background(XiaoxuPalette.PageGradient)
+                .background(MaterialTheme.colorScheme.background)
                 .systemBarsPadding()
                 .imePadding()
                 .padding(horizontal = 22.dp)
@@ -133,21 +138,16 @@ internal fun CourseEditorDialog(
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                XiaoxuSoftIconButton(
-                    enabled = !busy,
-                    onClick = onDismiss,
-                    modifier = Modifier.size(46.dp),
-                    backgroundColor = Color.White.copy(alpha = 0.65f)
-                ) { Icon(Icons.Outlined.Close, contentDescription = "关闭课程编辑") }
+                IconButton(enabled = !busy, onClick = onDismiss, modifier = Modifier.size(46.dp)) { Icon(Icons.Outlined.Close, contentDescription = "关闭课程编辑") }
                 Text(
                     if (original == null) "新增课程" else "编辑课程",
                     modifier = Modifier.weight(1f).padding(start = 14.dp),
                     style = MaterialTheme.typography.headlineSmall,
                     fontSize = 27.sp, fontWeight = FontWeight.SemiBold,
-                    color = XiaoxuPalette.Ink
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(enabled = !busy, onClick = ::submit) {
-                    Text(if (busy) "保存中" else "保存", color = XiaoxuPalette.Brand, fontSize = 16.sp)
+                    Text(if (busy) "保存中" else "保存", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
                 }
             }
             Column(
@@ -174,18 +174,13 @@ internal fun CourseEditorDialog(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text("星期", style = MaterialTheme.typography.bodyMedium,
-                            color = XiaoxuPalette.Ink2)
-                        XiaoxuSegmentedControl(
-                            options = listOf(
-                                XiaoxuSegmentOption("1", "一"), XiaoxuSegmentOption("2", "二"),
-                                XiaoxuSegmentOption("3", "三"), XiaoxuSegmentOption("4", "四"),
-                                XiaoxuSegmentOption("5", "五"), XiaoxuSegmentOption("6", "六"),
-                                XiaoxuSegmentOption("7", "日")
-                            ),
-                            selectedKey = weekday,
-                            onSelected = { if (!busy) weekday = it },
-                            compact = true
-                        )
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            "一二三四五六日".forEachIndexed { index, label ->
+                                val key = (index + 1).toString()
+                                GlassFilterCapsule(label = label.toString(), selected = weekday == key, onClick = { weekday = key }, enabled = !busy)
+                            }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             EditorField(start, { start = it }, "开始节", enabled = !busy,
                                 numeric = true,
@@ -206,13 +201,13 @@ internal fun CourseEditorDialog(
                         if (canScope) {
                             Row(
                                 modifier = Modifier.fillMaxWidth()
-                                    .clip(RoundedCornerShape(XiaoxuRadius.tile))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .clickable(enabled = !busy) { weekOnly = !weekOnly },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(checked = weekOnly,
                                     onCheckedChange = { weekOnly = it }, enabled = !busy)
-                                Text("仅修改第$selectedWeek 周", color = XiaoxuPalette.Ink)
+                                Text("仅修改第$selectedWeek 周", color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -220,7 +215,7 @@ internal fun CourseEditorDialog(
                 Text(
                     "仅修改本机课表，不会提交到学校教务系统。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 14.dp)
                 )
                 if (externalError != null || localError != null) {
@@ -235,7 +230,7 @@ internal fun CourseEditorDialog(
                             onClick = { confirmDelete = true },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
                         ) {
-                            Text("删除课程", color = XiaoxuPalette.Danger)
+                            Text("删除课程", color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -243,23 +238,16 @@ internal fun CourseEditorDialog(
         }
     }
     if (confirmDelete && original != null) {
-        XiaoxuBottomActionSheet(
-            title = "确认删除课程",
-            subtitle = if (weekOnly && canScope) "仅删除第${selectedWeek}周的这门课程？"
-                else "删除此课程全部周次？",
-            onDismiss = { if (!busy) confirmDelete = false },
-            dismissEnabled = !busy,
-            actions = listOf(
-                XiaoxuSheetAction(
-                    label = "确认删除",
-                    destructive = true,
-                    enabled = !busy,
-                    onClick = {
-                        confirmDelete = false
-                        onDelete(weekOnly && canScope)
-                    }
-                )
-            )
+        AppDialog(
+            onDismissRequest = { if (!busy) confirmDelete = false },
+            title = { Text("确认删除课程") },
+            text = { Text(if (weekOnly && canScope) "仅删除第${selectedWeek}周的这门课程？"
+                else "删除此课程全部周次？") },
+            confirmButton = { TextButton(enabled = !busy, onClick = {
+                confirmDelete = false
+                onDelete(weekOnly && canScope)
+            }) { Text("确认删除", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { confirmDelete = false }) { Text("取消") } }
         )
     }
 }
@@ -273,26 +261,6 @@ private fun EditorField(
     numeric: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        enabled = enabled,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text
-        ),
-        modifier = modifier.fillMaxWidth().heightIn(min = 58.dp),
-        shape = RoundedCornerShape(XiaoxuRadius.tile),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = XiaoxuPalette.Brand,
-            unfocusedBorderColor = XiaoxuPalette.Line,
-            focusedLabelColor = XiaoxuPalette.BrandDeep,
-            unfocusedLabelColor = XiaoxuPalette.Ink2,
-            focusedTextColor = XiaoxuPalette.Ink,
-            unfocusedTextColor = XiaoxuPalette.Ink,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
-        )
-    )
+    GlassFormField(value, onChange, label, modifier.fillMaxWidth(), enabled = enabled,
+        keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text))
 }

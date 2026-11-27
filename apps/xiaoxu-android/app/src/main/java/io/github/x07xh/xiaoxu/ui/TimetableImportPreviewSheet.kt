@@ -10,10 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,10 +45,20 @@ internal fun TimetableImportPreviewSheet(
         lessons.sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
     }
 
-    XiaoxuSheet(
-        title = if (decreased) "核对课表变更" else "导入课表",
-        onDismiss = { if (!saving) onDismiss() }
-    ) {
+    AppDialog(
+        title = { Text(if (decreased) "核对课表变更" else "导入课表") },
+        onDismissRequest = { if (!saving) onDismiss() },
+        confirmButton = {
+            LiquidButton(style = LiquidButtonStyle.SolidTinted, onClick = {
+                if (decreased && !confirmedReduced) confirmedReduced = true else onConfirm()
+            }, enabled = !saving) {
+                Text(if (saving) "正在保存" else if (decreased && !confirmedReduced) "继续核对"
+                    else if (decreased) "已核对，替换" else "确认保存")
+            }
+        },
+        dismissButton = { LiquidButton(style = LiquidButtonStyle.SolidSurface, onClick = onDismiss, enabled = !saving) { Text("保留旧课表") } },
+        text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -58,7 +66,7 @@ internal fun TimetableImportPreviewSheet(
             Text(
                 text = fileName,
                 style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -66,19 +74,19 @@ internal fun TimetableImportPreviewSheet(
                 text = lessons.size.toString() + " 个课块",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = XiaoxuPalette.Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = if (oldCount == 0) "将保存为本机课表"
                     else "原有 " + oldCount + " 个课块 · 保存后替换",
                 style = MaterialTheme.typography.bodySmall,
-                color = XiaoxuPalette.Ink2
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = if (hasSemesterSettings) "包含学期与节次设置，将一并恢复"
                     else "原有学期及节次设置保持不变",
                 style = MaterialTheme.typography.bodySmall,
-                color = XiaoxuPalette.Ink2
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -87,17 +95,17 @@ internal fun TimetableImportPreviewSheet(
                 text = if (confirmedReduced) "请确认已核对课程，再替换原课表"
                     else "新文件课块更少，请核对是否遗漏课程",
                 style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Warning,
+                color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
-                    .background(XiaoxuPalette.WarningSoft)
+                    .background(MaterialTheme.colorScheme.errorContainer)
                     .padding(14.dp)
             )
         }
         Text(
             "课程预览",
             style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold
         )
         // Bound the list independently so 25+ meetings never turn into a screen-sized text dialog.
@@ -113,7 +121,7 @@ internal fun TimetableImportPreviewSheet(
                     Text(
                         (index + 1).toString() + ". " + lesson.title,
                         style = MaterialTheme.typography.titleSmall,
-                        color = XiaoxuPalette.Ink,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -121,54 +129,33 @@ internal fun TimetableImportPreviewSheet(
                         .getOrElse(lesson.weekday - 1) { "?" }
                     Text(
                         "周" + weekday + " · 第 " + lesson.startSection + "–" +
-                            lesson.endSection + " 节 · " + formatWeeks(lesson.weeks),
+                            lesson.endSection + " 节 · " + previewWeeks(lesson.weeks),
                         style = MaterialTheme.typography.bodySmall,
-                        color = XiaoxuPalette.Ink2
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     val place = lesson.location.ifBlank { "地点未提供" }
                     val teacher = lesson.teacher.ifBlank { "教师未提供" }
                     Text(
                         place + " · " + teacher,
                         style = MaterialTheme.typography.bodySmall,
-                        color = XiaoxuPalette.Ink3,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
                 if (index != sorted.lastIndex) {
-                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                 }
             }
         }
         Text(
             "仅保存到本机，不代表教务系统实时同步。",
             style = MaterialTheme.typography.bodySmall,
-            color = XiaoxuPalette.Ink3
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            OutlinedButton(
-                onClick = onDismiss,
-                enabled = !saving,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-            ) { Text("保留旧课表") }
-            Button(
-                onClick = {
-                    if (decreased && !confirmedReduced) confirmedReduced = true
-                    else onConfirm()
-                },
-                enabled = !saving,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-            ) {
-                Text(
-                    if (saving) "正在保存"
-                    else if (decreased && !confirmedReduced) "继续核对"
-                    else if (decreased) "已核对，替换"
-                    else "确认保存"
-                )
-            }
         }
-    }
+        }
+    )
 }
+
+private fun previewWeeks(weeks: Collection<Int>): String = if (weeks.isEmpty()) "周次未提供" else "第 " + weeks.sorted().joinToString(",") + " 周"

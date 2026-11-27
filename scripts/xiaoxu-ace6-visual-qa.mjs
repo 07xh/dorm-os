@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 校序 · 一加 Ace 6 Android 16 本机视觉证据采集。
+ * 校序 · 一加 Ace 6 Android 16/17 本机视觉证据采集。
  * 只调用用户授权的 adb，不自动点选、登录、上传、清空数据或修改课程。
  * 截图可能包含私人课程/任务，请只保存在自己的电脑。
  */
@@ -20,10 +20,11 @@ if (help) {
     '  --serial <id>   多台 adb 设备时指定真实手机序列号',
     '  --apk <file>    验证本机 QA APK 与手机实际安装 APK 的 SHA256，不会自动安装',
     '  --commit <sha>  记录与截图对应的 GitHub 源码提交',
-    '  --reference-package <id>  可选：同一台 Ace 6 上北化课表原版包名，用于对照截图和帧数据',
+    '  --reference-package <id>  同一台 Ace 6 上北化课表原版包名，用于对照截图和帧数据',
+    '  --page-timing  可选：记录从点击入口至页面有效内容稳定出现的本机录像测量值（至少3次，毫秒）',
     '  --out <folder>  输出目录（默认用户主目录 Xiaoxu-Visual-QA）',
     '说明：需已安装 Android Platform Tools，手机 USB 调试并授权电脑。',
-    '本程序只在本机采集屏幕；无设备、非一加 Ace 6、非 Android 16 时不出具证据。'
+    '本程序只在本机采集屏幕；无设备、非一加 Ace 6、非 Android 16/17 时不出具证据。'
   ].join('\n'));
   process.exit(0);
 }
@@ -41,10 +42,11 @@ const serial = option('--serial');
 const gitCommit = option('--commit', 'UNVERIFIED');
 const apkPath = option('--apk');
 const referencePackage = option('--reference-package');
+const collectPageTiming = argv.includes('--page-timing');
 const referenceSceneNames = ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '11-glass-rest', '12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content', '15-glass-gesture-inset', '16-glass-dialog-gray-edge'];
 const referenceSceneSet = new Set(referenceSceneNames);
-if (!/^io\.github\.x07xh\.xiaoxu(?:\.unifiedqa)?$/.test(packageName)) {
-  throw new Error('只能采集校序正式包或统一 UI 隔离 QA 包');
+if (!/^io\.github\.x07xh\.xiaoxu(?:\.unifiedqa|\.performanceqa)?$/.test(packageName)) {
+  throw new Error('只能采集校序正式包、统一 UI 隔离 QA 包或性能 QA 包');
 }
 if (referencePackage && (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(referencePackage) || referencePackage === packageName)) {
   throw new Error('北化课表原版包名格式错误，或与当前校序 QA 包名相同');
@@ -86,8 +88,8 @@ if (isEmulator) {
 if (!/oneplus/i.test(brand) || !/PLQ110|Ace[\s_-]*6/i.test(model + ' ' + deviceCode)) {
   throw new Error('设备未确认为一加 Ace 6：' + brand + ' ' + model + ' (' + deviceCode + ')');
 }
-if (sdk !== 36 || release !== '16') {
-  throw new Error('设备不是 Android 16：API=' + sdk + ', release=' + release);
+if (!((sdk === 36 && release === '16') || (sdk === 37 && release === '17'))) {
+  throw new Error('设备不是支持的 Android 16/17：API=' + sdk + ', release=' + release);
 }
 const referenceInstalled = referencePackage ? adb(['shell', 'pm', 'path', referencePackage], false, true) : '';
 if (referencePackage && !referenceInstalled.includes('package:')) {
@@ -122,7 +124,10 @@ const metadata = {
   device: { brand, model, deviceCode, androidRelease: release, api: sdk },
   display: {
     size: adb(['shell', 'wm', 'size'], false, true),
-    density: adb(['shell', 'wm', 'density'], false, true)
+    density: adb(['shell', 'wm', 'density'], false, true),
+    peakRefreshRateSetting: adb(['shell', 'settings', 'get', 'system', 'peak_refresh_rate'], false, true),
+    minRefreshRateSetting: adb(['shell', 'settings', 'get', 'system', 'min_refresh_rate'], false, true),
+    note: 'Refresh rate settings are not a measurement of actual per-frame display refresh.'
   },
   app: {
     packageName,
@@ -138,6 +143,7 @@ const metadata = {
     packageName: referencePackage,
     installedPath: referenceInstalled.split('\n')[0],
     originalVersionVerified: false,
+    versionEvidence: adb(['shell', 'dumpsys', 'package', referencePackage], false, true).split(/\r?\n/).filter(x => /\bversion(?:Name|Code)=/.test(x)).slice(0, 4).map(x => x.trim()),
     note: '原版 APK 版本须人工核对为北化课表 v1.0.8.3，包名不能代替版本证据'
   } : null,
   referenceScenes: [],
@@ -162,7 +168,7 @@ const steps = [
   ['12-glass-rapid-tabs', '快速连续切换五个页面并回到今日：查看滑块跳位、闪白、页面状态丢失与连点卡顿；采集帧统计'],
   ['13-glass-drag-return', '从当前标签拖动到相邻标签再拖回并松手：检查回弹、轻触与拖动分离、没有重复切页或压感残留'],
   ['14-glass-course-content', '在有真实课程颜色的周课表上查看玻璃折射和文字采样；确认星期栏、课程色块与课程详情仍保持原状'],
-  ['15-glass-gesture-inset', 'Android 16 系统手势、底部安全区、横竖屏短屏切换：检查可点击区域、底栏遮挡和五项侧栏可达性'],
+  ['15-glass-gesture-inset', 'Android 16/17 系统手势、底部安全区、横竖屏短屏切换：检查可点击区域、底栏遮挡和五项侧栏可达性'],
   ['16-glass-dialog-gray-edge', '从我的打开任务备份与恢复和云端同步，再打开一条任务或公告：检查居中玻璃弹窗、灰边、双重卡片、页面滚动及关闭返回；课程详情仍应由底部弹出']
 ];
 // Screenshot validation must check which application is actually in the
@@ -176,6 +182,26 @@ function isTargetInForeground(targetPackage = packageName) {
     line => /\b(?:topResumedActivity|mResumedActivity|ResumedActivity)\s*[:=]/.test(line)
   );
   return Boolean(resumed?.includes(targetPackage + '/'));
+}
+
+function frameDurationPercentiles(gfx) {
+  const metrics = {};
+  for (const p of [50, 90, 95, 99]) {
+    const match = gfx.match(new RegExp('^\\s*' + p + '(?:th|st|nd|rd) percentile:\\s*(\\d+(?:\\.\\d+)?)\\s*ms\\b', 'im'));
+    metrics['p' + p + 'Ms'] = match ? Number(match[1]) : null;
+  }
+  return metrics;
+}
+const pageTimingScenes = new Set(['02-schedule','03-course-detail','04-schedule-settings','05-schedule-day','06-course-editor','12-glass-rapid-tabs','16-glass-dialog-gray-edge']);
+async function readPageTiming(rl, scene, appLabel) {
+  if (!collectPageTiming || !pageTimingScenes.has(scene)) return null;
+  const input = await rl.question(appLabel + ' 页面就绪时间：请用本机录像逐帧测量同一入口从点击至有效内容稳定显示，输入至少3次毫秒值（空格分隔；未测量直接回车）：');
+  const values = input.trim().split(/\s+/).filter(Boolean).map(Number);
+  if (values.length < 3 || !values.every(x => Number.isFinite(x) && x > 0)) return null;
+  const sorted = [...values].sort((a,b) => a-b);
+  const middle = Math.floor(sorted.length / 2);
+  return { samplesMs: values, medianMs: sorted.length % 2 ? sorted[middle] : (sorted[middle-1] + sorted[middle]) / 2,
+    source: 'user_measured_local_video', independentlyVerified: false };
 }
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -218,6 +244,8 @@ try {
       name, captured: true, foregroundVerified,
       png: name + '.png', frameDump: name + '.gfxinfo.txt',
       totalFrames, jankyFrames, jankyPercent,
+      frameDuration: frameDurationPercentiles(gfx),
+      pageReady: foregroundVerified ? await readPageTiming(rl, name, '校序') : null,
       frameSampleUsable: validFrameSample && totalFrames >= 30,
       screenshotSha256: crypto.createHash('sha256').update(png).digest('hex')
     });
@@ -265,6 +293,8 @@ try {
           jankyFrames: originalJanky,
           jankyPercent: validOriginalFrames ?
             Math.round(10000 * originalJanky / originalTotal) / 100 : null,
+          frameDuration: frameDurationPercentiles(refGfx),
+          pageReady: referenceForegroundVerified ? await readPageTiming(rl, name, '原版') : null,
           frameSampleUsable: validOriginalFrames && originalTotal >= 30,
           screenshotSha256: crypto.createHash('sha256').update(refPng).digest('hex')
         });
@@ -290,10 +320,28 @@ try {
       sampled: Boolean(scene?.captured && scene.foregroundVerified && scene.frameSampleUsable),
       totalFrames: scene?.totalFrames ?? null,
       jankyFrames: scene?.jankyFrames ?? null,
-      jankyPercent: scene?.jankyPercent ?? null
+      jankyPercent: scene?.jankyPercent ?? null,
+      frameDuration: scene?.frameDuration ?? null,
+      pageReady: scene?.pageReady ?? null
     };
   });
   metadata.performanceEvidenceComplete = metadata.performanceSamples.every(x => x.sampled);
+  metadata.sameDevicePerformance = motionScenes.map(name => {
+    const local = metadata.scenes.find(x => x.name === name);
+    const original = metadata.referenceScenes.find(x => x.name === name);
+    const comparable = Boolean(local?.foregroundVerified && local.frameSampleUsable && original?.foregroundVerified && original.frameSampleUsable);
+    const delta = (a, b) => comparable && Number.isFinite(a) && Number.isFinite(b) ? Math.round((a-b)*100)/100 : null;
+    return { name, comparable,
+      xiaoxu: local ? { jankyPercent: local.jankyPercent, frameDuration: local.frameDuration, pageReady: local.pageReady } : null,
+      reference: original ? { jankyPercent: original.jankyPercent, frameDuration: original.frameDuration, pageReady: original.pageReady } : null,
+      deltaJankPercentagePoints: delta(local?.jankyPercent, original?.jankyPercent),
+      deltaP95Ms: delta(local?.frameDuration?.p95Ms, original?.frameDuration?.p95Ms),
+      deltaPageReadyMedianMs: delta(local?.pageReady?.medianMs, original?.pageReady?.medianMs)
+    };
+  });
+  metadata.sameDeviceFrameEvidenceComplete = Boolean(referencePackage) && metadata.sameDevicePerformance.every(x => x.comparable &&
+    Number.isFinite(x.xiaoxu?.frameDuration?.p95Ms) && Number.isFinite(x.reference?.frameDuration?.p95Ms));
+  metadata.pageReadyEvidence = 'manual_video_measurements_only; not independently verified';
   const capturedOriginal = new Set(metadata.referenceScenes
     .filter(x => x.captured && x.foregroundVerified).map(x => x.name));
   metadata.referenceMissingScenes = referencePackage

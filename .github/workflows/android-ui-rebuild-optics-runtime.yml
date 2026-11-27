@@ -1,0 +1,49 @@
+name: Android UI rebuild offline optics runtime
+on:
+  push:
+    branches: [refactor/android-ui-clean-rebuild]
+    paths:
+      - 'apps/xiaoxu-android/app/src/main/java/**/GlassLens*.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/**/GlassFrameQueue.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/**/AcademicSnapshotList.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/**/UpstreamPhysicalLens.kt'
+      - 'apps/xiaoxu-android/app/src/androidTest/**/GlassLens*Test.kt'
+      - 'apps/xiaoxu-android/app/src/runtimeVerification/**'
+      - 'apps/xiaoxu-android/app/build.gradle'
+      - '.github/workflows/android-ui-rebuild-optics-runtime.yml'
+permissions:
+  contents: read
+concurrency:
+  group: android-ui-optics-runtime-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  optics-device-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install existing compile SDK
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Enable KVM for emulator
+        run: sudo chmod 666 /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 32
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: gradle -p apps/xiaoxu-android :app:connectedDebugAndroidTest -PxiaoxuRuntimeTest=true -Pandroid.testInstrumentationRunnerArguments.class=io.github.x07xh.xiaoxu.ui.GlassLensRendererTest,io.github.x07xh.xiaoxu.ui.GlassLensGeometryDeviceTest,io.github.x07xh.xiaoxu.ui.GlassLensCaptureDeviceTest --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-optics-test-reports
+          path: apps/xiaoxu-android/app/build/reports/androidTests/
+          if-no-files-found: ignore

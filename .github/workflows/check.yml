@@ -90,6 +90,15 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Syntax, security and logic tests
         run: npm run check
+      - name: Inventory Android UI source and references
+        run: node scripts/xiaoxu-ui-source-audit.mjs
+      - name: Upload UI source audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-ui-source-audit-${{ github.sha }}
+          path: xiaoxu-ui-source-audit.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Android static safety checks (no SDK or APK compilation)
         run: node scripts/xiaoxu-android-bootstrap-tests.mjs
       - name: Second-class local score reader contract and failure paths

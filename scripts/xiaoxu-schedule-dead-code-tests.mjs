@@ -1,49 +1,40 @@
-// Prevent retired cloud-only Compose views from being reintroduced into the
-// local-import timetable. Keep the local-import source only; cloud school sessions live in CloudClient.
+// Validate the active local timetable route after replacing the old screen.
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt',import.meta.url),'utf8');
-const retired=[
-  "ScheduleHeader",
-  "ScheduleBanner",
-  "DetailRow",
-  "ScheduleLoadingState",
-  "SkeletonBlock",
-  "ScheduleNotConnectedState",
-  "ScheduleSourceMissingState",
-  "ScheduleUnverifiedState",
-  "ScheduleFailedState",
-  "ScheduleEmptyState",
-  "StateScaffold"
-];
-for(const name of retired){
-  assert.doesNotMatch(source,new RegExp('\\bprivate fun '+name+'\\s*\\('),
-    'Retired cloud-only timetable UI must not return: '+name);
+import { readFileSync, existsSync } from 'node:fs';
+const root = new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/', import.meta.url);
+const read = name => readFileSync(new URL(name, root), 'utf8');
+const feature = read('ScheduleFeature.kt');
+const header = read('ScheduleHeader.kt');
+const grid = read('UpstreamTimetable.kt');
+const details = read('UpstreamCourseDetailSheet.kt');
+const workspace = read('AppWorkspaceState.kt');
+const routes = read('AppFeaturePages.kt');
+const shell = read('RebuildShell.kt');
+const settings = read('ScheduleSettingsFeature.kt');
+const source = [feature, header, grid, details].join('\n');
+for (const name of ['ScheduleScreen.kt', 'WeeklyTimetableGrid.kt', 'SemesterSettingsDialog.kt']) {
+  assert.equal(existsSync(new URL(name, root)), false, 'Replaced UI must not return: ' + name);
 }
-for(const name of ['CloudTimetablePanel','LocalTimetableEmptyState',
-  'ScheduleVerifiedContent','HomeCourseDetailSheet','WeeklyTimetableGrid',
-  'LocalImportedScheduleView','localImportedScheduleView']){
-  assert.match(source,new RegExp('\\b'+name+'\\b'),
-    'Active local schedule or compatibility model must remain: '+name);
+for (const name of ['ScheduleBanner', 'ScheduleLoadingState', 'SkeletonBlock',
+  'ScheduleNotConnectedState', 'ScheduleSourceMissingState', 'ScheduleUnverifiedState',
+  'ScheduleFailedState', 'ScheduleEmptyState', 'StateScaffold']) {
+  assert.doesNotMatch(source, new RegExp('\\b(?:private )?fun '+name+'\\s*\\('));
 }
-assert.doesNotMatch(source,/sealed interface ScheduleUiState|fun deriveScheduleUiState\(|CloudUiState/,
-  'Retired cloud timetable UI state must not reappear in the active screen');
-assert.doesNotMatch(source,/华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/,
-  'Local-only course detail cannot offer an unreachable cloud-verified branch');
-assert.match(source,/sourceLabel = "本机导入 · 待本人核对"/,
-  'Import provenance and explicit user-verification status must remain visible without redundant course count');
-assert.doesNotMatch(source,/text = "本机导入 · 待核对"/,
-  'Course detail should retain exact reference screenshot copy without a duplicated provenance badge');
-assert.match(source,/CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onDismiss\)/,
-  'Home course detail must reuse the same drawer without cloud-source flags');
-assert.doesNotMatch(source, /client:\s*CloudClient|openWebsite:\s*\(\)\s*->\s*Unit|openProfile:\s*\(\(\)\s*->\s*Unit\)\?|openLocalImport:/,
-  'Local timetable must not accept unused cloud, website, profile, or legacy import callbacks');
-assert.match(source,/data\.lessons\.isEmpty\(\)/,
-  'Empty timetable must be based on the actual local import');
-assert.match(source,/LocalTimetableEmptyState\(/,
-  'Import action remains reachable');
-assert.match(source,/onSettings = \{ onSettingsOpenChanged\(true\) \}/,
-  'Empty timetable reaches the native settings route and inbox as imported timetable');
-assert.doesNotMatch(source,/label = "重新导入课表"/,
-  'File import must not remain in the timetable heading');
-console.log('Local timetable uses only live UI; retired cloud-state views removed');
+assert.doesNotMatch(source, /sealed interface ScheduleUiState|fun deriveScheduleUiState\(|CloudUiState|client:\s*CloudClient/);
+assert.doesNotMatch(source, /华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/);
+assert.match(feature, /localImportedScheduleView\(lessons\)\.sourceLabel/);
+assert.match(workspace, /lessonsSource = \{ pageSnapshot\(latestLessons\.value\.takeIf \{ latestRevision\.value > 0 \|\| it\.isNotEmpty\(\) \}\) \}/, '仅使用真实本机课表快照');
+assert.match(shell, /rememberAppWorkspace\(dao, cloud, localLessons, localScheduleRevision/);
+assert.match(feature, /ScheduleGrid\(courses =/);
+assert.match(grid, /fun ScheduleGrid\(/);
+assert.match(feature, /UpstreamCourseDetailSheet\(course, allCourses/);
+assert.match(details, /fun UpstreamCourseDetailSheet\(/);
+assert.match(routes, /actions\.openLocalCourse\(lesson\.id, lesson\.weekday\)/);
+assert.match(shell, /inboxLessonId \?: reminderLessonId/);
+assert.match(feature, /lessons\.isEmpty\(\)/);
+assert.match(feature, /onSettingsClick = \{ actions\.navigate\(AppRoute\.SCHEDULE_SETTINGS\) \}/);
+assert.match(header, /onSettingsClick\(\)/);
+assert.match(settings, /title = "导入课表"[\s\S]*?onClick = actions\.importTimetable/);
+assert.doesNotMatch(header, /onImportClick|onExportClick/);
+assert.match(routes, /AppRoute\.SCHEDULE_SETTINGS -> ScheduleSettingsFeature/);
+console.log('Local timetable uses the shared upstream layout; retired screen files remain absent');

@@ -63,7 +63,7 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
             projects.forEachIndexed { index, project ->
                 if (index > 0) {
                     HorizontalDivider(
-                        color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp,
                         modifier = Modifier.padding(horizontal = 18.dp)
                     )
                 }
@@ -80,16 +80,16 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Outlined.Code, contentDescription = null,
-                        tint = XiaoxuPalette.Brand, modifier = Modifier.size(22.dp))
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.size(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(project.first, style = MaterialTheme.typography.titleMedium,
-                            color = XiaoxuPalette.Ink)
+                            color = MaterialTheme.colorScheme.onSurface)
                         Text(project.second, style = MaterialTheme.typography.bodySmall,
-                            color = XiaoxuPalette.Ink2)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-                        tint = XiaoxuPalette.Ink3)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -99,13 +99,13 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
                 Text(
                     "完整许可与来源记录随 APK 一起分发。开源署名与源码链接均予保留。",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Ink
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     "目前的 GPLv3 适配与 SleepDown 非商业衍生代码的组合分发兼容性尚未完成审查，" +
                         "此版本仅供开发与设备验收；不可据此认定可公开分发。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Warning
+                    color = MaterialTheme.colorScheme.error
                 )
                 TextButton(onClick = { expanded = !expanded }) {
                     Text(if (expanded) "收起完整声明" else "查看完整声明")
@@ -116,7 +116,7 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
                         else notices,
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = FontFamily.Monospace,
-                        color = XiaoxuPalette.Ink2
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
