@@ -11,10 +11,6 @@ import androidx.activity.compose.BackHandler
 import com.tyust.course.academic.plugin.PluginPages
 import com.tyust.course.announcement.AnnouncementManager
 import com.tyust.course.academic.plugin.ExtensionCenterContent
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
-import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
-import androidx.lifecycle.lifecycleScope
 import com.tyust.course.academic.plugin.PluginPageRegistry
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -153,8 +149,6 @@ import com.tyust.course.ui.system.GlassRecipe
 import com.tyust.course.ui.system.glass.drawBlurred
 
 class MainActivity : FragmentActivity() {
-    private var secondClassAutoReadJob: Job? = null
-
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(com.tyust.course.manager.AppThemeCoordinator.wrapContext(newBase))
     }
@@ -227,22 +221,6 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
-    override fun onResume() {
-        super.onResume()
-        secondClassAutoReadJob?.cancel()
-        secondClassAutoReadJob = lifecycleScope.launch {
-            delay(1_000) // Let the upstream shell render before the bounded read-only sync.
-            SecondClassAutoRefresh.reconcile(applicationContext)
-            SecondClassAutoRefresh.refreshIfDue(applicationContext)
-        }
-    }
-
-    override fun onStop() {
-        secondClassAutoReadJob?.cancel()
-        secondClassAutoReadJob = null
-        super.onStop()
-    }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

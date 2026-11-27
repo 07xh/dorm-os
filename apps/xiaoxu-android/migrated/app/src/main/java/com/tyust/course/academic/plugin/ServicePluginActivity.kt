@@ -99,20 +99,12 @@ class ServicePluginActivity : ComponentActivity() {
         val native = nativePackage
         DisposableEffect(current) { onDispose { current?.close() } }
         if (native != null) {
-            when (intent.getStringExtra("pageId").orEmpty()) {
-                BundledServiceProviders.SECOND_CLASS_PAGE -> SecondClassServiceScreen(
-                    title = "第二课堂",
-                    schoolName = native.manifest.school.getString("name"),
-                    accountScope = openedScope.orEmpty(),
-                    onBack = { finish() }
-                )
-                else -> CloudServiceScreen(
-                    title = native.manifest.name,
-                    schoolName = native.manifest.school.getString("name"),
-                    accountScope = openedScope.orEmpty(),
-                    onBack = { finish() }
-                )
-            }
+            CloudServiceScreen(
+                title = native.manifest.name,
+                schoolName = native.manifest.school.getString("name"),
+                accountScope = openedScope.orEmpty(),
+                onBack = { finish() }
+            )
         } else if (current == null) GlassPageScaffold(title = "校园服务", onBack = { finish() }) { padding ->
             Column(Modifier.padding(padding).padding(24.dp)) {
                 if (problem.isBlank()) CircularProgressIndicator() else Text(problem, color = MaterialTheme.colorScheme.error)

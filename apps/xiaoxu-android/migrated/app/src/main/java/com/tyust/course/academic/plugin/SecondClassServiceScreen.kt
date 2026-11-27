@@ -189,7 +189,11 @@ internal fun SecondClassServiceScreen(
             revision++
         }
     }
-    LaunchedEffect(Unit) { reload() }
+    LaunchedEffect(Unit) {
+        SecondClassAutoRefresh.reconcile(app)
+        SecondClassAutoRefresh.refreshIfDue(app)
+        reload()
+    }
 
     fun launchWork(work: suspend () -> Unit) {
         if (busy) return

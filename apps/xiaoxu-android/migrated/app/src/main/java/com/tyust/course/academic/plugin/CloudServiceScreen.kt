@@ -1,5 +1,8 @@
 package com.tyust.course.academic.plugin
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
@@ -46,6 +49,16 @@ internal fun CloudServiceScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val hostActivity = serviceHostActivity(context)
+    if (hostActivity?.intent?.getStringExtra("pageId") == BundledServiceProviders.SECOND_CLASS_PAGE) {
+        SecondClassServiceScreen(
+            title = "第二课堂",
+            schoolName = schoolName,
+            accountScope = accountScope,
+            onBack = onBack
+        )
+        return
+    }
     val client = remember(context.applicationContext) { CloudClient(context.applicationContext) }
     val state = client.state
     val scope = rememberCoroutineScope()
@@ -467,3 +480,12 @@ private fun listBlock(id: String, title: String, items: JSONArray) = JSONObject(
 
 private fun noticeBlock(id: String, text: String, tone: String) = JSONObject()
     .put("id", id).put("type", "notice").put("text", text).put("tone", tone)
+
+private fun serviceHostActivity(context: Context): Activity? {
+    var current: Context? = context
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
+}
