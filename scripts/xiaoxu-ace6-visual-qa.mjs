@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 校序 · 一加 Ace 6 Android 16/17 原版课表迁移视觉与流畅度证据采集。
+ * 校序 · 一加 Ace 6 Android 16/17 原版页面、消息中心、第二课堂服务迁移验收证据采集。
  * 只调用用户授权的 adb，不自动点选、登录、上传、清空数据或修改课程。
  * 截图可能包含私人课程/任务，请只保存在自己的电脑。
  */
@@ -144,7 +144,8 @@ const metadata = {
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
   result: 'pending_capture',
-  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '07-navigation-transitions', '08-scroll-performance'], 
+  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '07-navigation-transitions', '08-scroll-performance'],
+  requiredServiceScenes: ['09-message-center', '10-second-class-service', '11-wechat-tasks'],
   scenes: []
 };
 const steps = [
@@ -155,7 +156,10 @@ const steps = [
   ['05-schedule-day', '日视图：仅切换视图并完成，核对真实单日课程与返回；结束后恢复原视图，不修改课程或学期'],
   ['06-course-editor', '课程编辑：打开已有课程的编辑页，核对原版字段、星期/节次/周次选择和取消返回；截图后取消，不保存修改'],
   ['07-navigation-transitions', '导航转场：快速在原版主导航各页面之间切换，再返回课表；观察滑动、淡入、状态保留、返回和底栏同步；采集帧统计'],
-  ['08-scroll-performance', '课表性能：横向切周、上下滚动、打开再关闭课程详情、进入设置再返回；连续操作后停在课表，采集帧统计']
+  ['08-scroll-performance', '课表性能：横向切周、上下滚动、打开再关闭课程详情、进入设置再返回；连续操作后停在课表，采集帧统计'],
+  ['09-message-center', '从首页打开 Service Extension 的消息中心；核对页面、通知分类、搜索和状态显示；只浏览，不收录或忽略候选'],
+  ['10-second-class-service', '从首页打开第二课堂 Service Extension；核对本机只读状态、账号绑定、12 小时周期和手动同步入口；可执行本人授权的只读同步，不进行报名或成绩写入'],
+  ['11-wechat-tasks', '返回消息中心查看微信任务与候选；核对任务状态和候选信息；不要点击任务完成、候选收录或忽略操作']
 ];
 // Screenshot validation must check which application is actually in the
 // foreground, rather than accepting a PNG of Settings, launcher or another app.
@@ -272,6 +276,11 @@ try {
     .filter(x => x.captured && x.foregroundVerified).map(x => x.name));
   metadata.missingReferenceScenes =
     metadata.requiredReferenceScenes.filter(x => !captured.has(x));
+  const capturedService = new Set(metadata.scenes
+    .filter(x => x.captured && x.foregroundVerified).map(x => x.name));
+  metadata.missingServiceScenes =
+    metadata.requiredServiceScenes.filter(x => !capturedService.has(x));
+  metadata.serviceExtensionEvidenceComplete = metadata.missingServiceScenes.length === 0;
   // Only representative motion scenes count toward fluidity evidence.
   // An absent or tiny gfxinfo sample must be marked as missing, not smooth.
   const motionScenes = ['07-navigation-transitions', '08-scroll-performance'];
@@ -296,10 +305,12 @@ try {
   metadata.performanceVerdict = 'requires_manual_frame_and_visual_review';
   metadata.result = metadata.missingReferenceScenes.length > 0
     ? 'incomplete_reference_screenshots'
-    : (!declaredCommitLooksLikeSha || installedMatchesLocal !== true)
-      ? 'unverified_installed_build'
-      : referencePackage && !metadata.referenceComparisonComplete
-        ? 'incomplete_reference_comparison' : 'pending_manual_comparison';
+    : metadata.missingServiceScenes.length > 0
+      ? 'incomplete_service_extension_screenshots'
+      : (!declaredCommitLooksLikeSha || installedMatchesLocal !== true)
+        ? 'unverified_installed_build'
+        : referencePackage && !metadata.referenceComparisonComplete
+          ? 'incomplete_reference_comparison' : 'pending_manual_comparison';
   fs.writeFileSync(path.join(output, 'manifest.json'),
     JSON.stringify(metadata, null, 2) + '\n', 'utf8');
 }
