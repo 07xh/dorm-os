@@ -34,8 +34,10 @@ class CloudServiceScreenTest {
         val blocks = PluginJson.objects(buildCloudMessagePage(state).getJSONArray("blocks"))
         val task = blocks.single { it.getString("id") == "wechat_tasks" }
             .getJSONArray("items").getJSONObject(0)
+        assertEquals("wechat.task.toggle", task.getJSONObject("action").getString("actionId"))
         assertEquals("task_12345678", task.getJSONObject("action").getJSONObject("params").getString("id"))
         assertEquals("4", task.getJSONObject("action").getJSONObject("params").getString("revision"))
+        assertEquals("true", task.getJSONObject("action").getJSONObject("params").getString("completed"))
 
         val candidateActions = blocks.single { it.getString("id") == "candidate_actions_0" }
             .getJSONArray("items")
