@@ -316,7 +316,7 @@ jobs:
 
           adb shell am instrument -w -r -e class io.github.x07xh.xiaoxu.data.LocalTaskDatabaseMigrationTest io.github.x07xh.xiaoxu.northui.test/androidx.test.runner.AndroidJUnitRunner > /tmp/xiaoxu-smoke/room-migration-test.txt
           cat /tmp/xiaoxu-smoke/room-migration-test.txt
-          grep -Eq 'OK \\([0-9]+ tests?\\)' /tmp/xiaoxu-smoke/room-migration-test.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/xiaoxu-smoke/room-migration-test.txt
 
           adb shell am force-stop io.github.x07xh.xiaoxu.northui
           adb shell am start -W -n io.github.x07xh.xiaoxu.northui/com.tyust.course.MainActivity | tee /tmp/xiaoxu-smoke/activity-start.txt
