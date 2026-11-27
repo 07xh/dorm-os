@@ -39,7 +39,6 @@ object BundledServiceProviders {
             put("minAppVersionCode", 135)
             put("category", "campus")
             put("capabilities", JSONArray().put("service.page"))
-            put("permissions", JSONArray())
             put("network", JSONArray())
             put("school", JSONObject()
                 .put("id", "ncwu")
