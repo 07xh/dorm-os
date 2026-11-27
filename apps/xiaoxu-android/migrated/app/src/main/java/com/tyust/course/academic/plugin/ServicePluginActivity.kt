@@ -73,6 +73,7 @@ class ServicePluginActivity : ComponentActivity() {
     @Composable private fun Screen() {
         var runtime by remember { mutableStateOf<ServicePluginSession?>(null) }
         var nativePackage by remember { mutableStateOf<PluginPackage?>(null) }
+        var nativePageId by remember { mutableStateOf(BundledServiceProviders.CLOUD_MESSAGES_PAGE) }
         var problem by remember { mutableStateOf("") }
         LaunchedEffect(Unit) {
             try {
@@ -85,6 +86,8 @@ class ServicePluginActivity : ComponentActivity() {
                 val scope = if (preview) "preview:${pkg.digest}" else accountScope()
                 openedScope = scope
                 if (pkg.manifest.id == BundledServiceProviders.CLOUD_MESSAGES_ID) {
+                    nativePageId = BundledServiceProviders.resolveNativePageId(
+                        pkg, intent.getStringExtra("pageId"))
                     nativePackage = pkg
                 } else {
                     runtime = ServicePluginSession(this@ServicePluginActivity, pkg, scope,
@@ -98,7 +101,14 @@ class ServicePluginActivity : ComponentActivity() {
         val current = runtime
         val native = nativePackage
         DisposableEffect(current) { onDispose { current?.close() } }
-        if (native != null) {
+        if (native != null && nativePageId == BundledServiceProviders.SECOND_CLASS_PAGE) {
+            SecondClassServiceScreen(
+                title = "第二课堂",
+                schoolName = native.manifest.school.getString("name"),
+                accountScope = openedScope.orEmpty(),
+                onBack = { finish() }
+            )
+        } else if (native != null) {
             CloudServiceScreen(
                 title = native.manifest.name,
                 schoolName = native.manifest.school.getString("name"),
