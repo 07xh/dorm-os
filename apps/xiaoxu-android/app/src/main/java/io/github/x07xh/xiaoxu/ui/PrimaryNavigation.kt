@@ -1,5 +1,25 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +44,9 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -85,7 +107,14 @@ internal fun PrimaryBottomNavigation(
 ) {
     // Stable items: no allocation of a new list on every animation frame.
     val items = remember {
-        PrimaryTabs.map { FloatingBarItem(it.primaryTabLabel, it.primaryTabIcon, northSymbol = it.primaryNorthSymbol) }
+        PrimaryTabs.map {
+            FloatingBarItem(it.primaryTabLabel, it.primaryTabIcon, northSymbol = it.primaryNorthSymbol,
+                automationTag = "xiaoxu_tab_${it.name}")
+        }
+    }
+    val latestOnSelect = rememberUpdatedState(onSelect)
+    val selectIndex: (Int) -> Unit = remember {
+        { index -> PrimaryTabs.getOrNull(index)?.let { latestOnSelect.value(it) } }
     }
     FloatingBottomBar(
         items = items,
@@ -93,7 +122,7 @@ internal fun PrimaryBottomNavigation(
         backdrop = backdrop,
         // Original v1.0.83 selected tint; no custom palette reinterpretation.
         selectedContentColor = if (backdrop != null) Color(0xFF0057D9) else XiaoxuPalette.BrandDeep,
-        onSelect = { onSelect(PrimaryTabs[it]) }
+        onSelect = selectIndex
     )
 }
 
@@ -114,34 +143,117 @@ internal fun PrimaryBottomNavigationReserve(glass: Boolean) {
     )
 }
 
+/**
+ * DSH-style expandable sidebar on wide tablets; the narrow rail and sidebar
+ * are alternative renderers of the same five routes, never a second router.
+ */
 @Composable
 internal fun PrimarySideNavigation(
     selected: MainDestination,
-    onSelect: (MainDestination) -> Unit
+    onSelect: (MainDestination) -> Unit,
+    canExpand: Boolean = false
 ) {
-    // One responsive alternative, not a second permanent navigation state.
-    // Scrolling keeps all five entries accessible in short landscape windows.
-    NavigationRail(
-        modifier = Modifier.verticalScroll(rememberScrollState()),
-        containerColor = XiaoxuPalette.Surface,
-        contentColor = XiaoxuPalette.Ink2
-    ) {
-        Spacer(Modifier.height(12.dp))
-        PrimaryTabs.forEach { page ->
-            NavigationRailItem(
-                selected = selected == page,
-                onClick = { onSelect(page) },
-                icon = { Icon(page.primaryTabIcon, contentDescription = null) },
-                label = { Text(page.primaryTabLabel) },
-                alwaysShowLabel = true,
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = XiaoxuPalette.BrandDeep,
-                    selectedTextColor = XiaoxuPalette.BrandDeep,
-                    indicatorColor = XiaoxuPalette.BrandSoft,
-                    unselectedIconColor = XiaoxuPalette.Ink3,
-                    unselectedTextColor = XiaoxuPalette.Ink3
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val frame = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
+        .clip(UiV2Theme.GroupShape)
+    if (canExpand && expanded) {
+        Column(
+            modifier = frame.width(220.dp).fillMaxHeight()
+                .background(XiaoxuPalette.Surface)
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("校序", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge, color = XiaoxuPalette.Ink)
+                XiaoxuSoftIconButton(onClick = { expanded = false }) {
+                    Icon(Icons.Outlined.Menu, contentDescription = "收起侧栏")
+                }
+            }
+            PrimaryTabs.forEach { page ->
+                NavigationDrawerItem(
+                    modifier = Modifier.testTag("xiaoxu_tab_${page.name}"),
+                    label = { Text(page.primaryTabLabel) },
+                    selected = selected == page,
+                    onClick = { onSelect(page) },
+                    icon = { Icon(page.primaryTabIcon, contentDescription = null) }
                 )
-            )
+            }
+        }
+    } else {
+        NavigationRail(
+            modifier = frame.verticalScroll(rememberScrollState()),
+            containerColor = XiaoxuPalette.Surface,
+            contentColor = XiaoxuPalette.Ink2,
+            header = if (canExpand) {
+                {
+                    XiaoxuSoftIconButton(onClick = { expanded = true }) {
+                        Icon(Icons.Outlined.Menu, contentDescription = "展开侧栏")
+                    }
+                }
+            } else null
+        ) {
+            Spacer(Modifier.height(8.dp))
+            PrimaryTabs.forEach { page ->
+                NavigationRailItem(
+                    modifier = Modifier.testTag("xiaoxu_tab_${page.name}"),
+                    selected = selected == page,
+                    onClick = { onSelect(page) },
+                    icon = { Icon(page.primaryTabIcon, contentDescription = null) },
+                    label = { Text(page.primaryTabLabel) },
+                    alwaysShowLabel = true,
+                    colors = NavigationRailItemDefaults.colors(
+                        selectedIconColor = XiaoxuPalette.BrandDeep,
+                        selectedTextColor = XiaoxuPalette.BrandDeep,
+                        indicatorColor = XiaoxuPalette.BrandSoft,
+                        unselectedIconColor = XiaoxuPalette.Ink3,
+                        unselectedTextColor = XiaoxuPalette.Ink3
+                    )
+                )
+            }
+        }
+    }
+}
+
+/** Phone drawer uses the same route descriptors as the rail and dock. */
+@Composable
+internal fun PrimaryNavigationDrawer(
+    selected: MainDestination,
+    onSelect: (MainDestination) -> Unit,
+    onClose: () -> Unit,
+    showContents: Boolean = true
+) {
+    ModalDrawerSheet(
+        // Keep the drawer anchor measurable even without its hidden rows.
+        modifier = Modifier.width(320.dp),
+        drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+        drawerContainerColor = XiaoxuPalette.Surface,
+        drawerContentColor = XiaoxuPalette.Ink
+    ) {
+        if (showContents) {
+        Column(
+            Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("校序", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineSmall)
+                XiaoxuSoftIconButton(onClick = onClose) {
+                    Icon(Icons.Outlined.Close, contentDescription = "关闭导航")
+                }
+            }
+            PrimaryTabs.forEach { page ->
+                NavigationDrawerItem(
+                    label = { Text(page.primaryTabLabel) },
+                    selected = selected == page,
+                    onClick = { onSelect(page) },
+                    icon = { Icon(page.primaryTabIcon, contentDescription = null) }
+                )
+            }
+        }
         }
     }
 }

@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 import android.os.Build
+import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionMode
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -39,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +60,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
@@ -119,7 +123,8 @@ data class FloatingBarItem(
     val icon: ImageVector,
     /** 角标数字，null 或 ≤0 表示不显示。 */
     val badge: Int? = null,
-    val northSymbol: NorthAppSymbolSpec? = null
+    val northSymbol: NorthAppSymbolSpec? = null,
+    val automationTag: String? = null
 )
 
 private val IndicatorInset: Dp = 6.dp
@@ -176,6 +181,7 @@ fun FloatingBottomBar(
     val safeIndex = selectedIndex.coerceIn(0, count - 1)
     // Original v1.0.83 glass geometry only on supported real lens platforms.
     val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
+    val reducedMotion = LocalUiV2Motion.current == UiV2MotionMode.Reduced
     // 北化课表 1.0.83: the indicator refracts a SECOND, sharply tinted icon/label
     // source combined with the page, not the page backdrop alone. Recording the
     // tint source once here keeps it in the same dock; it owns no click/route state.
@@ -183,7 +189,7 @@ fun FloatingBottomBar(
     val indicatorBackdrop = if (backdrop != null && tintLayer != null) {
         rememberCombinedBackdrop(backdrop, tintLayer)
     } else backdrop
-    val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, false) else null
+    val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, reducedMotion) else null
     val geometry = rememberPrimaryBottomGeometry(useNorthGlass)
     val visualHeight = geometry.trackHeight
     val horizontalInset = geometry.horizontalPadding
@@ -216,10 +222,10 @@ fun FloatingBottomBar(
         val cellWidthDp = with(LocalDensity.current) { cellWidthPx.toDp() }
 
         val scope = rememberCoroutineScope()
-        val dragState = remember(count, useNorthGlass) { DragGestureState() }
+        val dragState = remember(count, useNorthGlass, reducedMotion) { DragGestureState() }
 
         // 驱动只负责「索引浮点值 + 压感」，手势事件由下方 pointerInput 精确分发。
-        val drag = remember(count, useNorthGlass) {
+        val drag = remember(count, useNorthGlass, reducedMotion) {
             DampedDragAnimation(
                 animationScope = scope,
                 initialValue = safeIndex.toFloat(),
@@ -229,14 +235,17 @@ fun FloatingBottomBar(
                 pressedScale = if (useNorthGlass) NorthGlassPressedScale else PressedScale,
                 onDragStarted = {},
                 onDragStopped = {},
-                onDrag = { _, _ -> }
+                onDrag = { _, _ -> },
+                reducedMotion = reducedMotion
             )
         }
+
+        DisposableEffect(drag) { onDispose { drag.dispose() } }
 
         // Source CapsuleNavigationBar.indicatorScale: same velocity transform for
         // the lens and the highlight (no separately scaling the rim).
         fun physicalScale(): Pair<Float, Float> {
-            val v = drag.velocity / 6f
+            val v = drag.normalizedVelocity / 6f
             val sx = drag.scaleX / (1f - (v * 0.75f).coerceIn(-0.22f, 0.22f))
             val sy = drag.scaleY * (1f - (v * 0.25f).coerceIn(-0.22f, 0.22f))
             return sx to sy
@@ -253,7 +262,7 @@ fun FloatingBottomBar(
         // ⚠️ 手势必须挂在胶囊本身，不能挂在同级覆盖层：
         // Compose 的 hitTest 在 z-order 上遇到第一个命中的兄弟就停止，
         // 胶囊会把上层事件全挡住，同级覆盖层永远收不到 MOVE。
-        val gestureModifier = if (draggable) {
+        val gestureModifier = if (draggable && count > 1) {
             Modifier.pointerInput(drag, count) {
                 inspectDragGestures(
                     onDragStart = {
@@ -292,7 +301,7 @@ fun FloatingBottomBar(
                         dragState.net += dx
                         if (abs(dragState.net) > currentSlop) dragState.moved = true
                     }
-                    if (dragState.moved) {
+                    if (dragState.moved && currentCellWidth > 0f) {
                         change.consume()
                         drag.updateValue(
                             (drag.targetValue + dx / currentCellWidth)
@@ -308,7 +317,7 @@ fun FloatingBottomBar(
         // 外部选中变化（点击、返回、状态恢复、进程重建）时让指示器跟上。
         // 用 updateValue 而不是 animateToValue：后者会 press()/release()，
         // 快速连点时会打断上一个 release，压感永久停在放大态。
-        LaunchedEffect(safeIndex, count) {
+        LaunchedEffect(safeIndex, count, drag) {
             if (!dragState.moved) drag.updateValue(safeIndex.toFloat())
         }
 
@@ -344,7 +353,9 @@ fun FloatingBottomBar(
                         iconPhase = { iconPlayback?.phase(index) ?: 1f },
                         selectedContentColor = selectedContentColor,
                         unselectedContentColor = unselectedContentColor,
-                        modifier = Modifier.width(cellWidthDp),
+                        modifier = Modifier.width(cellWidthDp).then(
+                            item.automationTag?.let { Modifier.testTag(it) } ?: Modifier
+                        ),
                         onClick = {
                             if (index != safeIndex) {
                                 haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
@@ -462,9 +473,10 @@ private fun FloatingBarCell(
 ) {
     // 每 cell 独立交互源：按压只让本 cell 重组，不牵动整条 dock。
     val interactionSource = remember { MutableInteractionSource() }
+    val reducedMotion = LocalUiV2Motion.current == UiV2MotionMode.Reduced
     val contentColor by animateColorAsState(
         targetValue = if (selected) selectedContentColor else unselectedContentColor,
-        animationSpec = tween(ColorAnimMs),
+        animationSpec = tween(if (reducedMotion) 0 else ColorAnimMs),
         label = "barCellColor"
     )
 
@@ -507,7 +519,7 @@ private fun FloatingBarCell(
                     modifier = Modifier
                         .size(22.dp)
                         .graphicsLayer {
-                            val scale = if (selected) PressedScale else 1f
+                            val scale = if (selected && !reducedMotion) PressedScale else 1f
                             scaleX = scale
                             scaleY = scale
                         }

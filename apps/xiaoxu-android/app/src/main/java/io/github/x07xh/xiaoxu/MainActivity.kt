@@ -24,9 +24,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -40,8 +40,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -54,13 +52,12 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import io.github.x07xh.xiaoxu.ui.TimetableImportPreviewSheet
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import io.github.x07xh.xiaoxu.ui.rememberLocalRows
@@ -77,6 +74,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -90,9 +89,12 @@ import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
+import io.github.x07xh.xiaoxu.ui.localImportedScheduleView
 import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
+import io.github.x07xh.xiaoxu.ui.combineWorkspaceTasks
+import io.github.x07xh.xiaoxu.ui.traceWorkspace
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
@@ -101,10 +103,18 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.xiaoxuSettingsRouteTransition
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
+import io.github.x07xh.xiaoxu.ui.XiaoxuNavigationAction
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
-import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
-import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigationReserve
-import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
+import io.github.x07xh.xiaoxu.ui.v2.UiV2PredictiveBack
+import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2BackPreview
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeQuickAction
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
+import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -516,6 +526,7 @@ private fun NativeShell(
         !(current == MainDestination.SCHEDULE && scheduleSettingsOpen) &&
         !(current == MainDestination.PROFILE && profileSettingsRoute != "home")
     val pageStateHolder = rememberSaveableStateHolder()
+    val preparedSchedule = remember(localLessons) { localImportedScheduleView(localLessons) }
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
             current = MainDestination.TASKS
@@ -534,24 +545,58 @@ private fun NativeShell(
         current = next.destination
         messagesOpen = false
     }
+    val backPreview = rememberUiV2BackPreview(
+        "${current.name}:${academic.name}:$profileSettingsRoute:$messagesOpen:$scheduleSettingsOpen"
+    )
     BackHandler(enabled = current == MainDestination.SCHEDULE && scheduleSettingsOpen) {
         scheduleSettingsOpen = false
     }
-    BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
-        profileSettingsRoute != "home") {
-        profileSettingsRoute = if (profileSettingsRoute == "licenses") "about" else "home"
+    UiV2PredictiveBack(enabled = !messagesOpen && current == MainDestination.PROFILE &&
+        profileSettingsRoute != "home" && profileSettingsRoute != "timetable-editor" &&
+        profileSettingsRoute != "timetable-settings", preview = backPreview) {
+        profileSettingsRoute = uiV2SettingsParent(profileSettingsRoute)
     }
-    BackHandler(enabled = messagesOpen) {
+    BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
+        profileSettingsRoute in setOf("timetable-editor", "timetable-settings")) {
+        profileSettingsRoute = "home"
+    }
+    UiV2PredictiveBack(enabled = messagesOpen, preview = backPreview) {
         messagesOpen = false // The contextual inbox returns to the originating tab.
     }
-    BackHandler(
+    UiV2PredictiveBack(
         enabled = !messagesOpen && current == MainDestination.ACADEMIC &&
-            academic != AcademicDestination.OVERVIEW
+            academic != AcademicDestination.OVERVIEW,
+        preview = backPreview
     ) {
         academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
-    val localTasks by rememberLocalRows(dao) { dao.observe() }
+    val workspaceLocalTasks = rememberLocalRows(dao) { dao.observe() }
+    val localTasks by workspaceLocalTasks
     val reminderContext = LocalContext.current
+    // Keep common Room snapshots alive across tabs. Read their State values
+    // only in the active destination, instead of recreating empty collectors.
+    val workspaceDependencies = rememberLocalRows(dao) { dao.observeDependencies() }
+    val workspaceNativeDao = remember(reminderContext) {
+        LocalTaskDatabase.open(reminderContext).nativeSchoolRecords()
+    }
+    val workspaceSchoolRows = rememberLocalRows(workspaceNativeDao) { workspaceNativeDao.observe() }
+    // Keep execution rows warm as well; entering Tasks no longer starts three
+    // fresh empty Room collectors and then relayouts the execution list.
+    val workspaceExecutionDao = remember(reminderContext) {
+        LocalTaskDatabase.open(reminderContext).executions()
+    }
+    val workspaceTaskSteps = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeSteps() }
+    val workspaceStepEdges = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeEdges() }
+    val workspaceExecutions = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeExecutions() }
+    // Cache the expensive canonical identity/deduplication projection across
+    // Home/Tasks disposal. Compute lazily only when a consumer needs it.
+    val workspaceRecords = remember(cloud, workspaceLocalTasks, workspaceSchoolRows) {
+        derivedStateOf {
+            traceWorkspace("Xiaoxu.workspace.combine") {
+                combineWorkspaceTasks(workspaceLocalTasks.value, cloud.state.tasks, workspaceSchoolRows.value)
+            }
+        }
+    }
     // A Room checkbox update should reschedule only affected local deadlines,
     // rather than rewriting every WorkManager job. Keep the scheduling work on IO.
     val reminderSnapshot = remember { mutableStateOf<List<LocalTask>?>(null) }
@@ -597,215 +642,199 @@ private fun NativeShell(
         onDispose { appLifecycle.removeObserver(observer) }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
-        val tabletLayout = maxWidth >= 700.dp
-        // Glass samples the actual current page, not the navigation chrome itself.
-        // Phone and tablet still share the one NativeShell and route state.
-        val navBackdrop = if (!tabletLayout && showPrimaryNavigation && Build.VERSION.SDK_INT >= 33) {
-            rememberLayerBackdrop()
-        } else null
-        Box(Modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize().then(
-                if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
-            ),
-            containerColor = Color.Transparent,
-            // Keep Scaffold measurements stable while switching tabs. HOME owns
-            // its own header within the animated page; other tabs already have headers.
-            topBar = {},
-            bottomBar = {
-                if (!tabletLayout && showPrimaryNavigation) {
-                    // Layout-only reserve. Actual dock sits outside the sampled subtree.
-                    PrimaryBottomNavigationReserve(glass = navBackdrop != null)
-                }
-            }
-        ) { contentPadding ->
-            Row(Modifier.fillMaxSize().padding(contentPadding)) {
-                if (tabletLayout && showPrimaryNavigation) {
-                    PrimarySideNavigation(selected = current) { selected ->
-                        current = selected
-                        profileSettingsRoute = "home"
-                        messagesOpen = false
-                    }
-                }
-                Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
-                    if (messagesOpen) {
-                        pageStateHolder.SaveableStateProvider("messages") {
-                            MessageCenterPanel(cloud, openWebsite, openArticle,
-                                useStatusBarInset = false, onBack = { messagesOpen = false },
-                                localTasks = localTasks, localLessons = localLessons,
-                                onOpenLocalTasks = { id ->
-                                    inboxTaskId = id
-                                    inboxTaskSerial++
-                                    messagesOpen = false
-                                    current = MainDestination.TASKS
-                                },
-                                onOpenLocalSchedule = { id, weekday ->
-                                    inboxLessonId = id
-                                    inboxLessonWeekday = weekday
-                                    messagesOpen = false
-                                    current = MainDestination.SCHEDULE
-                                },
-                                onOpenReminderSettings = {
-                                    messagesOpen = false
-                                    current = MainDestination.PROFILE
-                                    profileSettingsRoute = "notifications"
-                                })
-                        }
-                    } else {
-                    // Only one heavy tab is ever composed; no AnimatedContent overlap.
-                    // Keep per-tab SaveableStateProvider so filters/scroll survive.
-                    val page = current
-                    Box(Modifier.fillMaxSize().clipToBounds()) {
-                        pageStateHolder.SaveableStateProvider(page.name) {
-                        // Full-size opaque layers and bounds clipping prevent old
-                        // page labels from showing through while rapidly changing tabs.
-                        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
-                        when (page) {
-                            MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
-                                XiaoxuTopBar(
-                                    title = "今日",
-                                    subtitle = null,
-                                    refreshing = cloud.state.busy,
-                                    onRefresh = { scope.launch { cloud.refresh() } },
-                                    onMessages = { messagesOpen = true },
-                                    applyStatusBarInset = false
-                                )
-                                Box(Modifier.weight(1f)) {
-                                RealAcademicHome(localTasks, client = cloud,
-                                localLessons = localLessons,
-                                openSchedule = { current = MainDestination.SCHEDULE },
-                                openTasks = { current = MainDestination.TASKS },
-                                openMessages = { messagesOpen = true },
-                                openProfile = { current = MainDestination.PROFILE },
-                                openAcademic = { current = MainDestination.ACADEMIC; academic = AcademicDestination.OVERVIEW },
-                                openLocalSchool = { provider ->
-                                    if (provider == "second_class") openSecondClass()
-                                    else openLocalSchool(provider)
-                                },
-                                openFileImport = openFileImport,
-                                openGrades = {
-                                    academic = AcademicDestination.GRADES
-                                    current = MainDestination.ACADEMIC
-                                },
-                                openExams = {
-                                    academic = AcademicDestination.EXAMS
-                                    current = MainDestination.ACADEMIC
-                                },
-                                openSecondClass = { openSecondClass() },
-                                openArticle = openArticle)
-                                }
-                            }
-                            MainDestination.SCHEDULE -> CloudTimetablePanel(
-                                focusLessonId = inboxLessonId ?: reminderLessonId,
-                                focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
-                                    else reminderLessonWeekday,
-                                onFocusConsumed = {
-                                    inboxLessonId = null
-                                    onReminderCourseConsumed()
-                                },
-                                localLessons = localLessons, openFileImport = openFileImport,
-                                openFileExport = openFileExport,
-                                localScheduleRevision = localScheduleRevision,
-                                onLocalLessonsChanged = onLocalLessonsChanged,
-                                onMessages = { messagesOpen = true },
-                                settingsOpen = scheduleSettingsOpen,
-                                onSettingsOpenChanged = { scheduleSettingsOpen = it })
-                            MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
-                                openWebsite, openProfile = { current = MainDestination.PROFILE },
-                                cloud = cloud, onMessages = { messagesOpen = true })
-                            MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
-                                reminderTaskId = inboxTaskId ?: reminderTaskId,
-                                reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
-                                onReminderConsumed = {
-                                    inboxTaskId = null
-                                    onReminderTaskConsumed()
-                                },
-                                openLocalSchool = openLocalSchool,
-                                onMessages = { messagesOpen = true })
-                            MainDestination.PROFILE -> {
-                                // Reuse the settings child route for the timetable
-                                // child. It must not bypass the settings host on entry/back.
-                                AnimatedContent(
-                                    targetState = profileSettingsRoute == "timetable-settings" ||
-                                        profileSettingsRoute == "timetable-editor",
-                                    transitionSpec = {
-                                        xiaoxuSettingsRouteTransition(
-                                            if (initialState) "detail" else "home",
-                                            if (targetState) "detail" else "home"
-                                        )
-                                    },
-                                    modifier = Modifier.fillMaxSize().clipToBounds(),
-                                    label = "profileTimetableChild"
-                                ) { timetableChild ->
-                                    // Each target child owns an opaque full-size layer. The
-                                    // timetable/editor must not show settings text behind it.
-                                    Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
-                                    if (timetableChild) {
-                                    // A native child of 我的/设置, not a switch to the timetable tab.
-                                    // Keeping current == PROFILE avoids AnimatedContent rendering a
-                                    // second full timetable page and glass dock during entry.
-                                    CloudTimetablePanel(
-                                        localLessons = localLessons,
-                                        openFileImport = openFileImport,
-                                        openFileExport = openFileExport,
-                                        localScheduleRevision = localScheduleRevision,
-                                        onLocalLessonsChanged = onLocalLessonsChanged,
-                                        onMessages = { messagesOpen = true },
-                                        settingsOpen = profileSettingsRoute == "timetable-settings",
-                                        onSettingsOpenChanged = { open ->
-                                            profileSettingsRoute =
-                                                if (open) "timetable-settings" else "timetable-editor"
-                                        },
-                                        onSettingsClosed = { profileSettingsRoute = "home" },
-                                        // Adding a course keeps the editor composed; only file
-                                        // actions leave this route for the Activity picker.
-                                        onSettingsFileAction = { profileSettingsRoute = "home" },
-                                        onEditorClosed = { profileSettingsRoute = "home" }
-                                    )
-                                } else {
-                                    ProfileSettingsPage(
-                                        route = if (profileSettingsRoute == "timetable-settings" ||
-                                            profileSettingsRoute == "timetable-editor") "home"
-                                            else profileSettingsRoute,
-                                        onRouteChange = { profileSettingsRoute = it },
-                                        onScheduleSettings = {
-                                            profileSettingsRoute = "timetable-settings"
-                                        },
-                                        client = cloud,
-                                        openWebsite = openWebsite,
-                                        openLocalSchool = { provider ->
-                                            if (provider == "second_class") openSecondClass()
-                                            else openLocalSchool(provider)
-                                        },
-                                        startSchoolAuthorization = startSchoolAuthorization,
-                                        recentImport = localCaptureReturn,
-                                        localTasks = localTasks,
-                                        onMessages = { messagesOpen = true },
-                                        onRefresh = { scope.launch { cloud.refresh() } }
-                                    )
-                                }
-                                    }
-                                }
-                            }
-                        }
-                        }
-                        }
-                    }
-                    }
-                }
-            }
+    UiV2Shell(
+        selected = current,
+        showNavigation = showPrimaryNavigation,
+        backPreview = backPreview,
+        onSelect = { selected ->
+            current = selected
+            profileSettingsRoute = "home"
+            messagesOpen = false
         }
-        if (!tabletLayout && showPrimaryNavigation) {
-            Box(Modifier.align(Alignment.BottomCenter)) {
-                PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) { selected ->
-                    current = selected
-                    profileSettingsRoute = "home"
+    ) { openNavigation ->
+    if (messagesOpen) {
+        pageStateHolder.SaveableStateProvider("messages") {
+            MessageCenterPanel(cloud, openWebsite, openArticle,
+                useStatusBarInset = false, onBack = { messagesOpen = false },
+                localTasks = localTasks, localLessons = localLessons,
+                onOpenLocalTasks = { id ->
+                    inboxTaskId = id
+                    inboxTaskSerial++
                     messagesOpen = false
+                    current = MainDestination.TASKS
+                },
+                onOpenLocalSchedule = { id, weekday ->
+                    inboxLessonId = id
+                    inboxLessonWeekday = weekday
+                    messagesOpen = false
+                    current = MainDestination.SCHEDULE
+                },
+                onOpenReminderSettings = {
+                    messagesOpen = false
+                    current = MainDestination.PROFILE
+                    profileSettingsRoute = "notifications"
+                })
+        }
+    } else {
+    // Only one heavy tab is ever composed; no AnimatedContent overlap.
+    // Keep per-tab SaveableStateProvider so filters/scroll survive.
+    val page = current
+    Box(Modifier.fillMaxSize().clipToBounds()) {
+        pageStateHolder.SaveableStateProvider(page.name) {
+        // Full-size opaque layers and bounds clipping prevent old
+        // page labels from showing through while rapidly changing tabs.
+        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)
+            .testTag("xiaoxu_page_${page.name}")) {
+        when (page) {
+            MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
+                XiaoxuTopBar(
+                    title = "今日",
+                    subtitle = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
+                        .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 · EEEE", java.util.Locale.CHINA)),
+                    refreshing = cloud.state.busy,
+                    onRefresh = { scope.launch { cloud.refresh() } },
+                    onMessages = { messagesOpen = true },
+                    onNavigation = openNavigation,
+                    applyStatusBarInset = false
+                )
+                Box(Modifier.weight(1f)) {
+                RealAcademicHome(localTasks, client = cloud,
+                localLessons = localLessons,
+                openSchedule = { current = MainDestination.SCHEDULE },
+                openTasks = { current = MainDestination.TASKS },
+                openMessages = { messagesOpen = true },
+                openProfile = { current = MainDestination.PROFILE },
+                openAcademic = { current = MainDestination.ACADEMIC; academic = AcademicDestination.OVERVIEW },
+                openLocalSchool = { provider ->
+                    if (provider == "second_class") openSecondClass()
+                    else openLocalSchool(provider)
+                },
+                openFileImport = openFileImport,
+                openGrades = {
+                    academic = AcademicDestination.GRADES
+                    current = MainDestination.ACADEMIC
+                },
+                openExams = {
+                    academic = AcademicDestination.EXAMS
+                    current = MainDestination.ACADEMIC
+                },
+                openSecondClass = { openSecondClass() },
+                openArticle = openArticle,
+                homeDependencies = workspaceDependencies.value,
+                nativeRows = workspaceSchoolRows.value,
+                allRecords = workspaceRecords.value)
+                }
+            }
+            MainDestination.SCHEDULE -> CloudTimetablePanel(
+                preparedSchedule = preparedSchedule,
+                focusLessonId = inboxLessonId ?: reminderLessonId,
+                focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
+                    else reminderLessonWeekday,
+                onFocusConsumed = {
+                    inboxLessonId = null
+                    onReminderCourseConsumed()
+                },
+                localLessons = localLessons, openFileImport = openFileImport,
+                openFileExport = openFileExport,
+                localScheduleRevision = localScheduleRevision,
+                onLocalLessonsChanged = onLocalLessonsChanged,
+                onMessages = { messagesOpen = true },
+                onNavigation = openNavigation,
+                settingsOpen = scheduleSettingsOpen,
+                onSettingsOpenChanged = { scheduleSettingsOpen = it })
+            MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
+                openWebsite, openProfile = { current = MainDestination.PROFILE },
+                cloud = cloud, onMessages = { messagesOpen = true },
+                onNavigation = openNavigation)
+            MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                reminderTaskId = inboxTaskId ?: reminderTaskId,
+                reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
+                onReminderConsumed = {
+                    inboxTaskId = null
+                    onReminderTaskConsumed()
+                },
+                openLocalSchool = openLocalSchool,
+                onMessages = { messagesOpen = true },
+                onNavigation = openNavigation,
+                dependencies = workspaceDependencies.value,
+                schoolRows = workspaceSchoolRows.value,
+                allRecords = workspaceRecords.value,
+                executionDao = workspaceExecutionDao,
+                taskSteps = workspaceTaskSteps.value,
+                stepEdges = workspaceStepEdges.value,
+                executions = workspaceExecutions.value)
+            MainDestination.PROFILE -> {
+                // Reuse the settings child route for the timetable
+                // child. It must not bypass the settings host on entry/back.
+                AnimatedContent(
+                    targetState = profileSettingsRoute == "timetable-settings" ||
+                        profileSettingsRoute == "timetable-editor",
+                    transitionSpec = {
+                        xiaoxuSettingsRouteTransition(
+                            if (initialState) "detail" else "home",
+                            if (targetState) "detail" else "home"
+                        )
+                    },
+                    modifier = Modifier.fillMaxSize().clipToBounds(),
+                    label = "profileTimetableChild"
+                ) { timetableChild ->
+                    // Each target child owns an opaque full-size layer. The
+                    // timetable/editor must not show settings text behind it.
+                    Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
+                    if (timetableChild) {
+                    // A native child of 我的/设置, not a switch to the timetable tab.
+                    // Keeping current == PROFILE avoids AnimatedContent rendering a
+                    // second full timetable page and glass dock during entry.
+                    CloudTimetablePanel(
+                        preparedSchedule = preparedSchedule,
+                        localLessons = localLessons,
+                        openFileImport = openFileImport,
+                        openFileExport = openFileExport,
+                        localScheduleRevision = localScheduleRevision,
+                        onLocalLessonsChanged = onLocalLessonsChanged,
+                        onMessages = { messagesOpen = true },
+                        settingsOpen = profileSettingsRoute == "timetable-settings",
+                        onSettingsOpenChanged = { open ->
+                            profileSettingsRoute =
+                                if (open) "timetable-settings" else "timetable-editor"
+                        },
+                        onSettingsClosed = { profileSettingsRoute = "home" },
+                        // Adding a course keeps the editor composed; only file
+                        // actions leave this route for the Activity picker.
+                        onSettingsFileAction = { profileSettingsRoute = "home" },
+                        onEditorClosed = { profileSettingsRoute = "home" }
+                    )
+                } else {
+                    ProfileSettingsPage(
+                        route = if (profileSettingsRoute == "timetable-settings" ||
+                            profileSettingsRoute == "timetable-editor") "home"
+                            else profileSettingsRoute,
+                        onRouteChange = { profileSettingsRoute = it },
+                        onScheduleSettings = {
+                            profileSettingsRoute = "timetable-settings"
+                        },
+                        client = cloud,
+                        openWebsite = openWebsite,
+                        openLocalSchool = { provider ->
+                            if (provider == "second_class") openSecondClass()
+                            else openLocalSchool(provider)
+                        },
+                        startSchoolAuthorization = startSchoolAuthorization,
+                        recentImport = localCaptureReturn,
+                        localTasks = localTasks,
+                        onMessages = { messagesOpen = true },
+                        onRefresh = { scope.launch { cloud.refresh() } },
+                        onNavigation = openNavigation
+                    )
+                }
+                    }
                 }
             }
         }
         }
+        }
+    }
+    }
     }
 }
 
@@ -832,22 +861,24 @@ private fun CompactPageHeading(
     title: String,
     onMessages: () -> Unit,
     onRefresh: (() -> Unit)? = null,
-    refreshing: Boolean = false
+    refreshing: Boolean = false,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, modifier = Modifier.weight(1f),
+        XiaoxuNavigationAction(onNavigation)
+        Text(title,
             style = MaterialTheme.typography.headlineSmall,
-            color = XiaoxuPalette.Ink)
+            color = XiaoxuPalette.Ink, modifier = Modifier.weight(1f).semantics { heading() })
         if (onRefresh != null) {
-            IconButton(onClick = onRefresh, enabled = !refreshing) {
+            XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
                 Icon(Icons.Outlined.Refresh, contentDescription = "刷新数据",
                     tint = XiaoxuPalette.Ink2)
             }
         }
-        IconButton(onClick = onMessages) {
+        XiaoxuSoftIconButton(onClick = onMessages) {
             Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
                 tint = XiaoxuPalette.Ink2)
         }
@@ -861,7 +892,8 @@ private fun AcademicPage(
     openWebsite: () -> Unit,
     openProfile: () -> Unit,
     cloud: CloudClient,
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    onNavigation: (() -> Unit)? = null
 ) {
     val tabStateHolder = rememberSaveableStateHolder()
     // A single academic child host without page-level motion.
@@ -888,7 +920,7 @@ private fun AcademicPage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (academicRoute != AcademicDestination.OVERVIEW) {
-                    IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                    XiaoxuSoftIconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = "返回校园",
                             tint = XiaoxuPalette.Ink2)
@@ -903,33 +935,28 @@ private fun AcademicPage(
                             AcademicDestination.SECOND_CLASS -> "第二课堂"
                             AcademicDestination.SERVICES -> "校园服务"
                         },
-                        onMessages = onMessages
+                        onMessages = onMessages,
+                        onNavigation = if (academicRoute == AcademicDestination.OVERVIEW) onNavigation else null
                     )
                 }
             }
         }
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
-                item {
-                    AcademicEditorialSection(title = "教务") {
-                        AcademicActionRow("成绩", Icons.Outlined.School) {
-                            select(AcademicDestination.GRADES)
-                        }
-                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp))
-                        AcademicActionRow("考试", Icons.Outlined.DateRange) {
-                            select(AcademicDestination.EXAMS)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    AcademicEditorialSection(title = "校园生活") {
-                        AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
-                            select(AcademicDestination.SECOND_CLASS)
-                        }
-                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp))
-                        AcademicActionRow("校园服务", Icons.Outlined.Home) {
-                            select(AcademicDestination.SERVICES)
+                item(key = "academic_actions") {
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val singleColumn = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("教务", style = MaterialTheme.typography.titleMedium,
+                                color = XiaoxuPalette.Ink)
+                            AcademicActionPair(singleColumn,
+                                "成绩", Icons.Outlined.School, { select(AcademicDestination.GRADES) },
+                                "考试", Icons.Outlined.DateRange, { select(AcademicDestination.EXAMS) })
+                            Text("校园生活", style = MaterialTheme.typography.titleMedium,
+                                color = XiaoxuPalette.Ink)
+                            AcademicActionPair(singleColumn,
+                                "第二课堂", Icons.Outlined.CheckCircle, { select(AcademicDestination.SECOND_CLASS) },
+                                "校园服务", Icons.Outlined.Home, { select(AcademicDestination.SERVICES) })
                         }
                     }
                 }
@@ -942,7 +969,7 @@ private fun AcademicPage(
                 item {
                     XiaoxuEmpty(
                         title = "成绩尚未读取",
-                        message = "尚无已核验的本人成绩，学校连接情况请在「我的」查看。",
+                        message = "暂无已核验的本人成绩。",
                         actionLabel = "连接青果教务",
                         onAction = openProfile
                     )
@@ -952,7 +979,7 @@ private fun AcademicPage(
                 item {
                     XiaoxuEmpty(
                         title = "考试安排尚未读取",
-                        message = "尚无已核验的本人考试安排，学校连接情况请在「我的」查看。",
+                        message = "暂无已核验的本人考试安排。",
                         actionLabel = "查看数据连接",
                         onAction = openProfile
                     )
@@ -961,11 +988,10 @@ private fun AcademicPage(
             AcademicDestination.SERVICES -> Content {
                 item { CampusRunPanel(cloud) }
                 item {
-                    XiaoxuGroupedSection {
+                    UiV2SettingsGroup(title = "其他服务") {
                         AcademicActionRow("数据连接", Icons.Outlined.School,
                                 onClick = openProfile)
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
+                        UiV2SettingsDivider()
                         AcademicActionRow("打开校序网站", Icons.Outlined.Home,
                             onClick = openWebsite)
                     }
@@ -976,31 +1002,27 @@ private fun AcademicPage(
     }
 }
 
-/**
- * 技术编辑式分组：上边界细线 + 一处真正的标题 + 连续操作行。
- * 教务仍使用唯一 AcademicPage 导航宿主和原有详情页面。
- */
+/** Responsive direct action pair using the same horizontal tile as Home. */
 @Composable
-private fun AcademicEditorialSection(
-    title: String,
-    content: @Composable () -> Unit
+private fun AcademicActionPair(
+    singleColumn: Boolean,
+    firstTitle: String, firstIcon: ImageVector, firstAction: () -> Unit,
+    secondTitle: String, secondIcon: ImageVector, secondAction: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
-        Text(
-            title,
-            modifier = Modifier.padding(top = 4.dp).semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink
-        )
-        Column(content = { content() })
+    if (singleColumn) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            UiV2HomeQuickAction(firstTitle, firstIcon, Modifier.fillMaxWidth(), firstAction)
+            UiV2HomeQuickAction(secondTitle, secondIcon, Modifier.fillMaxWidth(), secondAction)
+        }
+    } else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            UiV2HomeQuickAction(firstTitle, firstIcon, Modifier.weight(1f), firstAction)
+            UiV2HomeQuickAction(secondTitle, secondIcon, Modifier.weight(1f), secondAction)
+        }
     }
 }
 
-/** 导航入口保持 56dp 以上触控高度；用行分割替代额外彩色图标卡。 */
+/** Secondary service links remain compact list rows. */
 @Composable
 private fun AcademicActionRow(
     title: String,
@@ -1008,24 +1030,11 @@ private fun AcademicActionRow(
     status: String? = null,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-            .clickable(role = Role.Button, onClickLabel = "打开$title", onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null,
-            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(16.dp))
-        Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall,
-            color = XiaoxuPalette.Ink)
-        if (status != null) {
-            Text(status, style = MaterialTheme.typography.labelMedium,
-                color = XiaoxuPalette.Ink3)
-            Spacer(Modifier.width(7.dp))
-        }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
-    }
+    val warm = title == "第二课堂" || title == "校园服务"
+    UiV2SettingsEntry(
+        title = title, icon = icon, subtitle = null, statusLabel = status,
+        onClick = onClick,
+        iconContainer = if (warm) UiV2Theme.WarmContainer else UiV2Theme.CoolContainer,
+        iconTint = if (warm) UiV2Theme.WarmInk else UiV2Theme.CoolInk
+    )
 }

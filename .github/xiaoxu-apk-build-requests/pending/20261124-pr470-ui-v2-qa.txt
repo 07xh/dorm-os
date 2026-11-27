@@ -1,0 +1,4 @@
+QA-only Android APK build requested for PR #470, UI V2 presentation migration.
+Run the existing exact-head Kotlin/JVM, static contract, Android runtime/Room migration and APK compilation gates; upload the existing isolated UI QA APK for side-by-side testing.
+This request does not authorize a formal release, signing, tagging, promotion, merge or replacement of the installed production app.
+Physical-device appearance, gestures and frame timing remain unverified until independently tested.

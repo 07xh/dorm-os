@@ -2,22 +2,20 @@ package io.github.x07xh.xiaoxu.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -29,10 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskBackup
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -140,7 +136,7 @@ fun LocalTaskBackupPanel(
         if (embedded) {
             backupActions()
         } else {
-            XiaoxuGroupedSection(title = "任务数据") { backupActions() }
+            UiV2SettingsGroup(title = "任务数据") { backupActions() }
         }
         message?.let {
             Text(
@@ -158,35 +154,14 @@ fun LocalTaskBackupPanel(
                 BackupGuidance()
             }
         } else {
-            XiaoxuGroupedSection(title = "安全与说明") {
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .heightIn(min = 58.dp)
-                        .clickable(role = Role.Button, onClickLabel = "查看备份说明") {
-                            guidanceExpanded = !guidanceExpanded
-                        }.padding(horizontal = 18.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.Info, contentDescription = null,
-                        tint = XiaoxuPalette.Brand)
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        if (guidanceExpanded) "收起备份说明" else "查看备份说明",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = XiaoxuPalette.Ink
-                    )
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-                        tint = XiaoxuPalette.Ink3)
-                }
-                if (guidanceExpanded) {
-                    HorizontalDivider(
-                        color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 18.dp)
-                    )
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(18.dp)
-                    ) { BackupGuidance() }
+            UiV2SettingsGroup(title = "安全与说明") {
+                UiV2SettingsEntry("查看备份说明", Icons.Outlined.Info,
+                    onClick = { guidanceExpanded = true })
+            }
+            if (guidanceExpanded) {
+                XiaoxuBottomSheet(title = "备份说明",
+                    onDismiss = { guidanceExpanded = false }, showCancel = false) {
+                    BackupGuidance()
                 }
             }
         }

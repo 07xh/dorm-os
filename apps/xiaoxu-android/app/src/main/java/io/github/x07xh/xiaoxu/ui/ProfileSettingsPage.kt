@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,21 +20,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,16 +38,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalFocusManager
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsSearchField
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Setting
+import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsConnectionCard
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsIndexedEntry
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SearchSettings
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsIndex
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsHeader
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionSettingsPage
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsToggle
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -81,9 +88,22 @@ fun ProfileSettingsPage(
     recentImport: LocalSchoolImportReceipt?,
     localTasks: List<LocalTask>,
     onMessages: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onNavigation: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
+    var settingsQuery by rememberSaveable { mutableStateOf("") }
+    val focus = LocalFocusManager.current
+    val openSetting: (String) -> Unit = { target ->
+        focus.clearFocus()
+        settingsQuery = ""
+        if (target == "timetable-settings") onScheduleSettings() else onRouteChange(target)
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val compactSettingsHeader = maxHeight < 480.dp
+    val settingsTwoColumns = uiV2DetailWidth(
+        maxWidth.value.coerceAtMost(XiaoxuPageLayout.ContentMaxWidth.value), maxHeight.value,
+        mainMin = 360f, detailMin = 320f, detailMax = 420f, gap = 16f, horizontalPadding = 32f
+    ) != null
     androidx.compose.animation.AnimatedContent(
         targetState = route,
         transitionSpec = {
@@ -100,13 +120,10 @@ fun ProfileSettingsPage(
         "backup" -> "备份与恢复"
         "about" -> "关于校序"
         "licenses" -> "开源许可"
+        "motion" -> "外观与动效"
         else -> "设置"
     }
-    val goBack = { onRouteChange(when (animatedRoute) {
-        "licenses" -> "about"
-        "notifications-course", "notifications-task" -> "notifications"
-        else -> "home"
-    }) }
+    val goBack = { onRouteChange(uiV2SettingsParent(animatedRoute)) }
     // Each animated route paints an opaque page, so the outgoing settings
     // labels/cards cannot bleed through the incoming full-screen page.
     Column(
@@ -114,58 +131,67 @@ fun ProfileSettingsPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Row(Modifier.xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            if (animatedRoute != "home") {
-                XiaoxuSoftIconButton(onClick = goBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回设置")
-                }
-            }
-            Text(title, modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall,
-                color = XiaoxuPalette.Ink)
-            if (animatedRoute == "home") {
-                XiaoxuSoftIconButton(onClick = onRefresh, enabled = !client.state.busy) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
-                }
-                XiaoxuSoftIconButton(onClick = onMessages) {
-                    Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
-                }
-            }
-        }
+        UiV2SettingsHeader(
+            title = title,
+            onBack = if (animatedRoute != "home") goBack else null,
+            onRefresh = if (animatedRoute == "home") onRefresh else null,
+            refreshing = client.state.busy,
+            onMessages = if (animatedRoute == "home") onMessages else null,
+            onNavigation = if (animatedRoute == "home") onNavigation else null,
+            compact = animatedRoute != "home" || compactSettingsHeader
+        )
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.weight(1f).xiaoxuPageWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 18.dp, end = 18.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                start = UiV2Theme.PageGutter, end = UiV2Theme.PageGutter, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(
+                if (animatedRoute == "home") UiV2Theme.HubSectionGap else UiV2Theme.DetailSectionGap)
         ) {
             when (animatedRoute) {
                 "home" -> {
-                    item {
-                        SettingsEditorialSection(title = "学习与课程") {
-                            SettingsEntry("课表设置", Icons.Outlined.DateRange,
-                                onClick = onScheduleSettings)
-                            SettingsDivider()
-                            SettingsEntry("通知与提醒", Icons.Outlined.NotificationsNone) {
-                                onRouteChange("notifications")
+                    item(key = "settings-search") {
+                        UiV2SettingsSearchField(settingsQuery) { settingsQuery = it }
+                    }
+                    if (settingsQuery.isBlank()) {
+                        item(key = "connection-card") {
+                            UiV2SettingsConnectionCard(
+                                authenticated = client.state.authenticated,
+                                busy = client.state.busy,
+                                onOpen = { openSetting("connections") }
+                            )
+                        }
+                        val groups = settingsHomeGroups
+                        if (settingsTwoColumns) {
+                            groups.entries.toList().chunked(2).forEach { pair ->
+                                item(key = pair.first().key) {
+                                    Row(Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                        verticalAlignment = Alignment.Top) {
+                                        pair.forEach { (group, entries) ->
+                                            Column(Modifier.weight(1f)) {
+                                                SettingsIndexedGroup(group, entries, onOpen = openSetting)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            groups.forEach { (group, entries) ->
+                                item(key = group) {
+                                    SettingsIndexedGroup(group, entries, onOpen = openSetting)
+                                }
                             }
                         }
-                    }
-                    item {
-                        SettingsEditorialSection(title = "账户与数据") {
-                            SettingsEntry("数据连接", Icons.Outlined.School) {
-                                onRouteChange("connections")
-                            }
-                            SettingsDivider()
-                            SettingsEntry("备份与恢复", Icons.Outlined.CheckCircle) {
-                                onRouteChange("backup")
-                            }
-                        }
-                    }
-                    item {
-                        SettingsEditorialSection(title = "其他") {
-                            SettingsEntry("关于校序", Icons.Outlined.Info) {
-                                onRouteChange("about")
+                    } else {
+                        val results = uiV2SearchSettings(settingsQuery)
+                        item(key = "settings-results") {
+                            if (results.isEmpty()) {
+                                Text("没有匹配的设置", Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = XiaoxuPalette.Ink2)
+                            } else {
+                                SettingsIndexedGroup("搜索结果", results,
+                                    showPath = true, onOpen = openSetting)
                             }
                         }
                     }
@@ -182,92 +208,30 @@ fun ProfileSettingsPage(
                     AboutPage(onOpenLicenses = { onRouteChange("licenses") })
                 }
                 "licenses" -> item { OpenSourceCreditsPanel() }
+                "motion" -> item { UiV2MotionSettingsPage() }
             }
         }
     }
     }
-}
-
-/**
- * 设置首页保留原二级路由，只把分组从整张玻璃卡改为开放式行列表。
- * 与单独的连接状态页、提醒开关以及备份等业务容器严格分离。
- */
-@Composable
-private fun SettingsEditorialSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
-        Text(
-            title,
-            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                .semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink
-        )
-        Column(content = { content() })
     }
 }
 
-@Composable
-private fun SettingsDivider() {
-    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-        modifier = Modifier.padding(horizontal = 16.dp))
-}
+// The settings index is static; never rebuild its groups during a tab switch.
+private val settingsHomeGroups = uiV2SettingsIndex.filter {
+    it.group in listOf("学习与课程", "账户与数据", "其他") && it.route != "connections"
+}.groupBy { it.group }
 
+/** Shared indexed groups keep search results and the adaptive hub on the same row path. */
 @Composable
-private fun SettingsEntry(
-    title: String,
-    icon: ImageVector,
-    subtitle: String? = null,
-    statusLabel: String? = null,
-    onClick: () -> Unit
+private fun SettingsIndexedGroup(
+    title: String, entries: List<UiV2Setting>, showPath: Boolean = false,
+    onOpen: (String) -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 60.dp else 72.dp)
-        .clickable(role = Role.Button, onClickLabel = "打开" + title, onClick = onClick)
-        .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null,
-            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.size(16.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium,
-                color = XiaoxuPalette.Ink)
-            if (!subtitle.isNullOrBlank()) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
-            }
+    UiV2SettingsGroup(title) {
+        entries.forEachIndexed { index, entry ->
+            if (index > 0) UiV2SettingsDivider()
+            UiV2SettingsIndexedEntry(entry, showPath = showPath, onOpen = onOpen)
         }
-        if (!statusLabel.isNullOrBlank()) {
-            Text(statusLabel, style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(end = 8.dp))
-        }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp))
-    }
-}
-
-/** Shared reminder row; each caller owns its schedule and Android notification permission checks. */
-@Composable
-private fun ReminderToggleRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 70.dp)
-        .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = XiaoxuPalette.Ink)
-            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall,
-                color = XiaoxuPalette.Ink2)
-        }
-        XiaoxuSettingsSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -385,8 +349,8 @@ private fun NotificationSettingsContent(
     }
 
     // A single short form replaces two nested reminder-settings routes.
-    XiaoxuGroupedSection(title = "课程") {
-        ReminderToggleRow(
+    UiV2SettingsGroup(title = "课程") {
+        UiV2SettingsToggle(
             title = "上课提醒", subtitle = "", checked = enabled,
             onCheckedChange = { value ->
                 when {
@@ -396,14 +360,13 @@ private fun NotificationSettingsContent(
                 }
             }
         )
-        SettingsDivider()
-        SettingsEntry("课前 · " + leadMinutes + " 分钟", Icons.Outlined.DateRange) {
-            leadPickerOpen = true
-        }
+        UiV2SettingsDivider()
+        UiV2SettingsEntry("课前提醒", Icons.Outlined.DateRange, statusLabel = "$leadMinutes 分钟",
+            onClick = { leadPickerOpen = true })
     }
     Spacer(Modifier.height(14.dp))
-    XiaoxuGroupedSection(title = "个人任务") {
-        ReminderToggleRow(
+    UiV2SettingsGroup(title = "个人任务") {
+        UiV2SettingsToggle(
             title = "截止提醒", subtitle = "", checked = deadlineEnabled,
             onCheckedChange = { value ->
                 when {
@@ -413,42 +376,45 @@ private fun NotificationSettingsContent(
                 }
             }
         )
-        SettingsDivider()
-        ReminderToggleRow("提前一天", "", reminderSchedule.dayBefore,
+        UiV2SettingsDivider()
+        UiV2SettingsToggle("提前一天", "", reminderSchedule.dayBefore,
             onCheckedChange = { updateReminderSchedule(reminderSchedule.copy(dayBefore = it)) })
-        SettingsDivider()
-        ReminderToggleRow("截止当天", "", reminderSchedule.dueDay,
+        UiV2SettingsDivider()
+        UiV2SettingsToggle("截止当天", "", reminderSchedule.dueDay,
             onCheckedChange = { updateReminderSchedule(reminderSchedule.copy(dueDay = it)) })
-        SettingsDivider()
-        SettingsEntry(
-            "提醒时间 · " + "%02d:%02d".format(reminderSchedule.hour, reminderSchedule.minute),
-            Icons.Outlined.DateRange
-        ) { taskTimePickerOpen = true }
+        UiV2SettingsDivider()
+        UiV2SettingsEntry(
+            "提醒时间", Icons.Outlined.DateRange,
+            statusLabel = "%02d:%02d".format(reminderSchedule.hour, reminderSchedule.minute),
+            onClick = { taskTimePickerOpen = true }
+        )
     }
     Spacer(Modifier.height(14.dp))
-    XiaoxuGroupedSection(title = "免打扰") {
-        ReminderToggleRow(
+    UiV2SettingsGroup(title = "免打扰") {
+        UiV2SettingsToggle(
             title = "启用本机免打扰",
             subtitle = "时段内跳过提醒，不补发；不修改系统免打扰",
             checked = quietHours.enabled,
             onCheckedChange = { updateQuietHours(quietHours.copy(enabled = it)) }
         )
-        SettingsDivider()
-        SettingsEntry(
-            "开始 · " + "%02d:%02d".format(
+        UiV2SettingsDivider()
+        UiV2SettingsEntry(
+            "开始时间", Icons.Outlined.DateRange,
+            statusLabel = "%02d:%02d".format(
                 quietHours.startMinutes / 60, quietHours.startMinutes % 60),
-            Icons.Outlined.DateRange
-        ) { quietTimePicker = 1 }
-        SettingsDivider()
-        SettingsEntry(
-            "结束 · " + "%02d:%02d".format(
+            onClick = { quietTimePicker = 1 }
+        )
+        UiV2SettingsDivider()
+        UiV2SettingsEntry(
+            "结束时间", Icons.Outlined.DateRange,
+            statusLabel = "%02d:%02d".format(
                 quietHours.endMinutes / 60, quietHours.endMinutes % 60),
-            Icons.Outlined.DateRange
-        ) { quietTimePicker = 2 }
+            onClick = { quietTimePicker = 2 }
+        )
     }
     Spacer(Modifier.height(14.dp))
-    XiaoxuGroupedSection(title = "系统") {
-        SettingsEntry("通知权限与渠道", Icons.Outlined.NotificationsNone,
+    UiV2SettingsGroup(title = "系统") {
+        UiV2SettingsEntry("通知权限与渠道", Icons.Outlined.NotificationsNone,
             onClick = ::openPermissionSettings)
     }
     Text("本机课程与个人任务 · 省电模式下可能延迟",

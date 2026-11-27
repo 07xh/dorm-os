@@ -2,6 +2,17 @@ package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.ui.Alignment
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
@@ -55,7 +66,8 @@ fun LocalSchoolConnectionPanel(
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val records by rememberLocalRows(dao) { dao.observe() }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        UiV2SettingsGroup(title = "本机学校连接") {
         for ((provider, name) in listOf(
             "chaoxing" to "学习通", "ncwu" to "青果教务",
             "second_class" to "第二课堂")) {
@@ -72,24 +84,35 @@ fun LocalSchoolConnectionPanel(
             var allRecordsExpanded by rememberSaveable(provider, recentImport?.serial) {
                 mutableStateOf(false)
             }
-            XiaoxuExpandableGlassRow(
+            if (provider != "chaoxing") UiV2SettingsDivider()
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    UiV2SettingsEntry(
+                        title = name,
+                        icon = when (provider) {
+                            "ncwu" -> Icons.Outlined.School
+                            "chaoxing" -> Icons.Outlined.MenuBook
+                            else -> Icons.Outlined.EmojiEvents
+                        },
+                        subtitle = if (provider == "ncwu") "课表在课表页查看"
+                            else if (list.isEmpty()) "尚未读取" else "已保存 ${list.size} 条",
+                        onClick = { openLocal(provider) }
+                    )
+                }
+                TextButton(onClick = { platformOpen = true },
+                    modifier = Modifier.heightIn(min = 48.dp).padding(end = 4.dp)) {
+                    Text(if (provider == "second_class") "管理" else "记录")
+                }
+            }
+            if (platformOpen) XiaoxuBottomSheet(
                 title = name,
-                subtitle = if (provider == "ncwu") "课表在课表页查看"
-                    else if (list.isEmpty()) "暂无本机读取记录"
-                    else "已保存 ${list.size} 条本机记录",
-                expanded = platformOpen,
-                onToggle = { platformOpen = !platformOpen }
+                onDismiss = { platformOpen = false },
+                showCancel = false
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(when (provider) {
-                        "chaoxing" -> "通知、学习计划、课程作业 · 共用本机读取"
-                        "ncwu" -> "个人课表 · 本机导入后直接在课表页查看"
-                        else -> "官网本人积分、六类明细与分学期记录 · 保存后离线可查看"
-                    }, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        onClick = { openLocal(provider) }
+                        onClick = { platformOpen = false; openLocal(provider) }
                     ) {
                         Text(when (provider) {
                             "chaoxing" -> "连接学习通／刷新全部任务"
@@ -99,7 +122,7 @@ fun LocalSchoolConnectionPanel(
                     }
                     if (provider == "second_class") SecondClassAutoReadControls()
                     if (provider == "second_class") Text(
-                        "首次正常登录；学校会话有效时无需重复登录，过期后重新授权。下方为上次保存结果，不代表当前仍在线。",
+                        "会话过期需重新授权；下方为上次保存记录。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (justImported != null) {
@@ -123,6 +146,9 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     }
+                    if (prioritized.isNotEmpty()) Text("历史记录 · 不代表当前官网状态",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     prioritized.take(if (allRecordsExpanded) prioritized.size
                         else if (justImported != null) 12 else 3)
                         .forEach { item ->
@@ -138,7 +164,7 @@ fun LocalSchoolConnectionPanel(
                             Text(
                                 "本机采集：${DateFormat.getDateTimeInstance(
                                     DateFormat.SHORT, DateFormat.SHORT
-                                ).format(Date(item.capturedAt))} · 不代表当前官网状态",
+                                ).format(Date(item.capturedAt))}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -151,7 +177,8 @@ fun LocalSchoolConnectionPanel(
                 }
             }
         }
-        Text("本机读取成功 ≠ 已核验学校官方提交状态。首次须在本人账号页面逐项对照。",
+        }
+        Text("本机记录不代表学校官方提交状态。",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall)
     }
