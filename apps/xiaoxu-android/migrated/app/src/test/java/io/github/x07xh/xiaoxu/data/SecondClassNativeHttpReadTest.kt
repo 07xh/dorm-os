@@ -55,6 +55,19 @@ class SecondClassNativeHttpReadTest {
         assertFalse(result.toString().contains(student))
     }
 
+    @Test fun firstManualReadReturnsOnlySaltedBindingAndNoStudentCode() = runBlocking {
+        val result = readSecondClassNativeHttp(salt, null) { endpoint, _ ->
+            when (endpoint) {
+                SecondClassReadEndpoint.SCORES -> scores()
+                SecondClassReadEndpoint.PERSONAL -> envelope()
+                SecondClassReadEndpoint.CATALOG -> envelope()
+            }
+        }
+        assertEquals(hash, result.getString("accountHash"))
+        assertTrue(result.getBoolean("identityMatched"))
+        assertFalse(result.toString().contains(student))
+    }
+
     @Test fun wrongOwnerStopsBeforeOtherBusinessReads() = runBlocking {
         var calls = 0
         val failure = runCatching {
