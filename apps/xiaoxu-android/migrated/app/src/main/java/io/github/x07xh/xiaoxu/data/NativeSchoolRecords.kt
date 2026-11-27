@@ -200,7 +200,10 @@ interface NativeSchoolRecordDao {
         catalogEmpty: List<NativeSchoolRecord> = emptyList(),
         catalogActivities: List<NativeSchoolRecord> = emptyList(),
         accountHash: String? = null, expectedBinding: String? = null,
-        catalogVerified: Boolean = true
+        catalogVerified: Boolean = true,
+        requirePreviousBindingMatch: Boolean = false,
+        expectedPreviousBinding: String? = null,
+        expectedPreviousBindingCapturedAt: Long? = null
     ) {
         require(scores.isNotEmpty() && scores.size <= 50)
         require(scores.all { it.provider == "second_class" && it.kind == "credits" })
@@ -220,6 +223,17 @@ interface NativeSchoolRecordDao {
         val saved = snapshotKind("second_class", "credits").maxOfOrNull { it.capturedAt } ?: 0
         require(capturedAt >= saved) { "stale_secondclass_batch" }
         val bindings = snapshotKind("second_class", "account_binding")
+        if (requirePreviousBindingMatch) {
+            if (expectedPreviousBinding == null) {
+                require(bindings.isEmpty())
+            } else {
+                require(expectedPreviousBindingCapturedAt != null &&
+                    bindings.size == 1 &&
+                    bindings.single().details == expectedPreviousBinding &&
+                    bindings.single().capturedAt == expectedPreviousBindingCapturedAt &&
+                    bindings.single().sourceHost == "dekt.ncwu.edu.cn")
+            }
+        }
         if (expectedBinding != null && bindings.isNotEmpty()) {
             require(bindings.size == 1 && bindings.single().details == expectedBinding &&
                 bindings.single().capturedAt == saved && bindings.single().sourceHost == "dekt.ncwu.edu.cn")
