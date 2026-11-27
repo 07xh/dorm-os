@@ -303,6 +303,30 @@ jobs:
               echo "Failed to install the migration APK after ADB reconnect retries." >&2
               exit 1
             fi
+            test_apk="apps/xiaoxu-android/migrated/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+            test_installed=0
+            for attempt in 1 2 3; do
+              if adb install --no-streaming -r "$test_apk"; then
+                test_installed=1
+                break
+              fi
+              adb reconnect offline >/dev/null 2>&1 || true
+              adb wait-for-device
+              sleep 5
+            done
+            if [ "$test_installed" -ne 1 ]; then
+              echo "Failed to install Android instrumentation tests." >&2
+              exit 1
+            fi
+            instrumentation=$(adb shell pm list instrumentation | sed -n 's/^instrumentation:\\([^ ]*\\).*/\\1/p' | grep 'androidx.test.runner.AndroidJUnitRunner' | head -n 1)
+            if [ -z "$instrumentation" ]; then
+              echo "AndroidJUnitRunner instrumentation package was not registered." >&2
+              exit 1
+            fi
+            adb shell am instrument -w -r -e class io.github.x07xh.xiaoxu.data.LocalTaskDatabaseMigrationTest "$instrumentation" > /tmp/xiaoxu-smoke/room-migration-test.txt
+            cat /tmp/xiaoxu-smoke/room-migration-test.txt
+            grep -Fq 'OK (1 test)' /tmp/xiaoxu-smoke/room-migration-test.txt
+
             adb shell am force-stop io.github.x07xh.xiaoxu.northui
             adb shell am start -W -n io.github.x07xh.xiaoxu.northui/com.tyust.course.MainActivity
             sleep 12
