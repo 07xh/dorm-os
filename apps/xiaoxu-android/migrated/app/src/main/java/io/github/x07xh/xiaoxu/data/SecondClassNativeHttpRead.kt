@@ -147,7 +147,7 @@ private fun JSONObject.strictString(key: String): String {
 private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
 
 private data class ScoreProjection(val student: String, val rows: JSONArray)
-private fun projectScores(raw: JSONObject, salt: String, expected: String): ScoreProjection {
+private fun projectScores(raw: JSONObject, salt: String, expected: String?): ScoreProjection {
     val data = raw.getJSONArray("data").objects()
     require(data.size in 1..50 && raw.strictInt("totalSize") == data.size &&
         raw.strictInt("totalPage") in 0..1 && raw.strictInt("startIndex") == 0)
@@ -155,7 +155,8 @@ private fun projectScores(raw: JSONObject, salt: String, expected: String): Scor
         .map { it.strictString("student_code") }.toSet()
     if (students.size != 1) throw AutoReadFailure("needs_confirmation")
     val student = students.single()
-    if (!student.matches(studentPattern) || hashIdentity(salt, student) != expected)
+    if (!student.matches(studentPattern) ||
+        expected != null && hashIdentity(salt, student) != expected)
         throw AutoReadFailure("needs_confirmation")
     val seen = mutableSetOf<Int>()
     val rows = JSONArray()
@@ -174,12 +175,14 @@ private fun projectScores(raw: JSONObject, salt: String, expected: String): Scor
 }
 
 /** Project into the existing native snapshot contract. Tests inject synthetic JSON;
- * callers must provide the already-confirmed account hash, never a new binding. */
+ * manual callers may omit the previous binding; the returned salted hash must
+ * then be confirmed by the owner before any local snapshot is replaced. */
 internal suspend fun readSecondClassNativeHttp(
-    salt: String, expected: String,
+    salt: String, expected: String?,
     post: suspend (SecondClassReadEndpoint, Map<String, String>) -> JSONObject
 ): JSONObject {
-    require(salt.matches(Regex("^[a-f0-9]{32}$")) && expected.matches(Regex("^[a-f0-9]{64}$")))
+    require(salt.matches(Regex("^[a-f0-9]{32}$")) &&
+        (expected == null || expected.matches(Regex("^[a-f0-9]{64}$"))))
     val score = projectScores(post(SecondClassReadEndpoint.SCORES, emptyMap()), salt, expected)
     val activities = JSONArray()
     val ids = mutableSetOf<String>()
@@ -266,7 +269,7 @@ internal suspend fun readSecondClassNativeHttp(
     if (score.student != finalScore.student) throw AutoReadFailure("needs_confirmation")
     return JSONObject().put("schema", "xiaoxu/local-secondclass-scores-v1")
         .put("ok", true).put("identityMatched", true).put("httpStatus", 200)
-        .put("accountHash", expected).put("rows", finalScore.rows)
+        .put("accountHash", hashIdentity(salt, finalScore.student)).put("rows", finalScore.rows)
         .put("activitiesComplete", true).put("activities", activities)
         .put("catalogStatus", catalogStatus).put("catalogEmptyFilters", empty)
         .put("catalogActivities", catalog)
