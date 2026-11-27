@@ -238,7 +238,6 @@ internal fun SecondClassServiceScreen(
             "secondclass.connect" -> launcher.launch(
                 Intent(context, NativeSchoolConnectActivity::class.java)
                     .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, "second_class")
-                    .putExtra(NativeSchoolConnectActivity.EXTRA_LOGIN_ONLY, true)
             )
             "secondclass.refresh" -> launchWork {
                 when (val outcome = SecondClassAutoRefresh.refreshIfDue(context, userRequested = true)) {

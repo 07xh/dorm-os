@@ -84,13 +84,6 @@ object SecondClassAutoRefresh {
         releaseScope.launch { saving?.join(); manualUsers = (manualUsers - 1).coerceAtLeast(0) }
     }
 
-    fun onManualSave(c: Context) {
-        val now = System.currentTimeMillis()
-        prefs(c).edit().putLong("success_at", now)
-            .putBoolean("success_background", false).putString("status", "updated").apply()
-        reconcile(c)
-    }
-
     internal suspend fun refreshIfDue(
         context: Context,
         backgroundRun: Boolean = false,
