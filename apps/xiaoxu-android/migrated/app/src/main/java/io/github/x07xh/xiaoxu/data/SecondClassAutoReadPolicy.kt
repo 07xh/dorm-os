@@ -12,10 +12,11 @@ object SecondClassAutoReadPolicy {
         bound: Boolean, interactive: Boolean, now: Long, savedAt: Long, attemptedAt: Long,
         userRequested: Boolean = false): Boolean =
         (enabled || userRequested) && (!background || backgroundAllowed) &&
-            (!userRequested || !background) && bound && !interactive &&
-            savedAt > 0 && now >= savedAt &&
-            (userRequested || now - savedAt >= AUTO_SYNC_INTERVAL_MS) &&
-            (attemptedAt == 0L || now >= attemptedAt && now - attemptedAt >= (if (userRequested) MANUAL_COOLDOWN_MS else AUTO_SYNC_INTERVAL_MS))
+            (!userRequested || !background) && (bound || userRequested) && !interactive &&
+            (userRequested || savedAt > 0 && now >= savedAt &&
+                now - savedAt >= AUTO_SYNC_INTERVAL_MS) &&
+            (attemptedAt == 0L || now >= attemptedAt &&
+                now - attemptedAt >= (if (userRequested) MANUAL_COOLDOWN_MS else AUTO_SYNC_INTERVAL_MS))
 
     fun matchesConfirmedAccount(expected: String?, actual: String?): Boolean =
         expected != null && expected.matches(Regex("^[a-f0-9]{64}$")) && expected == actual
