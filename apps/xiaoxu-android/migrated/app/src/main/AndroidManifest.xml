@@ -105,6 +105,12 @@
         <activity android:name=".academic.plugin.PluginDeveloperActivity" android:exported="false" android:configChanges="uiMode" />
         <activity android:name=".academic.plugin.CampusServiceCenterActivity" android:exported="false" android:configChanges="uiMode" />
         <activity android:name=".academic.plugin.ServicePluginActivity" android:exported="false" android:configChanges="uiMode" />
+        <activity
+            android:name="io.github.x07xh.xiaoxu.NativeSchoolConnectActivity"
+            android:exported="false"
+            android:label="校序 · 学习通与第二课堂本机连接"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
         <service android:name=".update.UpdateDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
         <activity android:name=".update.UpdateDownloadActivity" android:exported="false" />
         <!-- Background grab service -->

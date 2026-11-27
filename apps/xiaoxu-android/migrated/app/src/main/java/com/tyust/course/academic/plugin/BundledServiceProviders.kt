@@ -11,6 +11,7 @@ import org.json.JSONObject
 object BundledServiceProviders {
     const val CLOUD_MESSAGES_ID = "cn.ncwu.xiaoxu.messages"
     const val CLOUD_MESSAGES_PAGE = "messages"
+    const val SECOND_CLASS_PAGE = "secondclass"
 
     internal fun load(readAsset: (String) -> ByteArray): Map<String, PluginPackage> {
         val schema = PluginSchema(JSONObject(
@@ -52,17 +53,29 @@ object BundledServiceProviders {
                     .put("jwmis.ncwu.edu.cn")
                     .put("dekt.ncwu.edu.cn"))
                 .put("authentication", JSONObject().put("mode", "none"))
-                .put("pages", JSONArray().put(JSONObject()
-                    .put("id", CLOUD_MESSAGES_PAGE)
-                    .put("title", "消息中心")))
-                .put("entries", JSONArray().put(JSONObject()
-                    .put("id", "messages")
-                    .put("title", "消息中心")
-                    .put("pageId", CLOUD_MESSAGES_PAGE)
-                    .put("icon", "book")
-                    .put("order", 20)
-                    .put("placements", JSONArray()
-                        .put("home").put("schedule").put("grades"))))
+                .put("pages", JSONArray()
+                    .put(JSONObject()
+                        .put("id", CLOUD_MESSAGES_PAGE)
+                        .put("title", "消息中心"))
+                    .put(JSONObject()
+                        .put("id", SECOND_CLASS_PAGE)
+                        .put("title", "第二课堂")))
+                .put("entries", JSONArray()
+                    .put(JSONObject()
+                        .put("id", "messages")
+                        .put("title", "消息中心")
+                        .put("pageId", CLOUD_MESSAGES_PAGE)
+                        .put("icon", "book")
+                        .put("order", 20)
+                        .put("placements", JSONArray()
+                            .put("home").put("schedule").put("grades")))
+                    .put(JSONObject()
+                        .put("id", SECOND_CLASS_PAGE)
+                        .put("title", "第二课堂")
+                        .put("pageId", SECOND_CLASS_PAGE)
+                        .put("icon", "activity")
+                        .put("order", 21)
+                        .put("placements", JSONArray().put("home"))))
                 .put("actions", JSONArray()))
             put("files", JSONObject().put(
                 "index.js", PluginJson.sha256(source.toByteArray(Charsets.UTF_8))

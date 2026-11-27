@@ -12,6 +12,7 @@ import org.json.JSONObject
 import java.net.URL
 import java.net.URI
 import java.net.URLEncoder
+import java.net.URLDecoder
 import java.security.MessageDigest
 import javax.net.ssl.HttpsURLConnection
 
@@ -36,9 +37,24 @@ internal fun isSecondClassLoginRedirect(status: Int, location: String?): Boolean
     if (status !in 300..399 || location.isNullOrBlank()) return false
     return runCatching {
         val u = URI("https://dekt.ncwu.edu.cn/").resolve(location)
-        u.scheme == "https" && u.host == "dekt.ncwu.edu.cn" &&
-            u.port in setOf(-1, 443) && u.rawUserInfo == null &&
-            u.rawPath in setOf("/login", "/login/")
+        if (u.scheme != "https" || u.port !in setOf(-1, 443) ||
+            u.rawUserInfo != null || u.rawFragment != null) return@runCatching false
+        when (u.host?.lowercase()) {
+            "dekt.ncwu.edu.cn" -> u.rawPath in setOf("/login", "/login/")
+            "authserver.ncwu.edu.cn" -> {
+                if (u.rawPath != "/authserver/login") false
+                else {
+                    val fields = u.rawQuery.orEmpty().split('&').map {
+                        val pair = it.split('=', limit = 2)
+                        URLDecoder.decode(pair[0], "UTF-8") to
+                            URLDecoder.decode(pair.getOrElse(1) { "" }, "UTF-8")
+                    }
+                    fields.size == 1 && fields.single().first == "service" &&
+                        fields.single().second == "https://sec.ncwu.edu.cn/rump_frontend/loginFromCas/"
+                }
+            }
+            else -> false
+        }
     }.getOrDefault(false)
 }
 
@@ -71,7 +87,8 @@ internal class SecondClassNativeHttpTransport(private val session: SecondClassAu
                 connection.requestMethod = "POST"
                 connection.doOutput = true
                 connection.setRequestProperty("Accept", "application/json, text/plain, */*")
-                connection.setRequestProperty("Referer", "https://dekt.ncwu.edu.cn/sys/stu/activity")
+                connection.setRequestProperty("Origin", "https://dekt.ncwu.edu.cn")
+                connection.setRequestProperty("Referer", "https://dekt.ncwu.edu.cn/sys/stu/score")
                 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                 connection.setRequestProperty("X-Requested-With", "XMLHttpRequest")
                 session.authorize(connection)
