@@ -10,8 +10,7 @@ class BundledServiceProvidersTest {
 
     @Test fun ncwuMessageEntryUsesTheExistingServiceExtensionSlots() {
         val packages = BundledServiceProviders.load { File(assets, it).readBytes() }
-        val pkg = packages[BundledServiceProviders.CLOUD_MESSAGES_ID]
-            ?: fail("built-in NCWU message service missing")
+        val pkg = packages.getValue(BundledServiceProviders.CLOUD_MESSAGES_ID)
         assertTrue(pkg.bundled)
         assertFalse(pkg.official)
         assertTrue(pkg.manifest.isService)
