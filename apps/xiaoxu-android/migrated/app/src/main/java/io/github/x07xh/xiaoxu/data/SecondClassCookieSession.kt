@@ -47,7 +47,7 @@ internal class AndroidSecondClassAuthorizedHttpSession :
 /** Executes one complete read batch using only the app's existing session jar. */
 internal suspend fun readSecondClassNativeHttp(
     salt: String,
-    expectedAccountHash: String
+    expectedAccountHash: String?
 ): org.json.JSONObject {
     val transport = SecondClassNativeHttpTransport(AndroidSecondClassAuthorizedHttpSession())
     return readSecondClassNativeHttp(salt, expectedAccountHash) { endpoint, form ->
