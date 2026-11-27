@@ -14,6 +14,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import com.tyust.course.ui.system.SystemDialog
+import com.tyust.course.ui.system.SystemDialogButton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -22,6 +24,8 @@ import io.github.x07xh.xiaoxu.NativeSchoolConnectActivity
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
+import io.github.x07xh.xiaoxu.data.SecondClassPendingRead
+import io.github.x07xh.xiaoxu.data.SecondClassReadOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -168,12 +172,17 @@ internal fun SecondClassServiceScreen(
     var revision by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
+    var pendingConfirmation by remember { mutableStateOf<SecondClassPendingRead?>(null) }
     val status = remember(revision) { SecondClassAutoRefresh.status(app) }
     val autoEnabled = remember(revision) { SecondClassAutoRefresh.enabled(app) }
     val backgroundEnabled = remember(revision) { SecondClassAutoRefresh.background(app) }
     val lastSuccess = remember(revision) { SecondClassAutoRefresh.lastSuccess(app) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        message = if (result.resultCode == Activity.RESULT_OK) "本人积分及活动快照已保存到本机" else ""
+        val loginReturned = result.resultCode == Activity.RESULT_OK &&
+            result.data?.getBooleanExtra(NativeSchoolConnectActivity.EXTRA_LOGIN_ONLY_RESULT, false) == true
+        message = if (loginReturned)
+            "学校官方会话已返回；请点击“立即同步学校只读数据”"
+        else ""
         scope.launch {
             records = withContext(Dispatchers.IO) {
                 dao.snapshot().filter { it.provider == "second_class" }
@@ -192,7 +201,14 @@ internal fun SecondClassServiceScreen(
     }
     LaunchedEffect(Unit) {
         SecondClassAutoRefresh.reconcile(app)
-        SecondClassAutoRefresh.refreshIfDue(app)
+        when (val outcome = SecondClassAutoRefresh.refreshIfDue(app)) {
+            is SecondClassReadOutcome.Failed -> message = when (outcome.status) {
+                "needs_reconnect" -> "学校会话已失效，请重新连接"
+                "needs_confirmation" -> "账号绑定需要本人确认"
+                else -> "自动读取未完成；旧快照保持不变"
+            }
+            else -> Unit
+        }
         reload()
     }
 
@@ -222,20 +238,23 @@ internal fun SecondClassServiceScreen(
             "secondclass.connect" -> launcher.launch(
                 Intent(context, NativeSchoolConnectActivity::class.java)
                     .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, "second_class")
-                    .putExtra(NativeSchoolConnectActivity.EXTRA_AUTO_SCORE, true)
+                    .putExtra(NativeSchoolConnectActivity.EXTRA_LOGIN_ONLY, true)
             )
             "secondclass.refresh" -> launchWork {
-                if (records.none { it.kind == "account_binding" }) {
-                    message = "请先连接学校账号并确认本人身份"
-                } else {
-                    SecondClassAutoRefresh.refreshIfDue(context, userRequested = true)
-                    message = when (SecondClassAutoRefresh.status(app)) {
-                        "updated" -> "第二课堂只读快照已更新"
-                        "needs_reconnect" -> "学校登录已失效，请重新连接"
-                        "needs_confirmation" -> "账号绑定发生变化，请重新确认本人身份"
-                        "failed" -> "读取失败，旧数据保持不变"
-                        else -> "已完成检查；请核对最近保存时间"
+                when (val outcome = SecondClassAutoRefresh.refreshIfDue(context, userRequested = true)) {
+                    is SecondClassReadOutcome.Saved ->
+                        message = "第二课堂纯 HTTP 只读快照已更新：积分 ${outcome.scoreCount} 条、活动 ${outcome.activityCount} 条"
+                    is SecondClassReadOutcome.NeedsConfirmation -> {
+                        pendingConfirmation = outcome.pending
+                        message = "读取完成，等待本人确认账号"
                     }
+                    is SecondClassReadOutcome.Failed -> message = when (outcome.status) {
+                        "needs_reconnect" -> "学校登录已失效，请先重新连接"
+                        "needs_confirmation" -> "账号状态无法核验；旧快照保持不变"
+                        else -> "读取失败；旧快照保持不变"
+                    }
+                    SecondClassReadOutcome.Skipped ->
+                        message = "读取未启动：可能已有任务运行，或尚未到手动重试间隔"
                 }
             }
             "secondclass.toggle_auto" -> {
@@ -273,4 +292,38 @@ internal fun SecondClassServiceScreen(
             }
         }
     }
+    pendingConfirmation?.let { pending ->
+        SystemDialog(
+            scrollContent = true,
+            onDismissRequest = { pendingConfirmation = null },
+            title = { Text("确认第二课堂本人账号") },
+            content = {
+                Text("本次通过固定 HTTPS 只读接口读取到：")
+                Text("积分记录：${pending.scoreCount} 条")
+                Text("本人报名活动：${pending.activityCount} 条")
+                pending.aggregateScore?.let { Text("学校汇总素质分：$it") }
+                Text("活动目录核验：${pending.catalogStatus}")
+                Text("请确认当前学校官方页面属于你本人。确认后只替换本机第二课堂快照，不会向学校提交任何写入请求。")
+            },
+            confirmButton = {
+                SystemDialogButton(primary = true, onClick = {
+                    val selected = pending
+                    pendingConfirmation = null
+                    launchWork {
+                        when (val outcome = SecondClassAutoRefresh.confirmPending(app, selected)) {
+                            is SecondClassReadOutcome.Saved ->
+                                message = "本人账号已确认并保存：积分 ${outcome.scoreCount} 条、活动 ${outcome.activityCount} 条"
+                            is SecondClassReadOutcome.Failed ->
+                                message = "确认未完成（${outcome.status}）；旧快照保持不变"
+                            else -> message = "确认未完成；请重新读取"
+                        }
+                    }
+                }) { Text("确认并保存") }
+            },
+            dismissButton = {
+                SystemDialogButton(onClick = { pendingConfirmation = null }) { Text("取消") }
+            }
+        )
+    }
+
 }
