@@ -19,7 +19,14 @@ class BundledServiceProvidersTest {
 
         val school = SchoolConfig("ncwu", "华北水利水电大学", "jwmis.ncwu.edu.cn", "https")
         assertTrue(ServicePluginContract.matches(pkg.manifest, school))
-        for (placement in listOf("home", "schedule", "grades")) {
+        val home = ServiceEntryPreferences.declared(listOf(pkg), school, "home")
+        assertEquals(setOf("消息中心", "第二课堂"),
+            home.map { it.declaration.getString("title") }.toSet())
+        assertEquals(BundledServiceProviders.SECOND_CLASS_PAGE,
+            BundledServiceProviders.resolveNativePageId(pkg, BundledServiceProviders.SECOND_CLASS_PAGE))
+        assertEquals(BundledServiceProviders.CLOUD_MESSAGES_PAGE,
+            BundledServiceProviders.resolveNativePageId(pkg, "unlisted-page"))
+        for (placement in listOf("schedule", "grades")) {
             val entries = ServiceEntryPreferences.declared(listOf(pkg), school, placement)
             assertEquals(1, entries.size)
             assertEquals("消息中心", entries.single().declaration.getString("title"))
