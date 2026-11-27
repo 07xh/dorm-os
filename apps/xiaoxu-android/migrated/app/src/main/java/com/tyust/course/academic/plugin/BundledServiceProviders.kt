@@ -13,6 +13,13 @@ object BundledServiceProviders {
     const val CLOUD_MESSAGES_PAGE = "messages"
     const val SECOND_CLASS_PAGE = "secondclass"
 
+    fun resolveNativePageId(pkg: PluginPackage, requested: String?): String {
+        require(pkg.bundled && pkg.manifest.id == CLOUD_MESSAGES_ID && pkg.manifest.isService)
+        val pages = PluginJson.objects(pkg.manifest.service!!.getJSONArray("pages"))
+            .map { it.getString("id") }.toSet()
+        return requested?.takeIf { it in pages } ?: CLOUD_MESSAGES_PAGE
+    }
+
     internal fun load(readAsset: (String) -> ByteArray): Map<String, PluginPackage> {
         val schema = PluginSchema(JSONObject(
             readAsset("academic-plugin/manifest.schema.json").toString(Charsets.UTF_8)
