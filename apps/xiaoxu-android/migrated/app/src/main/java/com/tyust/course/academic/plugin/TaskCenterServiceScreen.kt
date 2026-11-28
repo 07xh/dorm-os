@@ -1,5 +1,6 @@
 package com.tyust.course.academic.plugin
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -41,6 +42,11 @@ internal fun TaskCenterServiceScreen(
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
+    val notificationTaskId = remember(context) {
+        (context as? Activity)?.intent
+            ?.getLongExtra("xiaoxu_open_task_id", -1L)
+            ?.takeIf { it > 0L }
+    }
     val client = remember(appContext, accountScope) { CloudClient(appContext) }
     val database = remember(appContext) { LocalTaskDatabase.open(appContext) }
     val dao = remember(database) { database.tasks() }
@@ -55,7 +61,9 @@ internal fun TaskCenterServiceScreen(
     }
 
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
-    var focusedTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var focusedTaskId by rememberSaveable(notificationTaskId) {
+        mutableStateOf(notificationTaskId)
+    }
     var focusToken by rememberSaveable { mutableIntStateOf(0) }
 
     LaunchedEffect(client) {
