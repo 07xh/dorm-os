@@ -1,0 +1,319 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+
+// ============ 自动版本号迭代 ============
+def versionPropsFile = file('version.properties')
+def versionProps = new Properties()
+
+if (versionPropsFile.exists()) {
+    versionProps.load(new FileInputStream(versionPropsFile))
+} else {
+    versionProps['VERSION_CODE'] = '1'
+    versionProps['VERSION_NAME'] = '1.0.0'
+}
+
+def code = versionProps['VERSION_CODE'].toInteger()
+def name = versionProps['VERSION_NAME']
+// Optional phone-only preview; regular builds retain their existing ABI coverage.
+def compactPreview = providers.gradleProperty('compactPreview').map { it.toBoolean() }.getOrElse(false)
+// MuMu is x86_64. Run Gecko natively during device checks rather than via ARM translation.
+def emulatorPreview = providers.gradleProperty('emulatorPreview').map { it.toBoolean() }.getOrElse(false)
+def localSecrets = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+
+if (localPropertiesFile.exists()) {
+    localSecrets.load(new FileInputStream(localPropertiesFile))
+}
+
+def readSecret = { String envName, String propertyName = envName ->
+    def envValue = System.getenv(envName)
+    if (envValue != null && !envValue.trim().isEmpty()) {
+        return envValue.trim()
+    }
+
+    def propertyValue = localSecrets.getProperty(propertyName)
+    if (propertyValue != null && !propertyValue.trim().isEmpty()) {
+        return propertyValue.trim()
+    }
+
+    return null
+}
+
+def quoteForBuildConfig = { String value ->
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+}
+
+// 版本号完全由 version.properties 静态控制，发版前由开发者手动修改并 commit
+// 不再在构建时自动自增，避免 CI 容器中的改动无法同步回 Git 仓库导致版本锁死
+
+def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
+    def lower = taskName.toLowerCase()
+    (lower.contains('release') && (lower.contains('assemble') || lower.contains('bundle')))
+}
+if (emulatorPreview && isReleaseTask) {
+    throw new GradleException('emulatorPreview is only for local device testing, not release builds')
+}
+
+println "📦 当前版本: versionCode=$code, versionName=$name (isRelease=$isReleaseTask)"
+
+def releaseKeystoreFile = System.getenv("RELEASE_SIGNING_CONFIG_FILE") != null
+    ? file(System.getenv("RELEASE_SIGNING_CONFIG_FILE"))
+    : (file('release-key.jks').exists() ? file('release-key.jks') : null)
+def releaseStorePassword = readSecret("RELEASE_STORE_PASSWORD")
+def releaseKeyAlias = readSecret("RELEASE_KEY_ALIAS")
+def releaseKeyPassword = readSecret("RELEASE_KEY_PASSWORD")
+def hasReleaseSigning = releaseKeystoreFile != null &&
+    releaseStorePassword != null &&
+    releaseKeyAlias != null &&
+    releaseKeyPassword != null
+def feedbackSigningSecret = readSecret("FEEDBACK_SIGNING_SECRET") ?: ""
+def mapConfigClientSecret = readSecret("MAP_CONFIG_CLIENT_SECRET") ?: ""
+
+if (releaseKeystoreFile != null && isReleaseTask && !hasReleaseSigning) {
+    throw new GradleException("Release signing credentials are missing. Configure RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD via environment variables or local.properties.")
+}
+
+android {
+    namespace 'com.tyust.course'
+    // Match the stable SDK package's full target hash on fresh SDK installations.
+    compileSdkVersion 'android-37.0'
+
+    defaultConfig {
+        applicationId "com.tyust.course"
+        minSdk 24
+        targetSdk 34
+        versionCode code
+        versionName name
+        if (!isReleaseTask) {
+            ndk { abiFilters.addAll(emulatorPreview ? ['x86_64'] : ['arm64-v8a', 'armeabi-v7a']) }
+        }
+        buildConfigField "String", "FEEDBACK_SIGNING_SECRET", quoteForBuildConfig(feedbackSigningSecret)
+        buildConfigField "String", "MAP_CONFIG_CLIENT_SECRET", quoteForBuildConfig(mapConfigClientSecret)
+        buildConfigField "String", "AMAP_ANDROID_SDK_KEY", quoteForBuildConfig(isReleaseTask ? "" : (readSecret("AMAP_ANDROID_SDK_KEY") ?: ""))
+        buildConfigField "boolean", "UI_PREVIEW", "false"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile releaseKeystoreFile
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    splits {
+        abi {
+            enable isReleaseTask
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk true
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+        }
+        uiPreview {
+            initWith debug
+            applicationIdSuffix '.uipreview'
+            versionNameSuffix '-ui-preview'
+            matchingFallbacks = ['debug']
+            signingConfig signingConfigs.debug
+            buildConfigField "boolean", "UI_PREVIEW", "true"
+            if (compactPreview) {
+                ndk { abiFilters emulatorPreview ? 'x86_64' : 'arm64-v8a' }
+                minifyEnabled true
+                proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            }
+        }
+        benchmark {
+            initWith release
+            proguardFile 'benchmark-rules.pro'
+            applicationIdSuffix '.benchmark'
+            versionNameSuffix '-benchmark'
+            matchingFallbacks = ['release']
+            signingConfig signingConfigs.debug
+            buildConfigField "boolean", "UI_PREVIEW", "true"
+        }
+    }
+    testBuildType providers.gradleProperty('uiTestBuildType').getOrElse('debug')
+
+    packaging {
+        // Compress native libraries for release and debug as well as previews.
+        // Android extracts the device's libraries when installing the APK.
+        jniLibs.useLegacyPackaging = true
+        // AGP's universal split also includes dependency ABIs outside splits.include.
+        jniLibs.excludes += ['**/x86/**']
+        if (!emulatorPreview) jniLibs.excludes += ['**/x86_64/**']
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    
+    buildFeatures {
+        buildConfig true
+        compose true
+        aidl true
+    }
+
+    sourceSets.test.java.srcDir 'src/sharedTest/java'
+    sourceSets.androidTest.java.srcDir 'src/sharedTest/java'
+
+    testOptions {
+        // CourseParser 等被测类内部调用 android.util.Log，JVM 单测返回默认值而非抛异常
+        unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            maxHeapSize = '2g'
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+            // 单测固定按 UTC 跑：CI（ubuntu-latest）本来就是 UTC，本机（CST）也跟着对齐，
+            // 否则依赖默认时区的用例会在本机通过、在 CI 失败。
+            systemProperty 'user.timezone', 'UTC'
+        }
+    }
+}
+
+dependencies {
+    // Core AndroidX
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.14.0'
+    // Loaded only by the private browser process on API 26+. Android 7 keeps the base App.
+    implementation 'org.mozilla.geckoview:geckoview:157.0.20261005135250'
+    // The default 13.x artifact is Vulkan-only; MuMu Android 12 cannot create its surface.
+    implementation 'org.maplibre.gl:android-sdk-opengl:13.6.1'
+    implementation 'com.amap.api:3dmap-location-search:11.3.100_loc11.3.000_sea9.8.1'
+    // AMap's JAR references FastMath but its published POM omits this dependency.
+    implementation 'net.jafama:jafama:2.3.2'
+    implementation 'androidx.activity:activity-compose:1.10.1'
+    implementation 'androidx.core:core-splashscreen:1.2.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.9.1'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.9.1'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1'
+    
+    // Jetpack Compose BOM (Bill of Materials)
+    def composeBom = platform('androidx.compose:compose-bom:2026.01.00')
+    implementation composeBom
+    
+    // Compose UI
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.compose.foundation:foundation'
+    
+    // Compose Navigation
+    implementation 'androidx.navigation:navigation-compose:2.7.7'
+    
+    // Compose Debug Tools
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    uiPreviewImplementation 'androidx.compose.ui:ui-test-manifest'
+    
+    // Legacy Material (for transition period)
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    
+    // Networking
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+    
+    // HTML Parsing
+    implementation 'org.jsoup:jsoup:1.15.3'
+    implementation 'com.squareup.okio:okio:3.6.0'
+    
+    // Async (Coroutines for Compose)
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+    implementation 'io.github.dokar3:quickjs-kt-android:1.0.15'
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.29.0'
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    
+    // Modern UI & Animations
+    implementation 'com.airbnb.android:lottie-compose:6.3.0'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    
+    // Fragments (for gradual migration)
+    implementation 'androidx.fragment:fragment-ktx:1.6.2'
+    
+    // CircleImageView for avatar (legacy)
+    implementation 'de.hdodenhof:circleimageview:3.1.0'
+    
+    // GridLayout for schedule (legacy)
+    implementation 'androidx.gridlayout:gridlayout:1.0.0'
+    
+    // Coil for image loading in Compose
+    implementation 'io.coil-kt:coil-compose:2.5.0'
+
+    // EXIF 取向（自定义图片壁纸导入时正过来）。一条路径覆盖 minSdk 24+，
+    // 不必在 ImageDecoder(28+) 与已废弃的 android.media.ExifInterface 之间分叉。
+    // 版本跟随 Coil 已传递引入的那一档，避免多解析出一个副本。
+    implementation 'androidx.exifinterface:exifinterface:1.3.6'
+
+    // Markdown Rendering for Compose
+    implementation "com.halilibo.compose-richtext:richtext-commonmark:0.17.0"
+    implementation "com.halilibo.compose-richtext:richtext-ui-material3:0.17.0"
+    // Match the renderer's parser when inspecting Markdown before displaying it.
+    implementation 'org.commonmark:commonmark:0.21.0'
+
+    // Liquid Glass (Kyant Backdrop) — iOS 26 风格折射 / 色散
+    implementation 'io.github.kyant0:backdrop:2.0.0'
+    implementation 'io.github.kyant0:shapes:1.2.0'
+
+    // 仪器测试：验证 API 31/32 折射所依赖的平台行为，以及离屏 GL 真的出图。
+    // test-only，不进发布 APK。
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+    androidTestImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+    androidTestImplementation composeBom
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+    testImplementation 'com.squareup.okhttp3:okhttp-tls:4.12.0'
+    testImplementation 'org.robolectric:robolectric:4.17'
+    testImplementation composeBom
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    // org.json 在 JVM 单测中来自 android.jar 桩(默认抛异常), 补真实实现供单元测试使用
+    testImplementation 'org.json:json:20231013'
+}
+
+// Windows AIDL includes the native command line in a Java comment. Variant paths
+// such as uiPreview contain a backslash-u sequence which javac parses even inside
+// comments. Remove only the diagnostic banner; leave generated Binder code intact.
+tasks.withType(com.android.build.gradle.tasks.AidlCompile).configureEach {
+    doLast {
+        outputs.files.asFileTree.matching { include '**/*.java' }.each { generated ->
+            def source = generated.getText('UTF-8')
+            def normalized = source.replaceAll('(?m)^ \\* Using:.*$', ' * Generated by the Android AIDL compiler.')
+            if (source != normalized) generated.setText(normalized, 'UTF-8')
+        }
+    }
+}

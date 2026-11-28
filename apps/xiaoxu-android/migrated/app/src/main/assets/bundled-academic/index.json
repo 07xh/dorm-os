@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "entries": [
+    {
+      "id": "cn.edu.huat.neweas",
+      "type": "jinzhi",
+      "asset": "jinzhi.eduplugin",
+      "sha256": "a9da49243082d50997e0f685b1cf424723898f89cc08044182a08263e774100c"
+    },
+    {
+      "id": "cn.edu.sdipct.chengfang",
+      "type": "chengfang",
+      "asset": "chengfang.eduplugin",
+      "sha256": "9caa9ef4fd0442a42c2d6a49be96fd55d1ad73712f1cc9ebb2c841150b675601"
+    },
+    {
+      "id": "org.zf.protocol.zf",
+      "type": "zf",
+      "asset": "zf.eduplugin",
+      "sha256": "6522f5d0c9ab3cd15bdbe2cce0950ee9998e977d605d8865642293b255459564"
+    },
+    {
+      "id": "org.zf.protocol.zf-old",
+      "type": "zf_old",
+      "asset": "zf_old.eduplugin",
+      "sha256": "e9bad634bae30ac21a4da3e5a317df9111a85d92ef36a6b10a3932e24d7627a8"
+    },
+    {
+      "id": "org.zf.protocol.qz",
+      "type": "qz",
+      "asset": "qz.eduplugin",
+      "sha256": "29655bdcbcaf8da8e02bf7e87b1ad2412328f1a12437b3c80f3e8e53c32858a7"
+    },
+    {
+      "id": "org.zf.protocol.qz-old",
+      "type": "qz_old",
+      "asset": "qz_old.eduplugin",
+      "sha256": "69f4145d0efe36703a349c5da12bc955246b5f7b13dcdae41db187aabe6ad5ab"
+    },
+    {
+      "id": "org.zf.protocol.eams",
+      "type": "eams",
+      "asset": "eams.eduplugin",
+      "sha256": "fdf57340fcd749eea616a0f57bbbd71f0075a39a7cc0ca428fd254a7b518345f"
+    },
+    {
+      "id": "org.zf.protocol.kingo",
+      "type": "kingo",
+      "asset": "kingo.eduplugin",
+      "sha256": "ce934a7e5dfc5faac2109eb3b1bba84ad70e2196ec975e1a3b731017e01e234a"
+    },
+    {
+      "id": "org.zf.protocol.chaoxing-academic",
+      "type": "chaoxing_academic",
+      "asset": "chaoxing_academic.eduplugin",
+      "sha256": "ec4826d407197dc82a7e8f676abc036ca63e84eefb15972f92c4f6a3749095c3"
+    }
+  ]
+}

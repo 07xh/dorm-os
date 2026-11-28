@@ -1,0 +1,1647 @@
+package io.github.x07xh.xiaoxu.data
+
+import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import java.net.URL
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.time.Instant
+import java.util.Base64
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+import javax.net.ssl.HttpsURLConnection
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+
+private const val BASE = "https://dorm-os-dk9.pages.dev"
+private const val COOKIE_NAME = "__Host-xiaoxu_session"
+private const val KEY_ALIAS = "xiaoxu_owner_cookie_aes_v1"
+
+/** AI output is an unsaved suggestion, never an official assignment or completion. */
+data class TaskBreakdownAiSuggestion(
+    val steps: List<String> = emptyList(),
+    val error: String? = null
+)
+
+data class CloudTask(
+    val id: String, val title: String, val status: String,
+    val kind: String, val provider: String?, val due: String?,
+    val revision: Int = -1,
+    val links: List<String> = emptyList(),
+    /** Stable source tuple from the trusted school assignment ledger. */
+    val sourceExternalId: String? = null,
+    /** Last trusted platform state, independent of the user's local done flag. */
+    val officialStatus: String? = null,
+    /** Course label from the imported/verified source; NOT identity proof. */
+    val sourceCourse: String? = null
+)
+
+/** Prevent an in-flight older GET snapshot from undoing an already confirmed owner POST.
+ * Only a strictly newer locally confirmed WeChat revision wins; newer server
+ * revisions still take precedence. No synthetic records are ever added.
+ */
+internal fun preferConfirmedWechatRevisions(
+    fetched: List<CloudTask>, shown: List<CloudTask>
+): List<CloudTask> {
+    val confirmed = shown.filter { it.provider == "wechat" && it.revision >= 0 }
+        .associateBy { it.id }
+    return fetched.map { row ->
+        val local = confirmed[row.id]
+        if (row.provider == "wechat" && local != null && local.revision > row.revision)
+            local else row
+    }
+}
+
+private val ChaoxingWorkSourceId = Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""")
+private val ChaoxingPlatformStatuses =
+    setOf("todo", "submitted", "graded", "returned", "unknown")
+
+/** Only trusted source-table status + exact school work tuple can be displayed. */
+internal fun trustedChaoxingPlatformStatus(
+    provider: String?, externalId: String?, status: String?
+): String? = status?.takeIf {
+    provider == "chaoxing" &&
+        externalId != null && ChaoxingWorkSourceId.matches(externalId) &&
+        it in ChaoxingPlatformStatuses
+}
+
+/** Parse the optional V1 link contract without making unrelated tasks fail. */
+private fun readCloudLinks(row: JSONObject): List<String> {
+    val values = row.optJSONArray("links") ?: return emptyList()
+    val raw = (0 until minOf(values.length(), 3)).mapNotNull { values.opt(it) as? String }
+    return safeCloudLinks(raw)
+}
+
+data class AcademicNotice(
+    val id: String, val title: String, val category: String,
+    val dateLabel: String, val url: String
+)
+/** Owner-only extracted candidates; NOT verified school coursework or full WeChat chat history. */
+data class WechatCandidate(
+    val id: String, val kind: String, val title: String,
+    val excerpt: String?, val chatLabel: String?, val sentAt: String,
+    val duePrecision: String, val dueLocalDate: String?,
+    val links: List<String> = emptyList()
+)
+data class PlatformConnection(
+    val id: String, val name: String, val status: String,
+    val sessionState: String, val authorization: String,
+    val lastSuccessAt: String?,
+    val autoSyncAvailable: Boolean = false,
+    val autoSyncEnabled: Boolean = false,
+    val autoSyncNextAt: String? = null,
+    val autoSyncLastRunAt: String? = null,
+    val autoSyncLastResult: String? = null,
+    val autoSyncFailureCount: Int = 0
+) {
+    val verified: Boolean
+        get() = authorization == "verified_session" &&
+            sessionState == "active" && status in setOf("connected", "partial")
+}
+/** Private inbox metadata, not a public announcement or verified exam completion. */
+data class ChaoxingInboxNotice(
+    val id: String, val category: String, val title: String,
+    val course: String, val sentAt: String, val dueAt: String?,
+    val platformRead: Boolean, val observedAt: String
+)
+
+data class ChaoxingGradeCourse(val courseId: String, val classId: String, val cpi: String, val title: String) {
+    val key: String get() = "$courseId:$classId:$cpi"
+}
+data class ChaoxingHomeworkGrade(val title: String, val score: Double?, val maxScore: Double?, val label: String)
+
+data class ChaoxingCourseProgress(val course: ChaoxingGradeCourse, val completed: Int, val total: Int)
+
+data class CloudUiState(
+    val busy: Boolean = false, val signingIn: Boolean = false,
+    val authenticated: Boolean = false,
+    val ownerId: String? = null,
+    val authMessage: String = "云端连接可选，本地任务无需登录",
+    val privateError: String? = null, val publicError: String? = null,
+    val notices: List<AcademicNotice> = emptyList(),
+    val noticeFetchedAt: String? = null, val noticesPartial: Boolean = false,
+    val tasks: List<CloudTask> = emptyList(),
+    // True only after the current owner-scoped assignments response was
+    // successfully parsed, independently of WeChat or school notices.
+    val tasksFresh: Boolean = false,
+    // Per-source freshness of the current authenticated API read, not school login proof.
+    val connectionsFresh: Boolean = false,
+    val platforms: List<PlatformConnection> = emptyList(),
+    val pendingWechatCount: Int? = null, val lastSyncAt: String? = null,
+    val wechatCandidates: List<WechatCandidate> = emptyList(),
+    val wechatError: String? = null, val wechatReviewingId: String? = null,
+    val secondClass: SecondClassSnapshot? = null,
+    val secondClassFresh: Boolean = false,
+    val secondClassBusy: Boolean = false,
+    val secondClassError: String? = null,
+    val schoolSyncBusyProvider: String? = null,
+    val schoolSyncResultProvider: String? = null,
+    val schoolSyncMessage: String? = null,
+    val chaoxingInbox: List<ChaoxingInboxNotice> = emptyList(),
+    val chaoxingInboxFresh: Boolean = false,
+    val chaoxingGradeCourses: List<ChaoxingGradeCourse> = emptyList(),
+    val chaoxingGradeCourse: ChaoxingGradeCourse? = null,
+    val chaoxingGrades: List<ChaoxingHomeworkGrade> = emptyList(),
+    val chaoxingGradeError: String? = null,
+    val chaoxingCourseProgress: ChaoxingCourseProgress? = null,
+    val chaoxingProgressError: String? = null,
+    val ncwuBusiness: Map<String, NcwuBusinessResult> = emptyMap(),
+    val ncwuSchedule: NcwuScheduleSnapshot? = null,
+    val ncwuScheduleMessage: String? = null,
+    val ncwuScheduleNeedsAuthorization: Boolean = false,
+    val ncwuScheduleFromCache: Boolean = false,
+    val ncwuAcademicSnapshots: Map<String, NcwuAcademicSnapshot> = emptyMap(),
+    val ncwuAcademicSnapshotErrors: Map<String, String> = emptyMap()
+)
+
+/** Keystore-encrypted token for the existing owner login, never a school credential. */
+private class SessionStore(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("xiaoxu_owner_v1", Context.MODE_PRIVATE)
+    private fun key(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
+            init(KeyGenParameterSpec.Builder(KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true).build())
+        }.generateKey()
+    }
+    fun save(token: String, expiresAt: String) {
+        require(Regex("^[A-Za-z0-9_-]{43}$").matches(token))
+        val end = Instant.parse(expiresAt).toEpochMilli()
+        require(end > System.currentTimeMillis())
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        prefs.edit().putString("cipher", Base64.getEncoder().encodeToString(
+            cipher.doFinal(token.toByteArray(Charsets.UTF_8))))
+            .putString("iv", Base64.getEncoder().encodeToString(cipher.iv))
+            .putLong("expires", end).apply()
+    }
+    fun load(): String? {
+        if (prefs.getLong("expires", 0) <= System.currentTimeMillis()) {
+            clear()
+            return null
+        }
+        return try {
+            val iv = Base64.getDecoder().decode(prefs.getString("iv", "")!!)
+            val data = Base64.getDecoder().decode(prefs.getString("cipher", "")!!)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+            String(cipher.doFinal(data), Charsets.UTF_8)
+                .takeIf { Regex("^[A-Za-z0-9_-]{43}$").matches(it) }
+        } catch (_: Exception) {
+            clear()
+            null
+        }
+    }
+    // Local cache is encrypted with the existing Keystore key and bound to the
+    // exact owner session token through authenticated associated data.
+    private fun scheduleAad(token: String) = ("ncwu-schedule-v1|" + token).toByteArray(Charsets.UTF_8)
+    fun saveScheduleCache(token: String, json: JSONObject): Boolean = runCatching {
+        val raw = json.toString().toByteArray(Charsets.UTF_8)
+        require(raw.size <= 250_000)
+        if (load() != token) return false
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        cipher.updateAAD(scheduleAad(token))
+        val encrypted = Base64.getEncoder().encodeToString(cipher.doFinal(raw))
+        if (load() != token) return false
+        prefs.edit().putString("schedule_cipher", encrypted)
+            .putString("schedule_iv", Base64.getEncoder().encodeToString(cipher.iv)).commit()
+    }.getOrDefault(false)
+    fun loadScheduleCache(token: String): NcwuScheduleSnapshot? = runCatching {
+        val encrypted = prefs.getString("schedule_cipher", null) ?: return null
+        require(encrypted.length <= 350_000)
+        val iv = Base64.getDecoder().decode(prefs.getString("schedule_iv", "")!!)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+        cipher.updateAAD(scheduleAad(token))
+        val raw = cipher.doFinal(Base64.getDecoder().decode(encrypted))
+        require(raw.size <= 250_000)
+        parseNcwuScheduleSnapshot(JSONObject(String(raw, Charsets.UTF_8)))
+    }.getOrNull()
+    fun clear() { prefs.edit().clear().apply() }
+}
+private data class HttpResult(val code: Int, val json: JSONObject, val cookie: String?)
+
+/**
+ * First-party only: reject redirects and non-JSON responses before parsing.
+ * Never send private data to arbitrary URLs. School auth stays on existing service.
+ */
+class CloudClient(context: Context) {
+    private val session = SessionStore(context)
+    private val schedulePrefs = context.applicationContext.getSharedPreferences("xiaoxu-ncwu-sync-v1", Context.MODE_PRIVATE)
+    var ncwuScheduleAutoEnabled by mutableStateOf(runCatching { schedulePrefs.getBoolean("schedule_auto", false) }.getOrDefault(false))
+        private set
+    fun setNcwuScheduleAutoEnabled(enabled: Boolean): Boolean {
+        val saved = runCatching { schedulePrefs.edit().putBoolean("schedule_auto", enabled).commit() }.getOrDefault(false)
+        if (saved) ncwuScheduleAutoEnabled = enabled
+        return saved
+    }
+    var state by mutableStateOf(CloudUiState())
+        private set
+    private var sessionEpoch: Long = 0L
+    private var signingOut = false
+    // Out-of-order HTTPS results must not overwrite a newer owner snapshot.
+    private var privateSnapshotReadId: Long = 0L
+    private var secondClassReadId: Long = 0L
+    private var secondClassSnapshotReadId: Long = -1L
+    private var ncwuExamAttemptMs: Long? = null
+    private var ncwuScheduleAttemptMs: Long? = null
+    private var ncwuScheduleReadSerial: Long = 0L
+
+    /** Hash of this App's owner session, never the Cookie itself. */
+    fun ownerSessionBinding(): String? = session.load()?.let { token ->
+        Base64.getUrlEncoder().withoutPadding().encodeToString(
+            MessageDigest.getInstance("SHA-256").digest(token.toByteArray(Charsets.UTF_8))
+        )
+    }
+
+    private fun request(path: String, method: String = "GET",
+                        body: JSONObject? = null, authenticated: Boolean = false,
+                        boundSessionToken: String? = null): HttpResult {
+        require(path.startsWith("/") && !path.startsWith("//") && !path.contains("://"))
+        val conn = (URL(BASE + path).openConnection() as HttpsURLConnection).apply {
+            connectTimeout = 12000
+            readTimeout = 18000
+            instanceFollowRedirects = false
+            useCaches = false
+            requestMethod = method
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Cache-Control", "no-store")
+            if (authenticated) {
+                val token = boundSessionToken ?: session.load()
+                if (token != null) setRequestProperty("Cookie", COOKIE_NAME + "=" + token)
+            }
+            if (body != null) {
+                setRequestProperty("Origin", BASE)
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                doOutput = true
+            }
+        }
+        return try {
+            if (body != null) conn.outputStream.use {
+                it.write(body.toString().toByteArray(Charsets.UTF_8))
+            }
+            val code = conn.responseCode
+            if (code in 300..399) throw IllegalStateException("redirect")
+            if (!(conn.contentType ?: "").lowercase().contains("application/json"))
+                throw IllegalStateException("non_json")
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val bytes = stream?.use {
+                val result = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val n = it.read(buffer)
+                    if (n < 0) break
+                    if (result.size() + n > 524288) throw IllegalStateException("too_large")
+                    result.write(buffer, 0, n)
+                }
+                result.toByteArray()
+            } ?: ByteArray(0)
+            val sessionCookie = conn.headerFields.entries
+                .firstOrNull { it.key?.equals("Set-Cookie", ignoreCase = true) == true }
+                ?.value?.firstOrNull { it.startsWith(COOKIE_NAME + "=") }
+            HttpResult(code, JSONObject(String(bytes, Charsets.UTF_8)), sessionCookie)
+        } finally { conn.disconnect() }
+    }
+
+    // Foreground reopening refreshes the existing Cloudflare snapshots only.
+    // It does NOT run any school login, Chaoxing job, or autonomous CAS sync.
+    private var lastForegroundRefreshMs: Long = -1L
+
+    suspend fun refreshOnForeground() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (state.busy || state.schoolSyncBusyProvider != null ||
+            (lastForegroundRefreshMs >= 0L &&
+                now - lastForegroundRefreshMs < 60_000L)) return
+        // refresh() owns the timestamp: a skipped refresh must not consume cooldown.
+        refresh()
+    }
+
+    suspend fun refresh() {
+        if (signingOut || state.busy || state.schoolSyncBusyProvider != null) return
+        lastForegroundRefreshMs = android.os.SystemClock.elapsedRealtime()
+        state = state.copy(busy = true)
+        try {
+            // Public announcement latency must not block owner task refresh.
+            // Each coroutine updates its distinct CloudUiState fields on main.
+            coroutineScope {
+                launch { refreshNotices() }
+                launch { refreshPrivate() }
+            }
+        } finally { state = state.copy(busy = false) }
+    }
+
+    private suspend fun refreshNotices() {
+        // Read the existing live API and the already-published archive concurrently.
+        // Neither request uses school account credentials or adds a second UI.
+        val (liveResult, archiveResult) = coroutineScope {
+            val live = async(Dispatchers.IO) { runCatching { request("/api/notices") } }
+            val archive = async(Dispatchers.IO) { runCatching { request("/data/notices.json") } }
+            live.await() to archive.await()
+        }
+        val live = liveResult.getOrNull()?.takeIf {
+            it.code == 200 && it.json.optBoolean("success")
+        }
+        val archive = archiveResult.getOrNull()?.takeIf { it.code == 200 }?.let {
+            runCatching { PublicNoticeArchive.parse(it.json) }.getOrNull()
+        }
+        if (live == null && archive == null) {
+            state = state.copy(publicError = "通知获取失败；显示的旧内容不代表最新信息")
+            return
+        }
+        val byUrl = LinkedHashMap<String, AcademicNotice>()
+        if (live != null) {
+            val rows = live.json.optJSONArray("items")
+            if (rows != null) {
+                for (i in 0 until minOf(rows.length(), 45)) {
+                    val item = rows.optJSONObject(i) ?: continue
+                    val url = item.optString("url")
+                    val u = try { URL(url) } catch (_: Exception) { null }
+                    if (u?.protocol != "https" || u.host != "www2.ncwu.edu.cn" ||
+                        !u.path.startsWith("/jiaowu/info/")) continue
+                    val title = item.optString("title").take(220)
+                    if (title.isBlank()) continue
+                    byUrl.putIfAbsent(url, AcademicNotice(item.optString("id"),
+                        title, item.optString("category"), item.optString("dateLabel"), url))
+                }
+            }
+        }
+        // Live official notices take priority; archived sources fill historical and
+        // departmental gaps. Identical article URLs appear only once.
+        for (item in archive?.items.orEmpty()) byUrl.putIfAbsent(item.url, item)
+        val archiveOutdated = archive?.let {
+            runCatching { Instant.parse(it.fetchedAt).isBefore(Instant.now().minusSeconds(12 * 3600)) }
+                .getOrDefault(true)
+        } ?: true
+        state = state.copy(
+            notices = byUrl.values.take(240),
+            noticeFetchedAt = live?.json?.optString("fetchedAt")?.takeIf { it.isNotBlank() }
+                ?: archive?.fetchedAt,
+            noticesPartial = live == null || archive == null || archiveOutdated ||
+                live.json.optBoolean("partial"),
+            publicError = if (live == null) "实时通知暂不可用，显示最近一次有效归档" else null
+        )
+    }
+
+    suspend fun refreshPrivate() {
+        if (signingOut) return
+        val epoch = sessionEpoch
+        val snapshotRead = ++privateSnapshotReadId
+        // The previous snapshot remains visible, but a failed current read
+        // must never certify that a school session is still active.
+        state = state.copy(tasksFresh = false, connectionsFresh = false,
+            secondClassFresh = false, chaoxingInboxFresh = false)
+        // Android Keystore decryption may block; keep it off main.
+        val boundToken = withContext(Dispatchers.IO) { session.load() }
+        if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+        if (boundToken == null) {
+            state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
+                tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                privateError = null, lastSyncAt = null,
+                secondClass = null, secondClassError = null, secondClassBusy = false)
+            return
+        }
+        try {
+            val auth = withContext(Dispatchers.IO) {
+                request("/api/v1/auth/me", authenticated = true, boundSessionToken = boundToken)
+            }
+            if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+            if (auth.code == 401) {
+                sessionEpoch++
+                session.clear()
+                state = clearAccountSnapshots().copy(authenticated = false, authMessage = "会话过期，请重新连接",
+                    tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                    secondClass = null, secondClassError = null, secondClassBusy = false)
+                return
+            }
+            if (auth.code != 200 || !auth.json.optBoolean("authenticated")) {
+                // An explicit authorization denial must not leave private snapshots
+                // visible under a falsely disconnected account.
+                sessionEpoch++
+                state = clearAccountSnapshots().copy(
+                    authenticated = false, privateError = "云端认证不可用",
+                    tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                    secondClass = null,
+                    secondClassBusy = false, secondClassError = null
+                )
+                return
+            }
+            val confirmedOwner = auth.json.optString("ownerId").takeIf { it.isNotBlank() }
+            if (confirmedOwner == null) throw IllegalStateException("missing_owner")
+            if (state.ownerId != null && state.ownerId != confirmedOwner) {
+                state = clearAccountSnapshots().copy(tasks = emptyList(), platforms = emptyList(),
+                    pendingWechatCount = null, secondClass = null, secondClassError = null,
+                    secondClassBusy = false, lastSyncAt = null)
+            }
+            state = state.copy(ownerId = confirmedOwner)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId)
+                state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
+            return
+        }
+        if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+        state = state.copy(authenticated = true, authMessage = "云端登录有效")
+        if (state.ncwuSchedule == null) {
+            val cached = withContext(Dispatchers.IO) { session.loadScheduleCache(boundToken) }
+            if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+            if (cached != null && state.ncwuSchedule == null) state = state.copy(
+                ncwuSchedule = cached, ncwuScheduleFromCache = true,
+                ncwuScheduleMessage = "本机历史缓存 · 尚未确认当前学校数据")
+        }
+        val failed = mutableListOf<String>()
+        var tasks: List<CloudTask>? = null
+        var platforms: List<PlatformConnection>? = null
+        var candidates: List<WechatCandidate>? = null
+        var candidateLoadFailed = false
+        // The owner task ledger can contain more than 100 records after a
+        // Chaoxing multi-course sync. Read every bounded API page before
+        // certifying tasksFresh; a partial response never replaces the old list.
+        try {
+            val pages = CloudAssignmentPages()
+            while (!pages.complete) {
+                // Account changes or a newer refresh invalidate all remaining pages.
+                if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+                val offset = pages.nextOffset
+                val r = withContext(Dispatchers.IO) {
+                    request("/api/v1/assignments?limit=100&offset=$offset",
+                        authenticated = true, boundSessionToken = boundToken)
+                }
+                if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+                if (r.code != 200) throw IllegalStateException("assignments_page_failed")
+                val array = r.json.getJSONArray("items")
+                if (array.length() > 100) throw IllegalStateException("oversized_page")
+                val rows = buildList {
+                    for (i in 0 until array.length()) {
+                        val o = array.getJSONObject(i)
+                        val provider = o.optString("source_provider")
+                            .takeIf { it.isNotBlank() && it != "null" }
+                        val due = o.optString("due_at_utc")
+                            .takeIf { it.isNotBlank() && it != "null" }
+                            ?: o.optString("due_local_date")
+                                .takeIf { it.isNotBlank() && it != "null" }
+                        val revision = o.optLong("revision", -1L)
+                            .takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1
+                        val sourceId = o.optString("source_external_id")
+                            .takeIf { provider == "chaoxing" &&
+                                (ChaoxingWorkSourceId.matches(it) ||
+                                    it.matches(Regex("cxn:[a-f0-9]{40}"))) }
+                        val official = trustedChaoxingPlatformStatus(
+                            provider, sourceId, o.optString("platform_status")
+                        )
+                        val sourceCourse = (o.opt("source_course") as? String)
+                            ?.trim()?.takeIf { it.isNotBlank() && provider == "chaoxing" }
+                            ?.take(80)
+                        add(CloudTask(o.getString("id"), o.optString("title").take(120),
+                            o.optString("local_status"), o.optString("kind"), provider, due,
+                            revision, if (provider == "wechat") readCloudLinks(o) else emptyList(),
+                            sourceId, official, sourceCourse))
+                    }
+                }
+                pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
+            }
+            tasks = pages.verifiedRows()
+        } catch (_: Exception) {
+            // Preserve prior snapshots without falsely marking the current
+            // school-linked tasks as freshly and completely loaded.
+            failed.add("云端任务完整分页读取")
+        }
+        try {
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/connections", authenticated = true, boundSessionToken = boundToken)
+            }
+            if (r.code != 200) throw IllegalStateException()
+            val array = r.json.getJSONArray("platforms")
+            platforms = buildList {
+                for (i in 0 until array.length()) {
+                    val o = array.optJSONObject(i) ?: continue
+                    val id = o.optString("id")
+                    val auto = o.optJSONObject("autoSync")
+                    val isChaoxingAuto = id == "chaoxing" && auto != null
+                    val trustedAuto = isChaoxingAuto && o.optBoolean("autoSyncAvailable")
+                    add(PlatformConnection(
+                        id = id, name = o.optString("name"),
+                        status = o.optString("status"),
+                        sessionState = o.optString("sessionState"),
+                        authorization = o.optString("accountAuthorization"),
+                        lastSuccessAt = o.optString("lastSuccessAt")
+                            .takeIf { it.isNotBlank() && it != "null" },
+                        autoSyncAvailable = trustedAuto,
+                        autoSyncEnabled = isChaoxingAuto && auto!!.optBoolean("enabled"),
+                        autoSyncNextAt = if (isChaoxingAuto) auto!!.optString("nextAt")
+                            .takeIf { it.isNotBlank() && it != "null" } else null,
+                        autoSyncLastRunAt = if (isChaoxingAuto) auto!!.optString("lastRunAt")
+                            .takeIf { it.isNotBlank() && it != "null" } else null,
+                        autoSyncLastResult = if (isChaoxingAuto) auto!!.optString("lastResult")
+                            .takeIf { it in setOf("success","partial","failed","expired","idle") }
+                            else null,
+                        autoSyncFailureCount = if (isChaoxingAuto)
+                            auto!!.optInt("failureCount", 0).coerceIn(0, 100) else 0
+                    ))
+                }
+            }
+        } catch (_: Exception) { failed.add("连接状态") }
+        // Local-first timetable: do not poll or hydrate a server timetable
+        // during cloud refresh. Grades/tasks/connections keep their own remote flow.
+        // Explicit local import is the only source of displayed lessons.
+        try {
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/wechat/candidates?limit=30&status=needs_review", authenticated = true, boundSessionToken = boundToken)
+            }
+            if (r.code != 200 || r.json.optString("status") != "personal_candidates")
+                throw IllegalStateException("invalid_candidates_response")
+            val rows = r.json.getJSONArray("items")
+            if (rows.length() > 30) throw IllegalStateException("too_many_candidates")
+            val validId = Regex("^[A-Za-z0-9_-]{12,128}$")
+            val seen = mutableSetOf<String>()
+            candidates = buildList {
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    val id = row.getString("id")
+                    val title = row.getString("title")
+                    val kind = row.getString("kind")
+                    val at = row.getString("sentAt")
+                    val precision = row.getString("duePrecision")
+                    val due = row.optString("dueLocalDate").takeIf { it.isNotBlank() && it != "null" }
+                    if (!validId.matches(id) || !seen.add(id) ||
+                        title.isBlank() || title.length > 120 ||
+                        kind !in setOf("homework", "exam", "activity", "signup", "other") ||
+                        row.optString("reviewStatus") != "needs_review" ||
+                        precision !in setOf("unknown", "date", "exact") ||
+                        (precision != "unknown" && due.isNullOrBlank()) ||
+                        (due != null && !Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(due)))
+                        throw IllegalStateException("invalid_candidate")
+                    Instant.parse(at)
+                    val excerpt = row.optString("excerpt")
+                        .takeIf { it.isNotBlank() && it != "null" }?.take(240)
+                    val chat = row.optString("chatLabel")
+                        .takeIf { it.isNotBlank() && it != "null" }?.take(80)
+                    add(WechatCandidate(id, kind, title, excerpt, chat, at, precision, due,
+                        readCloudLinks(row)))
+                }
+            }
+        } catch (_: Exception) {
+            candidateLoadFailed = true
+            failed.add("微信候选")
+        }
+
+        var inbox: List<ChaoxingInboxNotice>? = null
+        try {
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/chaoxing-inbox?limit=100", authenticated = true, boundSessionToken = boundToken)
+            }
+            if (r.code != 200 || r.json.optString("schema") != "xiaoxu/chaoxing-inbox-v1" ||
+                r.json.optString("source") != "chaoxing" ||
+                r.json.opt("live") != false) throw IllegalStateException("invalid_inbox")
+            val rows = r.json.getJSONArray("messages")
+            if (rows.length() > 100) throw IllegalStateException("oversized_inbox")
+            val seen = mutableSetOf<String>()
+            inbox = buildList {
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    val id = row.getString("id")
+                    val category = row.getString("category")
+                    val title = row.getString("title")
+                    val course = row.optString("course", "").take(80)
+                    val sent = row.getString("sentAt")
+                    val observed = row.getString("observedAt")
+                    val due = row.opt("dueAt") as? String
+                    if (!Regex("[A-Za-z0-9_$:-]{1,100}").matches(id) ||
+                        !seen.add(id) || title.isBlank() || title.length > 140 ||
+                        category !in setOf("assignment", "assignment_reminder", "peer_review",
+                            "exam", "checkin", "quiz", "activity", "notice") ||
+                        row.opt("platformRead") !is Boolean)
+                        throw IllegalStateException("invalid_notice")
+                    Instant.parse(sent)
+                    Instant.parse(observed)
+                    if (due != null) Instant.parse(due)
+                    add(ChaoxingInboxNotice(id, category, title, course, sent, due,
+                        row.getBoolean("platformRead"), observed))
+                }
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Inbox is an independent, optional snapshot. Do not discard valid tasks.
+        }
+
+        // Logout AND newer overlapping refreshes invalidate this result.
+        // Only the newest request can certify school-connection freshness.
+        if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+        state = state.copy(
+            tasks = tasks?.let { preferConfirmedWechatRevisions(it, state.tasks) }
+                ?: state.tasks,
+            tasksFresh = tasks != null,
+            platforms = platforms ?: state.platforms,
+            connectionsFresh = platforms != null,
+            chaoxingInbox = inbox ?: state.chaoxingInbox,
+            chaoxingInboxFresh = inbox != null,
+            wechatCandidates = candidates ?: state.wechatCandidates,
+            pendingWechatCount = candidates?.size ?: state.pendingWechatCount,
+            wechatError = if (candidateLoadFailed) "微信候选读取失败，列表可能过期，请重试" else null,
+            privateError = if (failed.isEmpty()) null else failed.joinToString("、") + "刷新失败，部分结果可能过期",
+            lastSyncAt = if (failed.isEmpty()) Instant.now().toString() else state.lastSyncAt
+        )
+        loadSecondClass()
+        if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId && state.authenticated)
+            readSavedNcwuSchedule(boundToken)
+    }
+
+    // A GET reads only the saved owner-scoped D1 snapshot; it never contacts Qingguo.
+    private suspend fun readSavedNcwuSchedule(token: String) {
+        if (state.schoolSyncBusyProvider == "ncwu") return
+        val epoch = sessionEpoch
+        val readSerial = ++ncwuScheduleReadSerial
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/verified/schedule", authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch || readSerial != ncwuScheduleReadSerial || !state.authenticated) return
+            if (response.code != 200 || response.json.optString("status") == "not_connected") return
+            val next = parseNcwuScheduleSnapshot(response.json)
+            val current = state.ncwuSchedule
+            if (current != null && Instant.parse(next.capturedAt).isBefore(Instant.parse(current.capturedAt))) return
+            state = state.copy(ncwuSchedule = next, ncwuScheduleFromCache = false,
+                ncwuScheduleMessage = "已保存的学校课表 · 非本次实时查询")
+            withContext(Dispatchers.IO) { session.saveScheduleCache(token, response.json) }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { /* Keep the last verified snapshot, never fabricate an empty one. */ }
+    }
+
+    fun canCheckNcwuBusiness(): Boolean = state.authenticated && state.connectionsFresh &&
+        state.platforms.any { it.id == "ncwu" && it.verified }
+
+    /** Refresh the separate verified school timetable, never LocalScheduleStore. */
+    suspend fun refreshNcwuSchedule(manual: Boolean): Boolean {
+        if ((!manual && !ncwuScheduleAutoEnabled) ||
+            (!manual && state.ncwuScheduleNeedsAuthorization) ||
+            !canCheckNcwuBusiness() || state.busy || state.schoolSyncBusyProvider != null) return false
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!manual && ncwuScheduleAttemptMs?.let { now - it < 30 * 60_000L } == true) return false
+        val epoch = sessionEpoch
+        val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.busy || state.schoolSyncBusyProvider != null ||
+            !canCheckNcwuBusiness() || (!manual && !ncwuScheduleAutoEnabled)) return false
+        ncwuScheduleAttemptMs = now
+        ncwuScheduleReadSerial++
+        state = state.copy(schoolSyncBusyProvider = "ncwu", schoolSyncResultProvider = "ncwu",
+            ncwuScheduleMessage = "正在同步学校课表…")
+        try {
+            val posted = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/ncwu/sync", "POST", JSONObject(),
+                    authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return false
+            if (posted.code != 200 || !posted.json.optBoolean("refreshed") ||
+                posted.json.optString("provider") != "ncwu") {
+                val code = posted.json.optString("error")
+                val authRequired = posted.code == 401 || code in setOf("session_expired", "authorization_failed", "review_pending")
+                state = state.copy(ncwuScheduleNeedsAuthorization = authRequired,
+                    ncwuScheduleMessage = if (authRequired) "学校会话失效，请在数据连接重新授权。"
+                    else "学校课表同步失败，保留上次已核验课表。")
+                if (posted.code == 401) refreshPrivate()
+                return false
+            }
+            val minimum = posted.json.getString("lastSuccessAt")
+            val read = withContext(Dispatchers.IO) {
+                request("/api/v1/verified/schedule", authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return false
+            if (read.code == 401) {
+                refreshPrivate()
+                return false
+            }
+            require(read.code == 200)
+            val snapshot = parseNcwuScheduleSnapshot(read.json, minimum)
+            state = state.copy(ncwuSchedule = snapshot, ncwuScheduleNeedsAuthorization = false,
+                ncwuScheduleFromCache = false,
+                ncwuScheduleMessage = "已核验学校课表（${snapshot.lessons.size} 个课块）")
+            withContext(Dispatchers.IO) { session.saveScheduleCache(token, read.json) }
+            return true
+        } catch (e: CancellationException) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuScheduleMessage = "同步已中断，保留旧课表。")
+            throw e
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuScheduleMessage = "未能确认学校课表同步，旧课表保留。")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    // Only called within an explicit grade check or the existing exam policy.
+    // A GET here restores D1 history; it does not authorize a new school read.
+    private suspend fun readNcwuAcademicSnapshot(kind: String, token: String, epoch: Long) {
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/verified/$kind", authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return
+            if (response.code == 401) {
+                refreshPrivate()
+                return
+            }
+            require(response.code == 200)
+            if (response.json.optString("status") == "not_connected") {
+                state = state.copy(ncwuAcademicSnapshotErrors = state.ncwuAcademicSnapshotErrors +
+                    (kind to "服务器尚无已核验明细快照；不代表学校没有记录。"))
+                return
+            }
+            val snapshot = parseNcwuAcademicSnapshot(kind, response.json)
+            val previous = state.ncwuAcademicSnapshots[kind]
+            require(previous == null || !Instant.parse(snapshot.capturedAt).isBefore(Instant.parse(previous.capturedAt)))
+            state = state.copy(ncwuAcademicSnapshots = state.ncwuAcademicSnapshots + (kind to snapshot),
+                ncwuAcademicSnapshotErrors = state.ncwuAcademicSnapshotErrors - kind)
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuAcademicSnapshotErrors =
+                state.ncwuAcademicSnapshotErrors + (kind to "未取得可信明细，保留历史快照。"))
+        }
+    }
+
+    /** No credentials or web view: a candidate query never changes verified snapshots. */
+    suspend fun checkNcwuBusiness(kind: String, manual: Boolean): Boolean {
+        if (kind !in setOf("grades", "exams") || (kind == "grades" && !manual) ||
+            !canCheckNcwuBusiness() || state.busy || state.schoolSyncBusyProvider != null) return false
+        val previous = state.ncwuBusiness[kind]
+        if (previous?.authorizationRequired == true) return false
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!manual && ncwuExamAttemptMs?.let { now - it < 30 * 60_000L } == true) return false
+        val epoch = sessionEpoch
+        val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.busy || state.schoolSyncBusyProvider != null || !canCheckNcwuBusiness()) return false
+        if (kind == "exams") ncwuExamAttemptMs = now
+        state = state.copy(schoolSyncBusyProvider = "ncwu",
+            ncwuBusiness = state.ncwuBusiness + (kind to (previous ?: NcwuBusinessResult()).copy(loading = true)))
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/ncwu/business-check", "POST",
+                    JSONObject().put("kind", kind), authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return false
+            val result = if (response.code == 200) parseNcwuBusinessResult(kind, response.json)
+                else {
+                    val code = response.json.optString("error")
+                    val needsAuth = response.code == 401 || code in setOf("session_expired", "authorization_failed", "review_pending")
+                    NcwuBusinessResult(message = when {
+                        needsAuth -> "会话失效，请检查数据连接并重新授权。"
+                        response.code == 429 -> "查询过于频繁，请稍后手动刷新。"
+                        else -> "学校查询暂不可用，旧数据保留。"
+                    }, authorizationRequired = needsAuth)
+                }
+            state = state.copy(ncwuBusiness = state.ncwuBusiness + (kind to result))
+            if (response.code == 401) refreshPrivate()
+            else if (epoch == sessionEpoch) readNcwuAcademicSnapshot(kind, token, epoch)
+            return response.code == 200
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuBusiness = state.ncwuBusiness +
+                (kind to NcwuBusinessResult(message = "查询未完成，未更改已保存记录。")))
+            return false
+        } finally {
+            if (epoch == sessionEpoch) {
+                val current = state.ncwuBusiness[kind]
+                state = state.copy(schoolSyncBusyProvider = null,
+                    ncwuBusiness = if (current?.loading == true)
+                        state.ncwuBusiness + (kind to current.copy(loading = false)) else state.ncwuBusiness)
+            }
+        }
+    }
+
+    /**
+     * Explicit, owner-authorized HTTP homework refresh; no WebView or school
+     * credentials in the app. The server performs the verified read and D1 sync.
+     */
+    suspend fun syncChaoxingHomeworkHttp(): Boolean {
+        val provider = "chaoxing"
+        if (!state.authenticated || !state.connectionsFresh || state.busy ||
+            state.schoolSyncBusyProvider != null ||
+            state.platforms.none { it.id == provider && it.sessionState == "active" &&
+                it.authorization == "verified_session" }) return false
+        val epoch = sessionEpoch
+        val owner = state.ownerId ?: return false
+        state = state.copy(schoolSyncBusyProvider = provider, schoolSyncResultProvider = provider,
+            schoolSyncMessage = "正在读取官方课程列表…")
+        var total = 0
+        var successful = 0
+        val expected = mutableMapOf<String, String>()
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == owner
+        val number = Regex("""\d{1,24}""")
+        fun validId(row: JSONObject, key: String): String =
+            (row.opt(key) as? String)?.takeIf { number.matches(it) }
+                ?: throw IllegalStateException("invalid_id")
+        fun data(response: HttpResult, view: String): JSONObject {
+            if (response.code != 200 ||
+                response.json.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                response.json.optString("view") != view ||
+                !response.json.optBoolean("live")) throw IllegalStateException("invalid_read")
+            return response.json.getJSONObject("data")
+        }
+        try {
+            val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+            if (!current()) return false
+            val catalog = withContext(Dispatchers.IO) {
+                request("/api/v1/chaoxing-homework?view=courses", authenticated = true,
+                    boundSessionToken = token)
+            }
+            if (!current()) return false
+            if (catalog.code != 200) {
+                state = state.copy(schoolSyncMessage = "官方课程读取失败；请检查学习通授权后重试")
+                if (catalog.code == 401) refreshPrivate()
+                return false
+            }
+            val courses = data(catalog, "courses").getJSONArray("courses")
+            if (courses.length() !in 1..120) throw IllegalStateException("invalid_courses")
+            // Validate the whole catalog before sending any course-scoped requests.
+            val keys = (0 until courses.length()).map { index ->
+                val row = courses.getJSONObject(index)
+                Triple(validId(row, "courseId"), validId(row, "classId"), validId(row, "cpi"))
+            }
+            if (keys.map { it.first to it.second }.distinct().size != keys.size)
+                throw IllegalStateException("duplicate_courses")
+            total = keys.size
+            for ((courseId, classId, cpi) in keys) {
+                if (!current()) return false
+                val result = withContext(Dispatchers.IO) {
+                    request("/api/v1/chaoxing-homework/sync", "POST",
+                        JSONObject().put("courseId", courseId).put("classId", classId).put("cpi", cpi),
+                        authenticated = true, boundSessionToken = token)
+                }
+                if (!current()) return false
+                // Stop on authorization, rate limit, or upstream/service failure.
+                // A failed course does not invalidate earlier confirmed records.
+                if (result.code != 200) {
+                    if (result.code != 422) break
+                    continue
+                }
+                val list = data(result, "list")
+                val course = list.getJSONObject("course")
+                if (validId(course, "courseId") != courseId ||
+                    validId(course, "classId") != classId ||
+                    validId(course, "cpi") != cpi || list.optJSONObject("sync") == null)
+                    throw IllegalStateException("course_mismatch")
+                val items = list.getJSONArray("items")
+                if (items.length() > 200 || list.optBoolean("verifiedEmpty") != (items.length() == 0))
+                    throw IllegalStateException("invalid_list")
+                val verified = mutableMapOf<String, String>()
+                for (i in 0 until items.length()) {
+                    val item = items.getJSONObject(i)
+                    val id = "work:$courseId:$classId:${validId(item, "workId")}"
+                    val status = trustedChaoxingPlatformStatus(provider, id, item.optString("statusCode"))
+                    if (!item.optBoolean("platformVerified") || status == null ||
+                        verified.put(id, status) != null) throw IllegalStateException("invalid_work")
+                }
+                expected.putAll(verified)
+                successful++
+                state = state.copy(schoolSyncMessage = "已同步 $successful / $total 门课程，正在读取其余课程")
+            }
+            if (!current()) return false
+            refreshPrivate()
+            if (!current()) return false
+            val ledger = state.tasks.filter { it.provider == provider }
+                .groupBy { it.sourceExternalId }
+            val reconciled = state.tasksFresh && expected.all { (id, status) ->
+                ledger[id]?.singleOrNull()?.officialStatus == status
+            }
+            val verifiedAll = successful == total && reconciled
+            state = state.copy(schoolSyncResultProvider = provider, schoolSyncMessage = when {
+                verifiedAll -> "已同步并核对 $total 门课程，${expected.size} 条官方作业记录"
+                !reconciled -> "已读取 $successful / $total 门课程；云端任务核对未完成"
+                else -> "已同步 $successful / $total 门课程；其余课程未核验，旧记录保留"
+            })
+            return verifiedAll
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (current()) state = state.copy(schoolSyncMessage =
+                "读取中断（已确认 $successful / $total 门）；请刷新任务并检查授权")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    /**
+     * Explicit owner opt-in for the EXISTING server-side Chaoxing hourly job.
+     * This calls only our owner-scoped controller with {enabled}; it never
+     * sends WebView cookies, credentials, Room records, or signed work URLs.
+     * Local scan and the independent cloud school session remain separate.
+     */
+    suspend fun setChaoxingAutoSync(enabled: Boolean): Boolean {
+        val provider = "chaoxing"
+        val owner = state.ownerId
+        if (!state.authenticated || !state.connectionsFresh || owner.isNullOrBlank() ||
+            state.busy || state.schoolSyncBusyProvider != null) return false
+        val linked = state.platforms.firstOrNull { it.id == provider }
+        if (linked == null || (enabled &&
+                (linked.sessionState != "active" || linked.authorization != "verified_session" || !linked.autoSyncAvailable))) {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "云端学习通会话或调度器未就绪；本机官方登录不能替代云端授权")
+            return false
+        }
+        val epoch = sessionEpoch
+        state = state.copy(schoolSyncBusyProvider = provider,
+            schoolSyncResultProvider = provider,
+            schoolSyncMessage = if (enabled) "正在申请开启云端定时只读同步…"
+                else "正在关闭云端定时同步…")
+        try {
+            val boundToken = withContext(Dispatchers.IO) { session.load() }
+            if (boundToken == null || epoch != sessionEpoch || state.ownerId != owner) return false
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/chaoxing/auto-sync", "POST",
+                    JSONObject().put("enabled", enabled), authenticated = true,
+                    boundSessionToken = boundToken)
+            }
+            if (epoch != sessionEpoch || state.ownerId != owner) return false
+            if (response.code != 200 || !response.json.has("enabled") ||
+                response.json.optBoolean("enabled") != enabled ||
+                response.json.optInt("intervalMinutes", -1) != 60) {
+                val reason = when (response.json.optString("error")) {
+                    "autosync_not_ready" -> "服务器定时任务未就绪，未开启同步"
+                    "session_expired" -> "服务器端学习通会话已失效，需独立完成云端授权"
+                    "forbidden_origin_or_format" -> "云端请求未通过安全校验"
+                    "database_unavailable" -> "云端数据存储不可用"
+                    else -> "云端未确认设置更改（HTTP " + response.code + "）"
+                }
+                state = state.copy(schoolSyncMessage = reason)
+                return false
+            }
+            // An acknowledged POST is not yet a verified fresh connection
+            // snapshot. Re-read the existing owner-scoped connections endpoint.
+            refreshPrivate()
+            if (epoch != sessionEpoch || state.ownerId != owner) return false
+            val confirmed = state.connectionsFresh &&
+                state.platforms.firstOrNull { it.id == provider }?.autoSyncEnabled == enabled
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = if (!confirmed)
+                    "服务器已响应，但最新云端设置尚未核实；请刷新连接状态"
+                else if (enabled)
+                    "云端每小时只读同步已开启；是否实际读到作业以服务器运行结果为准"
+                else "云端自动同步已关闭；本机已保存的学习通记录不受影响")
+            return confirmed
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch && state.ownerId == owner)
+                state = state.copy(schoolSyncMessage = "云端请求异常，设置结果未知；请刷新状态核实")
+            return false
+        } finally {
+            if (epoch == sessionEpoch && state.ownerId == owner)
+                state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    /** Read official grade tables only on explicit user action; no task or grade writes. */
+    suspend fun readChaoxingGrades(course: ChaoxingGradeCourse? = null): Boolean =
+        readChaoxingCourseData(course, false)
+
+    suspend fun readChaoxingCourseProgress(course: ChaoxingGradeCourse? = null): Boolean =
+        readChaoxingCourseData(course, true)
+
+    private suspend fun readChaoxingCourseData(course: ChaoxingGradeCourse?, progress: Boolean): Boolean {
+        val owner = state.ownerId ?: return false
+        val provider = "chaoxing"
+        if (!state.authenticated || !state.connectionsFresh || state.busy ||
+            state.schoolSyncBusyProvider != null || state.platforms.none {
+                it.id == provider && it.sessionState == "active" &&
+                    it.authorization == "verified_session"
+            }) return false
+        if (course != null && course !in state.chaoxingGradeCourses) return false
+        val epoch = sessionEpoch
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == owner
+        state = if (progress) state.copy(schoolSyncBusyProvider = provider,
+            chaoxingCourseProgress = null, chaoxingProgressError = null)
+        else state.copy(schoolSyncBusyProvider = provider, chaoxingGradeError = null,
+            chaoxingGradeCourse = null, chaoxingGrades = emptyList())
+        try {
+            val token = withContext(Dispatchers.IO) { session.load() }
+            if (!current()) return false
+            if (token == null) {
+                // Reconcile the missing owner session through the existing private refresh.
+                // Never issue a school request without the bound token.
+                refreshPrivate()
+                return false
+            }
+            val view = if (course == null) "courses" else if (progress) "progress" else "grades"
+            val path = "/api/v1/chaoxing-homework?view=" + view +
+                (if (course == null) "" else "&courseId=" + course.courseId +
+                    "&classId=" + course.classId + "&cpi=" + course.cpi)
+            val response = withContext(Dispatchers.IO) {
+                request(path, authenticated = true, boundSessionToken = token)
+            }
+            if (!current()) return false
+            if (response.code == 401) {
+                refreshPrivate()
+                return false
+            }
+            if (response.code != 200 ||
+                response.json.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                response.json.optString("view") != view || !response.json.optBoolean("live")) {
+                val error = when (response.json.optString("error")) {
+                    "grades_unverified" -> "官方作业成绩表尚未核实"
+                    "progress_unverified" -> "官方课程进度尚未核实"
+                    "session_expired", "interactive_login_required" -> "需要重新完成学习通授权"
+                    else -> "查询未成功，请重试"
+                }
+                state = if (progress) state.copy(chaoxingProgressError = error)
+                    else state.copy(chaoxingGradeError = error)
+                return false
+            }
+            val data = response.json.getJSONObject("data")
+            fun parseCourse(row: JSONObject): ChaoxingGradeCourse {
+                val id = row.getString("courseId")
+                val clazz = row.getString("classId")
+                val cpi = row.getString("cpi")
+                val title = row.getString("title")
+                if (listOf(id, clazz, cpi).any { !Regex("[0-9]{1,24}").matches(it) } ||
+                    title.isBlank() || title.length > 100) throw IllegalStateException("invalid_course")
+                return ChaoxingGradeCourse(id, clazz, cpi, title)
+            }
+            if (course == null) {
+                val rows = data.getJSONArray("courses")
+                if (rows.length() !in 1..120) throw IllegalStateException("invalid_course_list")
+                val list = (0 until rows.length()).map { parseCourse(rows.getJSONObject(it)) }
+                if (list.map { it.key }.distinct().size != list.size)
+                    throw IllegalStateException("duplicate_course")
+                state = state.copy(chaoxingGradeCourses = list,
+                    chaoxingGradeCourse = state.chaoxingGradeCourse?.takeIf { it in list },
+                    chaoxingGrades = if (state.chaoxingGradeCourse in list) state.chaoxingGrades else emptyList(),
+                    chaoxingCourseProgress = state.chaoxingCourseProgress?.takeIf { it.course in list })
+            } else if (progress) {
+                if (data.optString("schema") != "xiaoxu/chaoxing-course-progress-v1" ||
+                    data.optString("metric") != "official_task_points" ||
+                    parseCourse(data.getJSONObject("course")) != course)
+                    throw IllegalStateException("invalid_progress")
+                fun count(key: String): Int {
+                    val n = (data.get(key) as? Number)?.toDouble()
+                        ?: throw IllegalStateException("invalid_count")
+                    if (!n.isFinite() || n !in 0.0..999999.0 || n % 1.0 != 0.0)
+                        throw IllegalStateException("invalid_count")
+                    return n.toInt()
+                }
+                val completed = count("completed")
+                val total = count("total")
+                if (completed > total) throw IllegalStateException("invalid_progress")
+                state = state.copy(chaoxingCourseProgress = ChaoxingCourseProgress(course, completed, total))
+            } else {
+                if (data.optString("schema") != "xiaoxu/chaoxing-homework-grades-v1" ||
+                    data.optString("scope") != "current_table_only" ||
+                    parseCourse(data.getJSONObject("course")) != course)
+                    throw IllegalStateException("invalid_grades")
+                val rows = data.getJSONArray("items")
+                if (rows.length() !in 1..200) throw IllegalStateException("invalid_grade_rows")
+                fun number(row: JSONObject, key: String): Double? {
+                    if (row.isNull(key)) return null
+                    val n = (row.get(key) as? Number)?.toDouble()
+                        ?: throw IllegalStateException("invalid_score")
+                    if (!n.isFinite() || n < 0.0) throw IllegalStateException("invalid_score")
+                    return n
+                }
+                val grades = (0 until rows.length()).map {
+                    val row = rows.getJSONObject(it)
+                    val title = row.getString("title")
+                    val label = row.getString("scoreLabel")
+                    val score = number(row, "score")
+                    val max = number(row, "maxScore")
+                    if (title.isBlank() || title.length > 100 || label.length > 40 ||
+                        (score != null && max != null && score > max))
+                        throw IllegalStateException("invalid_score_row")
+                    ChaoxingHomeworkGrade(title, score, max, label)
+                }
+                state = state.copy(chaoxingGradeCourse = course, chaoxingGrades = grades)
+            }
+            return true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (current()) state = if (progress)
+                state.copy(chaoxingProgressError = "课程进度查询未完成")
+                else state.copy(chaoxingGradeError = "成绩查询未完成，未显示未经核验的结果")
+            return false
+        } finally {
+            if (current()) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    /** Explicit owner-authorized inbox refresh through the existing server adapter. */
+    suspend fun syncChaoxingNoticesHttp(): Boolean {
+        val provider = "chaoxing"
+        val owner = state.ownerId ?: return false
+        if (!state.authenticated || !state.connectionsFresh || state.busy ||
+            state.schoolSyncBusyProvider != null || state.platforms.none {
+                it.id == provider && it.sessionState == "active" &&
+                    it.authorization == "verified_session"
+            }) return false
+        val epoch = sessionEpoch
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == owner
+        state = state.copy(schoolSyncBusyProvider = provider, schoolSyncResultProvider = provider,
+            schoolSyncMessage = "正在同步学习通通知…")
+        try {
+            val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+            if (!current()) return false
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/chaoxing/sync", "POST", JSONObject(),
+                    authenticated = true, boundSessionToken = token)
+            }
+            if (!current()) return false
+            if (response.code != 200 || response.json.optString("provider") != provider ||
+                !response.json.optBoolean("refreshed")) {
+                state = state.copy(schoolSyncMessage = when (response.json.optString("error")) {
+                    "session_expired" -> "学习通会话已过期，请重新授权"
+                    "interactive_login_required" -> "请完成官方交互认证"
+                    else -> "通知同步未确认成功；保留旧任务"
+                })
+                if (response.code == 401 || response.code == 409) refreshPrivate()
+                return false
+            }
+            refreshPrivate()
+            if (!current()) return false
+            val refreshed = state.tasksFresh && state.connectionsFresh && state.chaoxingInboxFresh &&
+                state.platforms.any { it.id == provider && it.verified }
+            state = state.copy(schoolSyncMessage = if (refreshed)
+                "服务器已同步通知，已刷新云端任务；通知不代表官方作业提交状态"
+                else "通知同步已返回，但任务缓存未核验，请刷新重试")
+            return refreshed
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (current()) state = state.copy(schoolSyncMessage = "通知同步失败或结果未知，请刷新核实")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    /**
+     * Trigger the existing authenticated, owner-scoped readonly school refresh.
+     * This is NOT a school login, CAS bridge or a browser Cookie extractor.
+     * Never mark success until the server confirms refreshed=true.
+     */
+    suspend fun syncAuthorizedSchool(provider: String): Boolean {
+        // The legacy NCWU POST refreshes timetable records, not grades.
+        // Never call it for the new local-only timetable workflow.
+        if (provider != "second_class" ||
+            !state.authenticated || state.busy || state.schoolSyncBusyProvider != null) return false
+        val linked = state.platforms.firstOrNull { it.id == provider }
+        if (linked?.sessionState != "active") {
+            state = state.copy(
+                schoolSyncResultProvider = provider,
+                schoolSyncMessage = "学校会话未生效；请先在官方连接中心完成本人授权")
+            return false
+        }
+        val epoch = sessionEpoch
+        val label = if (provider == "ncwu") "青果教务" else "第二课堂"
+        state = state.copy(schoolSyncBusyProvider = provider, schoolSyncResultProvider = provider,
+            schoolSyncMessage = null)
+        try {
+            val result = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/$provider/sync", "POST", JSONObject(),
+                    authenticated = true)
+            }
+            if (epoch != sessionEpoch) return false
+            if (result.code != 200 || !result.json.optBoolean("refreshed") ||
+                result.json.optString("provider") != provider) {
+                val code = result.json.optString("error")
+                state = state.copy(schoolSyncMessage = when (code) {
+                    "session_expired", "authorization_failed" ->
+                        "$label 学校会话过期，请在官方连接中心重新授权"
+                    "review_pending" ->
+                        "青果课表仍等待本人核对，请先完成课表预览确认"
+                    "interactive_login_required" ->
+                        "$label 需要在学校官方页面完成人机验证或登录"
+                    "school_login_unavailable", "not_configured" ->
+                        "$label 连接器或安全会话配置不可用"
+                    "database_unavailable" ->
+                        "校序存储服务暂时不可用；未覆盖旧数据"
+                    "sync_failed", "upstream_unavailable" ->
+                        "$label 上游数据读取失败；旧记录保持不变"
+                    else -> "未确认 $label 同步成功（HTTP ${result.code}），请核查连接状态"
+                })
+                if (result.code == 401) refreshPrivate()
+                return false
+            }
+            // Server claims a successful owner-scoped read, but the UI still needs
+            // to verify fresh trusted snapshots through the existing GET endpoints.
+            state = state.copy(schoolSyncMessage = "$label 已返回只读刷新成功；正在核对可信快照")
+            refreshPrivate()
+            if (epoch != sessionEpoch) return false
+            // Do not let an unrelated WeChat/task API outage reject a fresh
+            // trusted school read, or let old cached school rows prove success.
+            val verified = state.connectionsFresh &&
+                state.platforms.firstOrNull { it.id == provider }?.verified == true &&
+                state.secondClassFresh &&
+                state.secondClass?.status == "ready" &&
+                state.secondClass?.provenance == "trusted_readonly"
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = if (verified)
+                    "$label 已取得可信连接状态；请与学校官网逐项对照"
+                else
+                    "$label 上游刷新已返回，但可信数据状态尚未确认；请核查连接中心")
+            return verified
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "$label 网络或接口响应异常；不能确认同步成功，旧数据不受影响")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+
+    /**
+     * One-time browser return is only a navigation event, never a grant.
+     * Reuse the existing encrypted owner session + verified school API to
+     * read actual records. Do not trust the browser or return URI as proof.
+     */
+    suspend fun completeSchoolReturn(provider: String) {
+        if (provider !in setOf("chaoxing", "ncwu", "second_class")) return
+        val epoch = sessionEpoch
+        state = state.copy(schoolSyncResultProvider = provider,
+            schoolSyncMessage = "已返回校序；正在通过本人会话核验学校授权和真实数据")
+        // Read the current owner /auth/me and fresh provider connection state.
+        refreshPrivate()
+        if (epoch != sessionEpoch) return
+        if (!state.authenticated) {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "校序本人会话失效；请在 App 内重新连接后再尝试")
+            return
+        }
+        if (!state.connectionsFresh) {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "无法核验最新学校连接状态，暂不显示授权成功")
+            return
+        }
+        val platform = state.platforms.firstOrNull { it.id == provider }
+        if (platform?.sessionState != "active" ||
+            (provider == "chaoxing" && platform?.authorization != "verified_session")) {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = if (platform?.sessionState == "review_pending")
+                    "青果课表仍需要在学校连接中心确认预览；未标记已连接"
+                else "尚未证实学校本人授权；请完成官方登录后再返回")
+            return
+        }
+        if (provider == "chaoxing") {
+            // A navigation callback is not authorization proof. The fresh
+            // owner-scoped connection response above is the only source.
+            // Leave the actual full-course sync to the explicit HTTP button.
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "已核对学习通授权会话；可手动 HTTP 同步全部作业")
+            return
+        }
+        if (provider == "ncwu") {
+            ncwuExamAttemptMs = null
+            ncwuScheduleAttemptMs = null
+            state = state.copy(ncwuBusiness = emptyMap(), ncwuSchedule = null,
+                ncwuAcademicSnapshots = emptyMap(), ncwuAcademicSnapshotErrors = emptyMap(),
+                ncwuScheduleNeedsAuthorization = false, ncwuScheduleMessage = null, schoolSyncMessage =
+                "青果授权状态已读取；请在教务页手动查询成绩。")
+        } else syncAuthorizedSchool(provider)
+
+    }
+
+    suspend fun reviewWechatCandidate(candidateId: String, decision: String): Boolean {
+        if (!state.authenticated || state.wechatReviewingId != null ||
+            decision !in setOf("accept", "dismiss") ||
+            !Regex("^[A-Za-z0-9_-]{12,128}$").matches(candidateId) ||
+            state.wechatCandidates.none { it.id == candidateId }) return false
+        val epoch = sessionEpoch
+        state = state.copy(wechatReviewingId = candidateId, wechatError = null)
+        try {
+            val result = withContext(Dispatchers.IO) {
+                request("/api/v1/wechat/candidates/$candidateId", "POST",
+                    JSONObject().put("decision", decision), authenticated = true)
+            }
+            if (epoch != sessionEpoch) return false
+            if (result.code != 200 ||
+                result.json.optString("id") != candidateId ||
+                result.json.optString("status") != if (decision == "accept") "accepted" else "dismissed") {
+                state = state.copy(wechatError = when (result.code) {
+                    401 -> "校序登录状态已过期，请在「我的」重新连接"
+                    409 -> "该候选已在别处审核，请刷新列表"
+                    404 -> "候选已不存在，请刷新列表"
+                    403 -> "没有审核权限，请核查校序登录状态"
+                    else -> "审核未成功（HTTP ${result.code}），请重试"
+                })
+                if (result.code == 401) refreshPrivate()
+                return false
+            }
+            // A confirmed server mutation may disappear from the current list. Refetch
+            // both the queue and task ledger; if that fails the UI labels snapshots stale.
+            state = state.copy(
+                wechatCandidates = state.wechatCandidates.filterNot { it.id == candidateId },
+                pendingWechatCount = state.pendingWechatCount?.let { (it - 1).coerceAtLeast(0) }
+            )
+            refreshPrivate()
+            return true
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch)
+                state = state.copy(wechatError = "审核请求失败，状态未确认；请先刷新以免重复操作")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(wechatReviewingId = null)
+        }
+    }
+
+    /**
+     * Reads the existing owner-protected D1 snapshot only.
+     * No campus login, school API probe, background polling or status mutation.
+     */
+    suspend fun loadSecondClass() {
+        if (!state.authenticated ||
+            (state.secondClassBusy && secondClassSnapshotReadId == privateSnapshotReadId)) return
+        val epoch = sessionEpoch
+        val snapshotRead = privateSnapshotReadId
+        val readId = ++secondClassReadId
+        secondClassSnapshotReadId = snapshotRead
+        state = state.copy(secondClassBusy = true, secondClassFresh = false,
+            secondClassError = null)
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/second-class", authenticated = true)
+            }
+            if (epoch != sessionEpoch || readId != secondClassReadId ||
+                snapshotRead != privateSnapshotReadId) return
+            if (response.code == 401) {
+                sessionEpoch++
+                session.clear()
+                state = clearAccountSnapshots().copy(
+                    authenticated = false,
+                    authMessage = "校序会话已过期，请重新连接",
+                    tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                    secondClass = null, secondClassError = null, secondClassBusy = false
+                )
+                return
+            }
+            if (response.code != 200) throw IllegalStateException("secondclass_http_error")
+            val snapshot = parseSecondClassSnapshot(response.json)
+            state = state.copy(secondClass = snapshot, secondClassFresh = true,
+                secondClassError = null)
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch && readId == secondClassReadId &&
+                snapshotRead == privateSnapshotReadId) {
+                state = state.copy(
+                    secondClassError = if (state.secondClass == null)
+                        "第二课堂个人记录读取失败，无法确认是否已连接"
+                        else "第二课堂刷新失败；展示的是上次读取的数据，不代表实时信息"
+                )
+            }
+        } finally {
+            if (epoch == sessionEpoch && readId == secondClassReadId)
+                state = state.copy(secondClassBusy = false)
+        }
+    }
+
+    private fun clearAccountSnapshots(): CloudUiState {
+        ncwuExamAttemptMs = null
+        ncwuScheduleAttemptMs = null
+        ncwuScheduleReadSerial++
+        return state.copy(
+        ownerId = null,
+        chaoxingInbox = emptyList(), chaoxingInboxFresh = false,
+        chaoxingGradeCourses = emptyList(), chaoxingGradeCourse = null,
+        chaoxingGrades = emptyList(), chaoxingGradeError = null,
+        chaoxingCourseProgress = null, chaoxingProgressError = null,
+        tasksFresh = false, connectionsFresh = false,
+        secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
+        schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null,
+        ncwuBusiness = emptyMap(), ncwuSchedule = null,
+        ncwuScheduleMessage = null, ncwuScheduleNeedsAuthorization = false,
+        ncwuScheduleFromCache = false, ncwuAcademicSnapshots = emptyMap(),
+        ncwuAcademicSnapshotErrors = emptyMap()
+        )
+    }
+
+    suspend fun signIn(passphrase: String): Boolean {
+        if (passphrase.isBlank() || state.signingIn || signingOut) return false
+        state = state.copy(signingIn = true)
+        return try {
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/auth/login", "POST",
+                    JSONObject().put("passphrase", passphrase).put("durationDays", 7))
+            }
+            if (r.code != 200 || !r.json.optBoolean("authenticated")) {
+                state = state.copy(authMessage = when (r.code) {
+                    401 -> "校序口令不正确"
+                    429 -> "尝试次数过多，请稍后重试"
+                    503 -> "云端登录服务不可用"
+                    else -> "登录失败，HTTP " + r.code
+                })
+                false
+            } else {
+                val token = Regex("^" + COOKIE_NAME + "=([A-Za-z0-9_-]{43})(?:;|$)")
+                    .find(r.cookie ?: "")?.groupValues?.get(1)
+                    ?: throw IllegalStateException("missing_cookie")
+                withContext(Dispatchers.IO) {
+                    session.save(token, r.json.getString("expiresAt"))
+                }
+                sessionEpoch++
+                state = clearAccountSnapshots().copy(
+                    authenticated = true, authMessage = "校序云端连接成功",
+                    secondClass = null, secondClassError = null, secondClassBusy = false
+                )
+                refreshPrivate()
+                true
+            }
+        } catch (_: Exception) {
+            state = state.copy(authMessage = "连接失败，请检查网络、登录配置或登录响应")
+            false
+        } finally { state = state.copy(signingIn = false) }
+    }
+
+    /** Only a personally approved WeChat task may change its own completion status.
+     * Owner-scoped status-only POST accepts a revision and never touches school submissions.
+     */
+    suspend fun setWechatTaskCompleted(id: String, revision: Int, completed: Boolean,
+        expectedOwnerId: String): Boolean {
+        if (expectedOwnerId.isBlank() || state.ownerId != expectedOwnerId) return false
+        if (!state.authenticated || !state.tasksFresh || revision < 0 ||
+            !Regex("^[A-Za-z0-9_-]{1,100}$").matches(id)) return false
+        val current = state.tasks.firstOrNull {
+            it.id == id && it.provider == "wechat" && it.revision == revision
+        } ?: return false
+        if (current.status == "done" && completed ||
+            current.status != "done" && !completed) return true
+        val epoch = sessionEpoch
+        // Pin the existing encrypted session for this owner before asynchronous I/O.
+        // A later account switch may abort this operation, but can never substitute the new account's cookie.
+        val boundToken = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) return false
+        return try {
+            val body = JSONObject().put("revision", revision)
+                .put("localStatus", if (completed) "done" else "todo")
+            val response = withContext(Dispatchers.IO) {
+                if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) null
+                else request("/api/v1/assignments/$id", "POST", body, authenticated = true,
+                    boundSessionToken = boundToken)
+            } ?: return false
+            if (epoch != sessionEpoch) return false
+            if (response.code != 200 ||
+                response.json.optJSONObject("item")?.optString("id") != id) {
+                if (response.code in setOf(401, 409)) refreshPrivate()
+                if (epoch == sessionEpoch) state = state.copy(privateError = when (response.code) {
+                    401 -> "登录状态已过期，请重新连接"
+                    409 -> "任务已被其他设备更新，请刷新后重试"
+                    else -> "微信任务状态更新失败，请重试"
+                })
+                return false
+            }
+            // The owner-scoped POST only mutates localStatus and returns the
+            // committed revision. Updating this one row avoids a second full
+            // refresh (auth + paged ledger + connections + candidates + school).
+            val item = response.json.getJSONObject("item")
+            val committedRevision = item.optLong("revision", -1L)
+            if (item.optBoolean("unchanged", true) ||
+                committedRevision != revision.toLong() + 1L ||
+                committedRevision > Int.MAX_VALUE) {
+                state = state.copy(privateError =
+                    "云端可能已更新，但版本未能确认，请手动刷新")
+                return false
+            }
+            val currentRow = state.tasks.firstOrNull {
+                it.id == id && it.provider == "wechat" && it.revision == revision
+            }
+            if (currentRow == null || !state.authenticated) {
+                state = state.copy(privateError = "任务状态发生变化，请刷新后重试")
+                return false
+            }
+            // Present the owner-confirmed mutation immediately. An older GET
+            // is reconciled by revision in refreshPrivate, without cancelling
+            // unrelated school connection and candidate refreshes.
+            state = state.copy(
+                tasks = state.tasks.map {
+                    if (it.id == id && it.provider == "wechat" && it.revision == revision)
+                        it.copy(status = if (completed) "done" else "todo",
+                            revision = committedRevision.toInt())
+                    else it
+                },
+                privateError = state.privateError?.takeUnless {
+                    it.startsWith("微信任务状态更新失败") ||
+                        it.startsWith("任务状态发生变化") ||
+                        it.startsWith("云端可能已更新")
+                }
+            )
+            true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch)
+                state = state.copy(privateError = "微信任务状态更新失败，请刷新后重试")
+            false
+        }
+    }
+
+    /**
+     * Explicit button only. Send just the selected personal task title and
+     * user-entered notes to the first-party, owner-authenticated Pages endpoint.
+     * No school credentials, task database, cloud task list or cookies in body.
+     */
+    suspend fun suggestLocalTaskBreakdown(
+        title: String, notes: String
+    ): TaskBreakdownAiSuggestion {
+        if (title.isBlank() || title.trim().length > 120 || notes.length > 600)
+            return TaskBreakdownAiSuggestion(error = "任务描述过长，请精简后再试")
+        if (!state.authenticated)
+            return TaskBreakdownAiSuggestion(error = "AI 建议需要先连接校序云端；手动拆解仍可离线使用")
+        val epoch = sessionEpoch
+        return try {
+            val body = JSONObject().put("title", title.trim()).put("notes", notes.trim())
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/task-breakdown-ai", "POST", body, authenticated = true)
+            }
+            if (epoch != sessionEpoch || !state.authenticated)
+                return TaskBreakdownAiSuggestion(error = "账号已切换，请重新打开任务")
+            when (response.code) {
+                200 -> {
+                    if (response.json.optBoolean("saved", true))
+                        return TaskBreakdownAiSuggestion(error = "AI 响应无效，未写入任何任务")
+                    val array = response.json.optJSONArray("steps")
+                        ?: return TaskBreakdownAiSuggestion(error = "AI 返回内容无法解析")
+                    if (array.length() !in 2..12)
+                        return TaskBreakdownAiSuggestion(error = "AI 返回步骤数量不符合要求")
+                    val values = (0 until array.length()).map { index ->
+                        array.optString(index, "").trim()
+                    }
+                    // Reuse the exact same validator as the local Room write gate.
+                    if (parseLocalTaskBreakdown(values.joinToString("\n")) != values)
+                        TaskBreakdownAiSuggestion(error = "AI 建议内容不符合要求，请重试")
+                    else TaskBreakdownAiSuggestion(steps = values)
+                }
+                401 -> TaskBreakdownAiSuggestion(error = "校序云端登录已失效，请重新连接")
+                403 -> TaskBreakdownAiSuggestion(error = "当前账号无权使用该功能")
+                503 -> TaskBreakdownAiSuggestion(
+                    error = if (response.json.optString("error") == "ai_not_configured")
+                        "AI 服务尚未配置；手动分解功能仍可使用"
+                    else "AI 服务暂时不可用，请稍后再试"
+                )
+                else -> TaskBreakdownAiSuggestion(error = "AI 请求未成功（${response.code}）")
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            TaskBreakdownAiSuggestion(error = "网络连接失败，未生成或保存任何任务")
+        }
+    }
+
+    suspend fun addCloudTask(title: String): Boolean {
+        if (!state.authenticated || title.isBlank() || title.trim().length > 120) return false
+        return try {
+            val body = JSONObject().put("title", title.trim())
+                .put("localStatus", "todo").put("deadline", JSONObject().put("precision", "unknown"))
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/assignments", "POST", body, authenticated = true)
+            }
+            if (r.code != 201) throw IllegalStateException()
+            refreshPrivate()
+            true
+        } catch (_: Exception) {
+            state = state.copy(privateError = "新增云端任务失败；没有写入本地")
+            false
+        }
+    }
+
+    suspend fun signOut() {
+        if (signingOut || state.signingIn) return
+        signingOut = true
+        sessionEpoch++
+        // Hide all owner-scoped data before any network suspension.
+        state = clearAccountSnapshots().copy(
+            authenticated = false, authMessage = "已退出校序云端",
+            tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+            privateError = null, lastSyncAt = null,
+            secondClass = null, secondClassError = null, secondClassBusy = false)
+        try {
+            // Local logout must finish even if the settings page leaves composition.
+            val token = withContext(NonCancellable + Dispatchers.IO) {
+                try { session.load() } finally { session.clear() }
+            }
+            if (token != null) withContext(Dispatchers.IO) {
+                request("/api/v1/auth/logout", "POST", JSONObject(), authenticated = true,
+                    boundSessionToken = token)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Local logout is complete; server revocation is best effort when offline.
+        } finally {
+            signingOut = false
+        }
+    }
+}

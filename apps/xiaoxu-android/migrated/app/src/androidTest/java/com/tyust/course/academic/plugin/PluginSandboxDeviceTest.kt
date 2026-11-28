@@ -1,0 +1,205 @@
+package com.tyust.course.academic.plugin
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tyust.course.academic.AcademicSessionStore
+import com.tyust.course.academic.plugin.runtime.PluginSandboxClient
+import kotlinx.coroutines.*
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import java.util.concurrent.TimeUnit
+
+@RunWith(AndroidJUnit4::class)
+class PluginSandboxDeviceTest {
+    private val context = ApplicationProvider.getApplicationContext<Context>()
+    private val sessions = AcademicSessionStore()
+    private fun operation(method: String = "study.terms", manifest: JSONObject = JSONObject().put("network", org.json.JSONArray())) = PluginOperation(
+        sessions.session("test-school", "test-account", "https://school.test"),
+        PluginManifest(manifest.put("apiVersion", 3).put("id", "test.school").put("kind", "independent").put("version", "1.0.0")), method, development = true)
+    private suspend fun run(source: String, op: PluginOperation = operation()) = PluginSandboxClient(context).execute(source, JSONObject(), op, PluginHost(op, context.cacheDir))
+    @Test fun parallelInvocationsKeepIndependentStateAcrossEngineLifetimes() = runBlocking {
+        val source = """globalThis.plugin={study:{terms:async(a,c,s)=>{
+            globalThis.marker=a.marker;
+            return {ok:true,data:{marker:globalThis.marker,text:s.html.text('<b>A &amp; B</b>')}};
+        }}};"""
+        withTimeout(60_000) {
+            repeat(30) { batch ->
+                val ready = CompletableDeferred<Unit>()
+                val calls = (0 until 8).map { index ->
+                    async(Dispatchers.IO) {
+                        ready.await()
+                        val marker = "batch-$batch-page-$index"
+                        val op = operation()
+                        try {
+                            val data = PluginSandboxClient(context).execute(source, JSONObject().put("marker", marker),
+                                op, PluginHost(op, context.cacheDir)).getJSONObject("data")
+                            assertEquals(marker, data.getString("marker"))
+                            assertEquals("A & B", data.getString("text"))
+                        } finally { op.close() }
+                    }
+                }
+                ready.complete(Unit)
+                calls.awaitAll()
+            }
+        }
+    }
+    @Test fun slowHostCallDoesNotBlockAnotherEngineOrItsCancellationRecovery() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE))
+            val origin = server.url("/").toString().trimEnd('/')
+            val manifest = JSONObject("""{"network":[{"origin":"$origin","pathPrefix":"/wait","methods":["GET"],"purposes":["query"]}]}""")
+            val op = operation(manifest = manifest)
+            val pending = launch(Dispatchers.IO) {
+                try { run("""globalThis.plugin={study:{terms:async(a,c,s)=>({ok:true,data:await s.http({url:'$origin/wait',purpose:'query'})})}};""", op) }
+                finally { op.close() }
+            }
+            try {
+                assertNotNull(withContext(Dispatchers.IO) { server.takeRequest(10, TimeUnit.SECONDS) })
+                withTimeout(5_000) {
+                    assertTrue(run("globalThis.plugin={study:{terms:()=>({ok:true,data:{}})}};").getBoolean("ok"))
+                }
+            } finally {
+                withContext(NonCancellable) { withTimeout(5_000) { pending.cancelAndJoin() } }
+            }
+            withTimeout(5_000) {
+                assertTrue(run("globalThis.plugin={study:{terms:()=>({ok:true,data:{}})}};").getBoolean("ok"))
+            }
+        }
+    }
+    @Test fun runsSharedHtmlAndPassesLargeResponsesOutsideBinder() = runBlocking {
+        val result = run("""globalThis.plugin={study:{terms:async(a,c,s)=>({ok:true,data:{text:s.html.text('<b>A &amp; B</b>'),large:'x'.repeat(2*1024*1024),android:typeof Java,network:typeof fetch}})}};""")
+        val data = result.getJSONObject("data")
+        assertEquals("A & B", data.getString("text"))
+        assertEquals(2 * 1024 * 1024, data.getString("large").length)
+        assertEquals("undefined", data.getString("android"))
+        assertEquals("undefined", data.getString("network"))
+    }
+    @Test fun sharedCryptoVectorsMatchIncludingRsaPaddingAndUnicode() = runBlocking {
+        val vectors = JSONObject(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets
+            .open("academic-plugin/crypto-vectors.json").bufferedReader().use { it.readText() }).getJSONArray("calls")
+        val source = """globalThis.plugin={study:{terms:async(a,c,s)=>({ok:true,data:await Promise.all(a.calls.map(v=>s.crypto[v.method](...Object.values(v.args))))})}};"""
+        val op = operation()
+        val result = PluginSandboxClient(context).execute(source, JSONObject().put("calls", vectors), op, PluginHost(op, context.cacheDir)).getJSONArray("data")
+        for (i in 0 until vectors.length()) {
+            val vector = vectors.getJSONObject(i)
+            if (vector.has("expected")) assertEquals(vector.getString("method"), vector.getString("expected"), result.getString(i))
+            else {
+                val key = java.security.KeyFactory.getInstance("RSA").generatePrivate(java.security.spec.PKCS8EncodedKeySpec(android.util.Base64.decode(vector.getString("privateKeyPkcs8Base64"), android.util.Base64.DEFAULT)))
+                val plain = javax.crypto.Cipher.getInstance("RSA/ECB/PKCS1Padding").run {
+                    init(javax.crypto.Cipher.DECRYPT_MODE, key)
+                    doFinal(android.util.Base64.decode(result.getString(i), android.util.Base64.DEFAULT))
+                }
+                assertEquals(vector.getJSONObject("args").getString("text"), plain.toString(Charsets.UTF_8))
+            }
+        }
+    }
+    @Test fun busyLoopStopsAndNextInvocationStillWorks() = runBlocking {
+        val start = android.os.SystemClock.elapsedRealtime()
+        try { run("while(true){}") ; fail("loop was accepted") }
+        catch (e: PluginException) { assertEquals(PluginErrorCode.TIMEOUT, e.code) }
+        assertTrue(android.os.SystemClock.elapsedRealtime() - start < 15000)
+        assertTrue(run("globalThis.plugin={study:{terms:()=>({ok:true,data:{}})}};").getBoolean("ok"))
+    }
+    @Test fun memoryLimitStopsAllocation() = runBlocking {
+        try { run("const x=[];while(true)x.push(new Array(100000).fill(1));"); fail("allocation was accepted") }
+        catch (e: PluginException) { assertTrue(e.code in setOf(PluginErrorCode.RESOURCE_LIMIT, PluginErrorCode.TIMEOUT)) }
+    }
+    @Test fun cancellationInterruptsAndStaleResultsCannotReturn() = runBlocking {
+        val op = operation()
+        val job = launch { try { run("while(true){}", op) } finally { op.close() } }
+        delay(400)
+        withTimeout(5000) { job.cancelAndJoin() }
+        try { op.requireActive(); fail("operation remained active") } catch (e: PluginException) { assertEquals(PluginErrorCode.CANCELLED, e.code) }
+        assertTrue(run("globalThis.plugin={study:{terms:()=>({ok:true,data:{}})}};").getBoolean("ok"))
+    }
+    @Test fun hostWaitDoesNotConsumeJsBudgetAndRedirectIsChecked() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(MockResponse().setBody("ok").setBodyDelay(6, TimeUnit.SECONDS))
+            val origin = server.url("/").toString().trimEnd('/')
+            val manifest = JSONObject("""{"network":[{"origin":"$origin","pathPrefix":"/query","methods":["GET"],"purposes":["query"]}]}""")
+            val source = """globalThis.plugin={study:{terms:async(a,c,s)=>({ok:true,data:await s.http({url:'$origin/query',purpose:'query'})})}};"""
+            assertEquals("ok", run(source, operation(manifest = manifest)).getJSONObject("data").getString("body"))
+            server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "$origin/outside"))
+            try { run(source, operation(manifest = manifest)); fail("redirect escaped") }
+            catch (e: PluginException) { assertEquals(PluginErrorCode.UNTRUSTED_URL, e.code) }
+            assertEquals(2, server.requestCount)
+        }
+    }
+    @Test fun authenticationCanInspectALargeSchoolPageRepeatedly() = runBlocking {
+        val html = "<html><body><form><input name='xh' value='synthetic-student'>" +
+            (1..1500).joinToString("") { "<div class='entry'><span>课程菜单 $it</span><a href='/menu/$it'>查看</a></div>" } +
+            "<input name='xm' value='测试学生'></form></body></html>"
+        val source = """globalThis.plugin={auth:{start:async(a,c,s)=>{
+            let names=[];
+            for(let i=0;i<12;i++) names=s.html.select(a.html,'input[name=xh],input[name=xm]').map(n=>n.attributes.value);
+            return {ok:true,data:{names}};
+        }}};"""
+        val op = operation("auth.start")
+        val result = PluginSandboxClient(context).execute(source, JSONObject().put("html", html), op, PluginHost(op, context.cacheDir))
+        assertEquals("synthetic-student", result.getJSONObject("data").getJSONArray("names").getString(0))
+    }
+    @Test fun slowAuthenticationComputationIsNotCutOffByTheQueryBudget() = runBlocking {
+        val source = """globalThis.plugin={auth:{start:async()=>{
+            const until=Date.now()+5500; while(Date.now()<until){}
+            return {ok:true,data:{status:'authenticated'}};
+        }}};"""
+        assertEquals("authenticated", run(source, operation("auth.start")).getJSONObject("data").getString("status"))
+    }
+    @Test fun interruptedInvocationReportsTimeoutInsteadOfAnInternalJavascriptError() = runBlocking {
+        try {
+            run("globalThis.plugin={study:{terms:async()=>{while(true){}}}};")
+            fail("unbounded computation was accepted")
+        } catch (e: PluginException) {
+            assertEquals(PluginErrorCode.TIMEOUT, e.code)
+            assertFalse("raw interpreter error escaped", e.message.orEmpty().contains("interrupt", true))
+        }
+    }
+    @Test fun authenticationStillHasAFiniteComputationLimit() = runBlocking {
+        val started = android.os.SystemClock.elapsedRealtime()
+        try {
+            run("globalThis.plugin={auth:{start:async()=>{while(true){}}}};", operation("auth.start"))
+            fail("unbounded authentication was accepted")
+        } catch (e: PluginException) {
+            assertEquals(PluginErrorCode.TIMEOUT, e.code)
+            assertEquals("登录处理超时，请重试或使用网页登录", e.message)
+        }
+        assertTrue(android.os.SystemClock.elapsedRealtime() - started < 25000)
+    }
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 26)
+    @Test fun processExitInvalidatesQueryAndNeverReplaysSentMutation() = runBlocking {
+        val device = androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation())
+        for (mutation in listOf(false, true)) {
+            MockWebServer().use { server ->
+                server.start()
+                server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE))
+                val origin = server.url("/").toString().trimEnd('/')
+                val purpose = if (mutation) "mutation" else "query"
+                val method = if (mutation) "selection.select" else "study.terms"
+                val manifest = PluginManifest(JSONObject("""{"apiVersion":3,"id":"test.exit","kind":"independent","version":"1.0.0","network":[{"origin":"$origin","pathPrefix":"/wait","methods":["GET"],"purposes":["$purpose"]}]}"""))
+                val op = PluginOperation(sessions.session("test-exit", "test", origin), manifest, method, development = true, confirmed = mutation)
+                val source = """globalThis.plugin={${method.substringBefore('.') }:{${method.substringAfter('.')}:async(a,c,s)=>({ok:true,data:await s.http({url:'$origin/wait',purpose:'$purpose'})})}};"""
+                val task = async(Dispatchers.IO) { runCatching { run(source, op) } }
+                assertNotNull(withContext(Dispatchers.IO) { server.takeRequest(10, TimeUnit.SECONDS) })
+                // Kill only this package's plugin process. A synthetic Java crash can
+                // wait in Android's crash dialog instead of actually terminating it.
+                val pids = device.executeShellCommand("ps -A").lineSequence().map { it.trim().split(Regex("\\s+")) }
+                    .filter { it.size > 2 && it.last().startsWith("${context.packageName}:academic_plugin") }
+                    .map { it[1] }.filter { it.matches(Regex("[0-9]+")) }.toList()
+                assertTrue("private plugin process must exist in ps", pids.isNotEmpty())
+                pids.forEach { android.os.Process.killProcess(it.toInt()) }
+                val error = withTimeout(10_000) { task.await().exceptionOrNull() }
+                assertTrue("$error", error is PluginException)
+                assertEquals(if (mutation) PluginErrorCode.RESULT_UNKNOWN else PluginErrorCode.RUNTIME_EXITED, (error as PluginException).code)
+                assertEquals(1, server.requestCount)
+            }
+        }
+        assertTrue(run("globalThis.plugin={study:{terms:()=>({ok:true,data:{}})}};").getBoolean("ok"))
+    }
+}

@@ -1,0 +1,39 @@
+pluginManagement {
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == 'com.google.devtools.ksp') {
+                useModule("com.google.devtools.ksp:symbol-processing-gradle-plugin:${requested.version}")
+            }
+        }
+    }
+    repositories {
+        google()
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+    }
+    plugins {
+        id 'org.jetbrains.kotlin.android' version '2.4.20'
+        id 'org.jetbrains.kotlin.plugin.compose' version '2.4.20'
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        // Use the Central mirror first to avoid transient Maven Central 429s;
+        // Maven Central remains the authoritative fallback when the mirror misses an artifact.
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        mavenCentral()
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        // GeckoView is published on Mozilla's Maven repository.
+        maven { url 'https://maven.mozilla.org/maven2'; content { includeGroup 'org.mozilla.geckoview' } }
+    }
+}
+
+include ':app'
+rootProject.name = "CourseSelector"
+

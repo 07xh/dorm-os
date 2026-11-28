@@ -1,0 +1,45 @@
+package com.tyust.course.academic
+
+import com.tyust.course.model.SchoolConfig
+
+data class AcademicSystemSupport(val system: AcademicSystem, val name: String, val login: String, val limits: String)
+
+object AcademicCapabilities {
+    val FOUR_SYSTEMS: String get() = "支持" + systems.joinToString("、") { it.name }
+    const val ACCOUNT_LIMIT = "可添加不同学校，所有学校合计最多 3 个学生账号；同一时间只运行当前账号的抢课任务。"
+    const val SCHOOL_LIMIT = "选课时间、名额、学分、年级专业及课程冲突由学校决定。学校未开放的操作不能提交，未公布的数据不会补造。"
+    val systems = listOf(
+        AcademicSystemSupport(AcademicSystem.ZF, "新正方", "支持账密、图片验证码及网页登录；定制统一认证以学校登录流程为准。",
+            "支持串行或最多 2 门课程并行尝试。筛选项、成绩分项与可选教学班取自学校响应。"),
+        AcademicSystemSupport(AcademicSystem.ZF_OLD, "旧正方", "支持账号密码、图片验证码获取与刷新；定制统一认证保留网页登录入口。",
+            "App 为保护学校登录状态，按账号串行提交。体育课、选退课和历史学期以学校开放的入口为准。"),
+        AcademicSystemSupport(AcademicSystem.QZ, "新强智", "支持直接账密登录；额外的人机验证或统一认证需在学校网页完成。",
+            "App 为保护学校登录状态，按账号串行提交。轮次与课程类别来自学校，轮次未开放时仍可查询已选及学习数据。"),
+        AcademicSystemSupport(AcademicSystem.QZ_OLD, "旧强智", "支持账号密码、图片验证码获取与刷新；定制统一认证保留网页登录入口。",
+            "App 为保护学校登录状态，按账号串行提交。学校菜单、开放轮次与操作权限决定可用查询和选退课。"),
+        AcademicSystemSupport(AcademicSystem.JINZHI, "金智", "已内置湖北汽车工业学院统一认证与教务适配。",
+            "支持学期、课表、作息、成绩、考试及选课查询；选退操作受学校开放时间与权限限制。其他学校需对应适配。"),
+        AcademicSystemSupport(AcademicSystem.CHENGFANG, "乘方", "已内置山东石油化工学院适配，请使用统一认证密码完成学校网页登录。",
+            "支持学期、课表、作息、成绩、考试和已选查询。当前该校选退提交尚未验证，请使用学校网页；其他学校需对应适配。"),
+        AcademicSystemSupport(AcademicSystem.KINGO, "青果 KINGOSOFT", "支持学校网页登录；湖南汽车工程职业大学插件提供统一认证账密登录。",
+            "支持学期、课表、成绩、校历、考试与选退课；学校未公布的作息沿用手动设置。"),
+        AcademicSystemSupport(AcademicSystem.EAMS, "树维 EAMS", "支持教务账密、图片验证码及学校统一认证；学校定制通过插件扩展。",
+            "支持学期、课表、成绩、考试、培养方案查询和选退课；开放范围以学校实际接口为准。"),
+        AcademicSystemSupport(AcademicSystem.CHAOXING_ACADEMIC, "超星智慧教务", "使用学校统一认证完成网页登录，与学习通账号独立。",
+            "支持学期、课表、校历、成绩、考试与选退课；学校未提供或未开放的能力明确提示。")
+    )
+    val selectableSystems: List<AcademicSystem> = listOf(AcademicSystem.AUTO) + systems.map { it.system }
+    fun selectionIndex(id: String?): Int = selectableSystems.indexOf(system(id) ?: AcademicSystem.AUTO).coerceAtLeast(0)
+    fun selectionLabel(type: AcademicSystem): String = if (type == AcademicSystem.AUTO) "自动识别" else name(type.id)
+    fun selectedTypeId(currentId: String, selected: AcademicSystem): String =
+        if (currentId == AcademicSystem.LEGACY_ZF.id && selected == AcademicSystem.ZF) currentId else selected.id
+    fun system(id: String?): AcademicSystem? = AcademicSystem.fromId(id)?.let {
+        if (it == AcademicSystem.LEGACY_ZF) AcademicSystem.ZF else it
+    }
+    fun support(id: String?): AcademicSystemSupport? = systems.firstOrNull { it.system == system(id) }
+    fun name(id: String?): String = support(id)?.name ?: "自动识别教务系统"
+    fun supportsParallel(school: SchoolConfig): Boolean = !com.tyust.course.academic.plugin.AcademicProviderRegistry.hasBinding(school) && system(school.academicSystem) == AcademicSystem.ZF
+    fun queueLimit(school: SchoolConfig): String = if (supportsParallel(school))
+        "当前账号可串行或最多 2 门并行尝试；学校选课规则始终生效。" else
+        "${name(school.academicSystem)}按账号串行提交，避免学校会话或表单参数互相覆盖。"
+}

@@ -1,0 +1,264 @@
+name: North UI Migration Build
+
+on:
+  pull_request:
+    paths:
+      - 'apps/xiaoxu-android/migrated/**'
+      - '.github/workflows/north-ui-migration-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: north-ui-migration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile original pages with 校序 data adapter
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify original navigation and schedule UI sources are unchanged
+        run: |
+          set -euo pipefail
+          upstream=apps/xiaoxu-android/upstream/zhengfang-apk-v1.0.135/app/src/main/java/com/tyust/course
+          working=apps/xiaoxu-android/migrated/app/src/main/java/com/tyust/course
+          for file in \
+            MainActivity.kt \
+            ui/theme/NavigationMotion.kt \
+            ui/system/CapsuleNavigationBar.kt \
+            ui/screen/ScheduleAgendaScreen.kt \
+            ui/screen/ScheduleScreen.kt \
+            ui/screen/ScheduleSettingsScreen.kt \
+            ui/screen/ScheduleCourseEditor.kt \
+            ui/screen/ScheduleCourseSheet.kt \
+            ui/route/SettingsRoute.kt \
+            ui/screen/SettingsScreen.kt; do
+            cmp "$upstream/$file" "$working/$file"
+            echo "UPSTREAM IDENTICAL: $file"
+          done
+
+      - name: Validate Ace 6 real-device evidence collector
+        run: |
+          node --check scripts/xiaoxu-ace6-visual-qa.mjs
+          node scripts/xiaoxu-ace6-visual-qa.mjs --help > /dev/null
+          grep -Fq 'uipreview' scripts/xiaoxu-ace6-visual-qa.mjs
+
+      - name: Validate emulator smoke script syntax
+        run: bash -n .github/scripts/north-ui-emulator-smoke.sh
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install upstream SDK and build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install 'platforms;android-37.0' 'build-tools;36.0.0' 'emulator' 'system-images;android-36;google_apis;x86_64'
+
+      - name: Compile and run unit tests
+        id: unit-tests
+        working-directory: apps/xiaoxu-android/migrated
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            set +e
+            bash ./gradlew :app:testDebugUnitTest --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain 2>&1 | tee "$RUNNER_TEMP/north-ui-unit-tests.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            if [[ "$status" -eq 0 ]]; then exit 0; fi
+            if ! grep -Eiq '429|Too Many Requests|temporarily unavailable|Could not GET' "$RUNNER_TEMP/north-ui-unit-tests.log"; then
+              exit "$status"
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "Maven Central transient rate limit; retry $attempt/3 after mirror fallback."
+              sleep $((attempt * 20))
+            fi
+          done
+          exit 1
+
+      - name: Assemble migration debug APK
+        id: assemble
+        if: ${{ always() && !cancelled() }}
+        working-directory: apps/xiaoxu-android/migrated
+        run: |
+          set -euo pipefail
+          bash ./gradlew :app:assembleDebug --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
+
+      - name: Assemble compact signed Ace 6 UI preview APK
+        id: assemble-ace6-preview
+        if: ${{ always() && !cancelled() }}
+        working-directory: apps/xiaoxu-android/migrated
+        run: |
+          set -euo pipefail
+          bash ./gradlew :app:assembleUiPreview -PcompactPreview=true --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
+          apk=app/build/outputs/apk/uiPreview/app-uiPreview.apk
+          test -s "$apk"
+          # Ace 6 preview is arm64-only; fail if defaultConfig leaks a second ABI.
+          if unzip -Z1 "$apk" | grep -Eq '^lib/(armeabi|armeabi-v7a|x86|x86_64)/'; then
+            echo "Compact Ace 6 preview unexpectedly contains non-arm64 native libraries." >&2
+            exit 1
+          fi
+          unzip -Z1 "$apk" | grep -q '^lib/arm64-v8a/'
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -Fq "package: name='io.github.x07xh.xiaoxu.uipreview' versionCode='135' versionName='1.0.135-ui-preview'"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          sha256sum "$apk" > "$RUNNER_TEMP/Xiaoxu-1.0.135-Ace6-UI-Preview.apk.sha256"
+
+      - name: Upload compact signed Ace 6 UI preview APK
+        if: ${{ always() && steps.assemble-ace6-preview.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-north-ui-ace6-ui-preview-${{ github.sha }}
+          path: |
+            apps/xiaoxu-android/migrated/app/build/outputs/apk/uiPreview/app-uiPreview.apk
+            ${{ runner.temp }}/Xiaoxu-1.0.135-Ace6-UI-Preview.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Restore the existing private release signing identity
+        id: release-signing
+        if: ${{ always() && !cancelled() }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.XIAOXU_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_BASE64" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "No existing signing key is configured; release candidate will remain unsigned."
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/xiaoxu-release.p12"
+          test -s "$RUNNER_TEMP/xiaoxu-release.p12"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_SIGNING_CONFIG_FILE=$RUNNER_TEMP/xiaoxu-release.p12" >> "$GITHUB_ENV"
+
+      - name: Assemble same-package release candidate
+        id: release-candidate
+        if: ${{ always() && !cancelled() }}
+        working-directory: apps/xiaoxu-android/migrated
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.XIAOXU_STORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.XIAOXU_KEY_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.XIAOXU_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          bash ./gradlew :app:assembleRelease --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
+
+      - name: Verify release candidate package and pinned signature
+        id: verify-release-candidate
+        if: ${{ always() && steps.release-candidate.outcome == 'success' }}
+        env:
+          SIGNING_ENABLED: ${{ steps.release-signing.outputs.enabled }}
+        run: |
+          set -euo pipefail
+          apk_dir=apps/xiaoxu-android/migrated/app/build/outputs/apk/release
+          mapfile -t apks < <(find "$apk_dir" -maxdepth 1 -type f -name '*.apk' | sort)
+          test "${#apks[@]}" -gt 0
+          expected='io.github.x07xh.xiaoxu'
+          for apk in "${apks[@]}"; do
+            badging=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk")
+            grep -Fq "package: name='$expected' versionCode='135' versionName='1.0.135'" <<< "$badging"
+            if [[ "$SIGNING_ENABLED" == true ]]; then
+              signature=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk")
+              actual=$(sed -n 's/.*Signer #1 certificate SHA-256 digest: //p' <<< "$signature" | head -n 1 | tr '[:lower:]' '[:upper:]')
+              expected_cert=$(openssl x509 -in .github/xiaoxu-release/android-signing-certificate.pem -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+              test -n "$actual" && test "$actual" = "$expected_cert"
+            else
+              echo "Unsigned release candidate: $apk"
+            fi
+            unzip -t "$apk" >/dev/null
+          done
+          (cd "$apk_dir" && sha256sum *.apk > SHA256SUMS)
+          if [[ "$SIGNING_ENABLED" == true ]]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Release candidate signature: verified against the pinned certificate." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Release candidate is unsigned; do not use it to update the installed app." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$SIGNING_ENABLED" == true ]]; then
+            ace6_apk="$apk_dir/app-arm64-v8a-release.apk"
+            test -s "$ace6_apk"
+            cp "$ace6_apk" "$RUNNER_TEMP/Xiaoxu-1.0.135-PLQ110-arm64.apk"
+            sha256sum "$RUNNER_TEMP/Xiaoxu-1.0.135-PLQ110-arm64.apk" > "$RUNNER_TEMP/Xiaoxu-1.0.135-PLQ110-arm64.apk.sha256"
+            echo "Ace 6 production upgrade package: signed arm64 split." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Production upgrade APK not produced: existing signing keystore secrets are not configured." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Ace 6 ARM64 install candidate
+        if: ${{ always() && steps.verify-release-candidate.outcome == 'success' && steps.verify-release-candidate.outputs.signed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-north-ui-ace6-arm64-signed-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/Xiaoxu-1.0.135-PLQ110-arm64.apk
+            ${{ runner.temp }}/Xiaoxu-1.0.135-PLQ110-arm64.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload same-package release candidate
+        if: ${{ always() && steps.verify-release-candidate.outcome == 'success' && steps.verify-release-candidate.outputs.signed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-north-ui-ace6-release-arm64-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/Xiaoxu-1.0.135-PLQ110-arm64.apk
+            ${{ runner.temp }}/Xiaoxu-1.0.135-PLQ110-arm64.apk.sha256
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload unit test report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-north-ui-test-report-${{ github.sha }}
+          path: |
+            apps/xiaoxu-android/migrated/app/build/reports/tests/testDebugUnitTest/
+            apps/xiaoxu-android/migrated/app/build/test-results/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Assemble x86_64 emulator debug APK
+        id: assemble-emulator
+        if: ${{ always() && steps.assemble.outcome == 'success' }}
+        working-directory: apps/xiaoxu-android/migrated
+        run: |
+          set -euo pipefail
+          bash ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PemulatorPreview=true --no-daemon --no-parallel --no-configuration-cache --max-workers=2 --console=plain
+
+      - name: Enable KVM for emulator
+        if: ${{ always() && steps.assemble-emulator.outcome == 'success' }}
+        run: sudo chmod 666 /dev/kvm
+
+      - name: Emulator launch and frame-stats smoke test
+        id: emulator-smoke
+        if: ${{ always() && steps.assemble-emulator.outcome == 'success' }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -memory 4096 -cores 4
+          script: bash .github/scripts/north-ui-emulator-smoke.sh
+
+      - name: Upload emulator smoke evidence
+        if: ${{ always() && steps.emulator-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-north-ui-emulator-evidence-${{ github.sha }}
+          path: /tmp/xiaoxu-smoke/
+          if-no-files-found: ignore
+          retention-days: 14

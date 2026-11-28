@@ -1,0 +1,169 @@
+package io.github.x07xh.xiaoxu.data
+
+import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import java.security.KeyStore
+import java.util.Base64
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONObject
+
+/**
+ * Owner-confirmed manual inputs OR owner-selected offline score JSON imports.
+ * Both remain USER_IMPORT and are encrypted on this device. No credentials,
+ * HAR, Cookies, GPS tracks, or background school requests.
+ *
+ * Separate from the future truly authorized TRUSTED_READONLY cache.
+ */
+class LocalCampusRunStore(context: Context, private val scope: String) {
+    init {
+        require(scope == "local" || Regex("^owner_[a-f0-9]{64}$").matches(scope)) {
+            "invalid_campus_run_scope"
+        }
+    }
+    // A second owner's ciphertext has a different key and AEAD binding.
+    private val preferences = context.applicationContext.getSharedPreferences(
+        "xiaoxu_campus_run_manual_v2", Context.MODE_PRIVATE
+    )
+    private val ivKey = "iv_$scope"
+    private val cipherKey = "cipher_$scope"
+    private val associatedData = ("xiaoxu-campus-run-manual-v2|" + scope)
+        .toByteArray(Charsets.UTF_8)
+
+    private fun secret(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            .apply {
+                init(KeyGenParameterSpec.Builder(KEY_ALIAS,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setRandomizedEncryptionRequired(true)
+                    .build())
+            }.generateKey()
+    }
+
+    fun save(input: CampusRunManualInput, nowEpochMillis: Long): CampusRunSnapshot =
+        saveSnapshot(input.toSnapshot(nowEpochMillis), nowEpochMillis)
+
+    /** Save only a confirmed local import; never promote it to an official read. */
+    fun saveSnapshot(snapshot: CampusRunSnapshot, nowEpochMillis: Long): CampusRunSnapshot {
+        validateCampusRunSnapshot(snapshot, nowEpochMillis)
+        // A stale edit state or a future caller must not overwrite encrypted
+        // owner data while its Keystore key is temporarily unavailable.
+        // Only explicit owner clearing may resolve an unreadable ciphertext.
+        check(!hasEncryptedRecord() || load(nowEpochMillis) != null) {
+            "existing_encrypted_record_unreadable"
+        }
+        require(snapshot.provenance == CampusRunProvenance.USER_IMPORT &&
+            !snapshot.ownerMatched && !snapshot.historyComplete &&
+            snapshot.records.isEmpty()) { "import_cannot_claim_official_provenance" }
+        val json = JSONObject()
+            .put("schema", "xiaoxu/campus-run-manual-v2")
+            .put("scope", scope)
+            .put("capturedAt", snapshot.capturedAtEpochMillis)
+            .put("term", snapshot.termLabel ?: JSONObject.NULL)
+            .put("target", snapshot.targetMeters ?: JSONObject.NULL)
+            .put("credited", snapshot.effectiveMeters ?: JSONObject.NULL)
+            .put("semesterTotal", snapshot.rawMeters ?: JSONObject.NULL)
+            .put("dashboardTotal", snapshot.dashboardAccumulatedMeters ?: JSONObject.NULL)
+            .put("weekly", snapshot.weeklyMeters ?: JSONObject.NULL)
+            .put("semesterCount", snapshot.totalRunCount ?: JSONObject.NULL)
+            .put("semesterValidCount", snapshot.effectiveRunCount ?: JSONObject.NULL)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, secret())
+        cipher.updateAAD(associatedData)
+        val encrypted = cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))
+        require(preferences.edit()
+            .putString(ivKey, Base64.getEncoder().encodeToString(cipher.iv))
+            .putString(cipherKey, Base64.getEncoder().encodeToString(encrypted))
+            .commit()) { "campus_run_local_write_failed" }
+        return snapshot
+    }
+
+    /**
+     * Whether this owner scope still has ciphertext, even if today's Keystore
+     * read cannot decrypt it. Callers must not show this as a usable snapshot.
+     */
+    fun hasEncryptedRecord(): Boolean =
+        preferences.contains(cipherKey) || preferences.contains(ivKey)
+
+    fun load(nowEpochMillis: Long): CampusRunSnapshot? {
+        if (!preferences.contains(cipherKey)) return null
+        return try {
+            val iv = Base64.getDecoder().decode(
+                preferences.getString(ivKey, null) ?: error("missing_iv")
+            )
+            require(iv.size == 12) { "invalid_iv" }
+            val encrypted = Base64.getDecoder().decode(
+                preferences.getString(cipherKey, null) ?: error("missing_cipher")
+            )
+            require(encrypted.size in 17..4_096) { "invalid_cipher" }
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, secret(), GCMParameterSpec(128, iv))
+            cipher.updateAAD(associatedData)
+            val plaintext = String(cipher.doFinal(encrypted), Charsets.UTF_8)
+            require(plaintext.length <= 2_000) { "oversized_snapshot" }
+            val json = JSONObject(plaintext)
+            require(json.getString("schema") == "xiaoxu/campus-run-manual-v2")
+            require(json.getString("scope") == scope)
+            fun nullableMeters(name: String): Long? =
+                if (json.isNull(name)) null else {
+                    val value = json.get(name)
+                    require(value is Number && value.toLong().toDouble() ==
+                        value.toDouble()) { "invalid_meter_field" }
+                    value.toLong()
+                }
+            // Existing manual-v2 ciphertexts predate imported run counts.
+            // Missing fields mean UNKNOWN, not zero. Never infer counts.
+            fun nullableCount(name: String): Int? {
+                if (!json.has(name) || json.isNull(name)) return null
+                val value = json.get(name)
+                require(value is Number) { "invalid_count_field" }
+                val integer = try {
+                    java.math.BigDecimal(value.toString()).intValueExact()
+                } catch (_: ArithmeticException) {
+                    throw IllegalArgumentException("fractional_run_count")
+                }
+                require(integer in 0..1_000_000) { "invalid_count_range" }
+                return integer
+            }
+            val snapshot = CampusRunSnapshot(
+                provenance = CampusRunProvenance.USER_IMPORT,
+                ownerMatched = false,
+                capturedAtEpochMillis = json.getLong("capturedAt"),
+                termLabel = if (json.isNull("term")) null else json.getString("term"),
+                targetMeters = nullableMeters("target"),
+                effectiveMeters = nullableMeters("credited"),
+                rawMeters = nullableMeters("semesterTotal"),
+                historyComplete = false,
+                records = emptyList(),
+                dashboardAccumulatedMeters = nullableMeters("dashboardTotal"),
+                weeklyMeters = nullableMeters("weekly"),
+                totalRunCount = nullableCount("semesterCount"),
+                effectiveRunCount = nullableCount("semesterValidCount")
+            )
+            validateCampusRunSnapshot(snapshot, nowEpochMillis)
+        } catch (_: Exception) {
+            // Never display unreadable bytes as a snapshot, but also never
+            // destroy owner data on a potentially transient Keystore failure
+            // (e.g. device security state, interrupted storage/key access).
+            // The UI can show a repair/clear option after explicit consent.
+            null
+        }
+    }
+
+    fun clear() {
+        require(preferences.edit().remove(ivKey).remove(cipherKey).commit()) {
+            "campus_run_local_clear_failed"
+        }
+    }
+
+    private companion object {
+        const val KEY_ALIAS = "xiaoxu_campus_run_manual_aes_v2"
+    }
+}

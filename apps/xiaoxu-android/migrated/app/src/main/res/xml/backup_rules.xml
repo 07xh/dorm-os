@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Only these domains are backed up; plugin files and storage remain excluded. -->
+    <include domain="sharedpref" path="."/>
+    <include domain="database" path="."/>
+    <exclude domain="sharedpref" path="native-plugin-permissions.xml"/>
+    <exclude domain="sharedpref" path="class_quiet_runtime.xml"/>
+</full-backup-content>

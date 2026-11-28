@@ -75,6 +75,7 @@ test('school first login opts device into owner-verified restore and reloads rea
 });
 
 test('verified Qingguo schedule auto-refreshes on foreground but pending review never syncs',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('xiaoxu-ncwu-schedule-auto-v1','1'));
  let connected=true,attempts=0,successAt='2026-10-01T00:00:00Z';
  await page.route('**/api/v1/**',route=>{
   const url=new URL(route.request().url()).pathname,method=route.request().method();

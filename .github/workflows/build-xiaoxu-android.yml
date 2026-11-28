@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
+      - '.github/north-ui-source-import-requests/pending/*.txt'
   push:
     branches: [main]
     paths:
@@ -244,3 +245,112 @@ jobs:
           path: ${{ runner.temp }}/xiaoxu-release/
           if-no-files-found: ignore
           retention-days: 30
+
+  import-north-ui-full-source:
+    # This one-off request imports a complete, immutable upstream project snapshot.
+    # It is deliberately separate from the normal 校序 APK build/release gate.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Fetch and verify the pinned complete upstream source
+        env:
+          UPSTREAM_COMMIT: bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+          UPSTREAM_TREE: 9284dad51679829d1182f05b57b33490b464e611
+          EXPECTED_FILES: '1222'
+          TARGET: apps/xiaoxu-android/upstream/zhengfang-apk-v1.0.135
+          WORKING_COPY: apps/xiaoxu-android/migrated
+          IMPORT_MARKER: .github/north-ui-source-import-requests/pending/v1.0.135-working-copy.txt
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/zhengfang-apk-v1.0.135"
+          git clone --depth 1 --branch v1.0.135 https://github.com/znjhahaha/zhengfang-apk.git "$source_dir"
+
+          actual_commit=$(git -C "$source_dir" rev-parse HEAD)
+          actual_tree=$(git -C "$source_dir" rev-parse 'HEAD^{tree}')
+          actual_files=$(git -C "$source_dir" ls-tree -r --name-only HEAD | wc -l | tr -d ' ')
+          test "$actual_commit" = "$UPSTREAM_COMMIT"
+          test "$actual_tree" = "$UPSTREAM_TREE"
+          test "$actual_files" = "$EXPECTED_FILES"
+
+          mkdir -p "$(dirname "$TARGET")"
+          mkdir -p "$TARGET"
+          # Reconcile the isolated vendor directory to the exact upstream tree.
+          # --delete removes only stale files inside this dedicated mirror directory.
+          rsync -a --delete --exclude=.git "$source_dir/" "$TARGET/"
+          # The immutable vendor snapshot remains untouched; this is the full working fork.
+          mkdir -p "$WORKING_COPY"
+          rsync -a --delete --exclude=.git "$source_dir/" "$WORKING_COPY/"
+
+          copied_files=$(find "$TARGET" -type f | wc -l | tr -d ' ')
+          test "$copied_files" = "$EXPECTED_FILES"
+          diff -qr --exclude=.git "$source_dir" "$TARGET"
+          (cd "$source_dir" && find . -path ./.git -prune -o -type f -printf "%P %m\n" | sort) > "$RUNNER_TEMP/upstream-file-modes.txt"
+          (cd "$TARGET" && find . -type f -printf "%P %m\n" | sort) > "$RUNNER_TEMP/copied-file-modes.txt"
+          diff -u "$RUNNER_TEMP/upstream-file-modes.txt" "$RUNNER_TEMP/copied-file-modes.txt"
+          working_files=$(find "$WORKING_COPY" -type f | wc -l | tr -d " ")
+          test "$working_files" = "$EXPECTED_FILES"
+          diff -qr --exclude=.git "$source_dir" "$WORKING_COPY"
+          (cd "$WORKING_COPY" && find . -type f -printf "%P %m\n" | sort) > "$RUNNER_TEMP/working-file-modes.txt"
+          diff -u "$RUNNER_TEMP/upstream-file-modes.txt" "$RUNNER_TEMP/working-file-modes.txt"
+
+          # Remove the one-shot request marker so it cannot become a standing build trigger.
+          git rm -f --ignore-unmatch "$IMPORT_MARKER" || true
+          git add -f -- "$TARGET" "$WORKING_COPY"
+          index_tree=$(git write-tree)
+          staged_files=$(git ls-tree -r "$index_tree" -- "$TARGET" | wc -l | tr -d " ")
+          staged_tree=$(git rev-parse "$index_tree:$TARGET")
+          working_staged_files=$(git ls-tree -r "$index_tree" -- "$WORKING_COPY" | wc -l | tr -d " ")
+          working_staged_tree=$(git rev-parse "$index_tree:$WORKING_COPY")
+          test "$staged_files" = "$EXPECTED_FILES"
+          test "$staged_tree" = "$UPSTREAM_TREE"
+          test "$working_staged_files" = "$EXPECTED_FILES"
+          test "$working_staged_tree" = "$UPSTREAM_TREE"
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "refactor(android): seed migration working copy from upstream v1.0.135"
+            git push origin "HEAD:refs/heads/$PR_HEAD_REF"
+          fi
+          committed_tree=$(git rev-parse "HEAD:$TARGET")
+          working_committed_tree=$(git rev-parse "HEAD:$WORKING_COPY")
+          test "$committed_tree" = "$UPSTREAM_TREE"
+          test "$working_committed_tree" = "$UPSTREAM_TREE"
+
+          {
+            echo "## Complete upstream source import"
+            echo "- Immutable source tree SHA: `$committed_tree`"
+            echo "- Working-copy tree SHA: `$working_committed_tree`"
+            echo "- Repository: https://github.com/znjhahaha/zhengfang-apk"
+            echo "- Tag: v1.0.135"
+            echo "- Commit: `$actual_commit`"
+            echo "- Tree: `$actual_tree`"
+            echo "- Files verified: $copied_files / $EXPECTED_FILES"
+            echo "- Destination: `$TARGET`"
+            echo "- Source was copied without editing or pruning."
+            echo "- Working copy: `$WORKING_COPY` (initially byte-for-byte identical; all future migration edits go here)."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      - name: Install the exact upstream compile SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Compile and test the pristine upstream-derived working project
+        working-directory: apps/xiaoxu-android/migrated
+        run: |
+          set -euo pipefail
+          bash ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --no-parallel --max-workers=2 --console=plain
+

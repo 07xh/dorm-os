@@ -13,6 +13,10 @@ on:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
 permissions:
   contents: read
+
+concurrency:
+  group: xiaoxu-secondclass-webview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   detached-reader:
     runs-on: ubuntu-latest
