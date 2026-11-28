@@ -262,7 +262,7 @@ jobs:
             while [ "$attempt" -lt 90 ]; do
               device_state="$(adb get-state 2>/dev/null || true)"
               if [ "$device_state" = "device" ]; then
-                boot_completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+                boot_completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
                 if [ "$boot_completed" = "1" ]; then
                   break
                 fi
