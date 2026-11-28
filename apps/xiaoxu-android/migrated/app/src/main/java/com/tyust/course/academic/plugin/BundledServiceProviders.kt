@@ -12,6 +12,7 @@ object BundledServiceProviders {
     const val CLOUD_MESSAGES_ID = "cn.ncwu.xiaoxu.messages"
     const val CLOUD_MESSAGES_PAGE = "messages"
     const val SECOND_CLASS_PAGE = "secondclass"
+    const val TASK_CENTER_PAGE = "tasks"
 
     fun resolveNativePageId(pkg: PluginPackage, requested: String?): String {
         require(pkg.bundled && pkg.manifest.id == CLOUD_MESSAGES_ID && pkg.manifest.isService)
@@ -66,7 +67,10 @@ object BundledServiceProviders {
                         .put("title", "消息中心"))
                     .put(JSONObject()
                         .put("id", SECOND_CLASS_PAGE)
-                        .put("title", "第二课堂")))
+                        .put("title", "第二课堂"))
+                    .put(JSONObject()
+                        .put("id", TASK_CENTER_PAGE)
+                        .put("title", "任务中心")))
                 .put("entries", JSONArray()
                     .put(JSONObject()
                         .put("id", "messages")
@@ -82,7 +86,14 @@ object BundledServiceProviders {
                         .put("pageId", SECOND_CLASS_PAGE)
                         .put("icon", "activity")
                         .put("order", 21)
-                        .put("placements", JSONArray().put("home"))))
+                        .put("placements", JSONArray().put("home")))
+                    .put(JSONObject()
+                        .put("id", TASK_CENTER_PAGE)
+                        .put("title", "任务中心")
+                        .put("pageId", TASK_CENTER_PAGE)
+                        .put("icon", "check")
+                        .put("order", 19)
+                        .put("placements", JSONArray().put("home").put("schedule").put("grades"))))
                 .put("actions", JSONArray()))
             put("files", JSONObject().put(
                 "index.js", PluginJson.sha256(source.toByteArray(Charsets.UTF_8))
