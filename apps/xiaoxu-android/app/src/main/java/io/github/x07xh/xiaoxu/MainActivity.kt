@@ -151,7 +151,7 @@ class MainActivity : ComponentActivity() {
             val count = result.data?.getIntExtra(
                 NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
             val permitted = when (source) {
-                "chaoxing" -> kind in setOf("course", "homework")
+                "chaoxing" -> kind in setOf("course", "homework", "study_task", "exam_notice")
                 "second_class" -> kind in setOf("activity", "credits")
                 else -> false
             }
@@ -938,14 +938,94 @@ private fun AcademicPage(
                 tabStateHolder.SaveableStateProvider("second_class") {
                     SecondClassPage()
                 }
-            AcademicDestination.GRADES -> Content(topPadding = 6.dp) {
-                item {
-                    XiaoxuEmpty(
-                        title = "成绩尚未读取",
-                        message = "尚无已核验的本人成绩，学校连接情况请在「我的」查看。",
-                        actionLabel = "连接青果教务",
-                        onAction = openProfile
-                    )
+            AcademicDestination.GRADES -> tabStateHolder.SaveableStateProvider("grades") {
+                val state = cloud.state
+                val gradeScope = rememberCoroutineScope()
+                var source by rememberSaveable { mutableStateOf("ncwu") }
+                var chooseCourse by rememberSaveable(state.ownerId) { mutableStateOf(true) }
+                val authorized = state.authenticated && state.connectionsFresh &&
+                    state.platforms.any { it.id == "chaoxing" && it.sessionState == "active" &&
+                        it.authorization == "verified_session" }
+                val busy = state.busy || state.schoolSyncBusyProvider != null
+                Content(topPadding = 6.dp) {
+                    item {
+                        io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl(
+                            options = listOf(
+                                io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption("ncwu", "青果教务"),
+                                io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption("chaoxing", "学习通")
+                            ),
+                            selectedKey = source,
+                            onSelected = { source = it }
+                        )
+                    }
+                    if (source == "ncwu") item {
+                        XiaoxuEmpty(
+                            title = "成绩尚未读取",
+                            message = "尚无已核验的本人课程成绩，学校连接情况请在「我的」查看。",
+                            actionLabel = "连接青果教务",
+                            onAction = openProfile
+                        )
+                    } else if (!authorized) item {
+                        XiaoxuEmpty(
+                            title = "学习通授权待核验",
+                            message = "请先连接学习通本人账号并刷新连接状态。",
+                            actionLabel = "查看数据连接",
+                            onAction = openProfile
+                        )
+                    } else {
+                        item {
+                            AcademicEditorialSection("作业成绩") {
+                                Text("独立于教务总评，不计入绩点与学分。",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = XiaoxuPalette.Ink3)
+                                androidx.compose.material3.TextButton(
+                                    enabled = !busy,
+                                    onClick = {
+                                        chooseCourse = true
+                                        gradeScope.launch { cloud.readChaoxingGrades() }
+                                    }
+                                ) { Text(if (busy) "正在读取…" else "刷新课程") }
+                                state.chaoxingGradeCourse?.let { course ->
+                                    AcademicActionRow(course.title, Icons.Outlined.School,
+                                        status = "切换课程") { chooseCourse = !chooseCourse }
+                                }
+                                state.chaoxingGradeError?.let {
+                                    Text(it, color = XiaoxuPalette.Danger,
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        if (chooseCourse || state.chaoxingGradeCourse == null) {
+                            items(count = state.chaoxingGradeCourses.size,
+                                key = { index -> "grade-course:" + state.chaoxingGradeCourses[index].key }) { index ->
+                                val course = state.chaoxingGradeCourses[index]
+                                AcademicActionRow(course.title, Icons.Outlined.School) {
+                                    if (!busy) gradeScope.launch {
+                                        if (cloud.readChaoxingGrades(course)) chooseCourse = false
+                                    }
+                                }
+                            }
+                        }
+                        if (!chooseCourse && state.chaoxingGradeCourse != null) {
+                            items(count = state.chaoxingGrades.size) { index ->
+                                val row = state.chaoxingGrades[index]
+                                Column(Modifier.fillMaxWidth()) {
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text(row.title, modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = XiaoxuPalette.Ink)
+                                        Text(row.score?.let { score ->
+                                            score.toString().removeSuffix(".0") +
+                                                (row.maxScore?.let { " / " + it.toString().removeSuffix(".0") } ?: "")
+                                        } ?: row.label, color = XiaoxuPalette.Ink2,
+                                            style = MaterialTheme.typography.titleMedium)
+                                    }
+                                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+                                }
+                            }
+                        }
+                    }
                 }
             }
             AcademicDestination.EXAMS -> Content(topPadding = 6.dp) {
