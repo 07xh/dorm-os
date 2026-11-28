@@ -16,13 +16,6 @@ internal data class ExecutionRow(
     val date: LocalDate? get() = parseWorkspaceDue(step?.due) ?: trustedExecutionDate(parent)
 }
 
-internal fun trustedExecutionDate(row: WorkspaceTask): LocalDate? = when {
-    row.storage == "local" -> row.date
-    row.provider == "chaoxing" && row.officialDeadline != null &&
-        (row.storage == "native" || row.dateSource == "学习通本机官方截止") -> row.date
-    else -> null
-}
-
 internal fun taskExecutionRoot(row: WorkspaceTask, ownerId: String?, schoolBinding: String?): ExecutionRoot? = when {
     row.storage == "local" -> ExecutionRoot("device", row.key)
     row.provider == "chaoxing" && !schoolBinding.isNullOrBlank() &&
