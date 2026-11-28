@@ -17,7 +17,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import androidx.work.WorkManager
-import io.github.x07xh.xiaoxu.MainActivity
+import com.tyust.course.academic.plugin.BundledServiceProviders
+import com.tyust.course.academic.plugin.ServicePluginActivity
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -188,10 +189,10 @@ object LocalDeadlineReminders {
                 NotificationChannel(CHANNEL, "本机待办截止提醒", NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
-        val launch = Intent(app, MainActivity::class.java).apply {
-            putExtra("xiaoxu_open_tasks_from_reminder", true)
+        val launch = Intent(app, ServicePluginActivity::class.java).apply {
+            putExtra("pluginId", BundledServiceProviders.CLOUD_MESSAGES_ID)
+            putExtra("pageId", BundledServiceProviders.TASK_CENTER_PAGE)
             putExtra("xiaoxu_open_task_id", task.id)
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pending = PendingIntent.getActivity(
             app, (task.id % Int.MAX_VALUE).toInt(), launch,

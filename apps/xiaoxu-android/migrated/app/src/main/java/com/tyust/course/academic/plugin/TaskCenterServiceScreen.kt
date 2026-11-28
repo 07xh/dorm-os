@@ -107,9 +107,7 @@ internal fun TaskCenterServiceScreen(
                     context.startActivity(
                         Intent(context, MainActivity::class.java)
                             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                            .putExtra("xiaoxu_open_schedule_from_reminder", true)
-                            .putExtra("xiaoxu_open_lesson_id", lessonId)
-                            .putExtra("xiaoxu_open_lesson_weekday", weekday)
+                            .putExtra("pageId", "app.schedule")
                     )
                     onBack()
                 },

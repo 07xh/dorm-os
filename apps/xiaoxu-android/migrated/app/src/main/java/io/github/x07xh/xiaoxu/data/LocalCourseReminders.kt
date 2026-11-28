@@ -20,7 +20,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import androidx.work.WorkManager
-import io.github.x07xh.xiaoxu.MainActivity
+import com.tyust.course.MainActivity
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -277,9 +277,7 @@ object LocalCourseReminders {
             NotificationChannel(CHANNEL, "本机上课提醒", NotificationManager.IMPORTANCE_DEFAULT)
         )
         val intent = Intent(app, MainActivity::class.java).apply {
-            putExtra("xiaoxu_open_schedule_from_reminder", true)
-            putExtra("xiaoxu_open_lesson_id", lesson.id)
-            putExtra("xiaoxu_open_lesson_weekday", lesson.weekday)
+            putExtra("pageId", "app.schedule")
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pending = PendingIntent.getActivity(
