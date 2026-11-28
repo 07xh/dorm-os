@@ -108,6 +108,13 @@ class ServicePluginActivity : ComponentActivity() {
                 accountScope = openedScope.orEmpty(),
                 onBack = { finish() }
             )
+        } else if (native != null && nativePageId == BundledServiceProviders.TASK_CENTER_PAGE) {
+            TaskCenterServiceScreen(
+                title = "任务中心",
+                schoolName = native.manifest.school.getString("name"),
+                accountScope = openedScope.orEmpty(),
+                onBack = { finish() }
+            )
         } else if (native != null) {
             CloudServiceScreen(
                 title = native.manifest.name,
