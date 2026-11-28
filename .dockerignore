@@ -1,0 +1,22 @@
+# Allowlist only the local Pages runtime. Never copy credentials, Android builds,
+# git history, local state or private exports into an image.
+**
+!package.json
+!public/
+!public/**
+!functions/
+!functions/**
+!lib/
+!lib/**
+!migrations/
+!migrations/**
+!wrangler.local.toml
+!docker/
+!docker/start-local.sh
+**/.env
+**/.env.*
+**/.dev.vars
+**/.dev.vars.*
+**/*.pem
+**/*.key
+**/*.har
