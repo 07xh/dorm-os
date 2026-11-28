@@ -227,6 +227,14 @@ internal fun TaskCenterServiceScreen(
                 }
             }
             actionId == "task.wechat.toggle" -> pendingAction = JSONObject(action.toString())
+            actionId == "task.execution.prompt" -> {
+                val root = ExecutionRoot(params.optString("scope"), params.optString("rootKey"))
+                if (root.scope.isBlank() || root.key.isBlank()) message = "任务身份无效"
+                else {
+                    stepDialogRoot = root
+                    stepDraft = ""
+                }
+            }
             actionId == "task.step.toggle" -> {
                 val root = ExecutionRoot(params.optString("scope"), params.optString("rootKey"))
                 val stepId = params.optString("stepId").toLongOrNull()
@@ -520,6 +528,7 @@ internal fun buildTaskCenterPage(
             val group = shown.filter { it.category == category }
             if (group.isNotEmpty()) {
                 val items = JSONArray()
+                val relatedBlocks = mutableListOf<JSONObject>()
                 group.forEachIndexed { index, row ->
                     val root = taskExecutionRoot(row, ownerId, schoolBinding)
                     val childSteps = root?.let { rootKey ->
@@ -574,11 +583,11 @@ internal fun buildTaskCenterPage(
                             }
                             stepItems.put(stepItem)
                         }
-                        blocks.put(taskListBlock("task_steps_${category}_$index", "执行步骤 · ${row.title}", stepItems))
+                        relatedBlocks += taskListBlock("task_steps_${category}_$index", "执行步骤 · ${row.title}", stepItems)
 
                         val execution = executions.firstOrNull { it.scope == root.scope && it.rootKey == root.key }
                         if (childSteps.all { it.completed } && execution?.ended != true) {
-                            blocks.put(JSONObject()
+                            relatedBlocks += JSONObject()
                                 .put("id", "task_finish_${category}_$index")
                                 .put("type", "actions")
                                 .put("title", "步骤已全部完成")
@@ -588,7 +597,7 @@ internal fun buildTaskCenterPage(
                                 ))))
                         }
                         if (root.scope.startsWith("wechat:") && execution?.ended == true) {
-                            blocks.put(JSONObject()
+                            relatedBlocks += JSONObject()
                                 .put("id", "task_reopen_${category}_$index")
                                 .put("type", "actions")
                                 .put("title", "微信父任务已结束")
@@ -599,7 +608,7 @@ internal fun buildTaskCenterPage(
                         }
                     }
                     if (root != null && filterKey in setOf("now", "pending", "all")) {
-                        blocks.put(JSONObject()
+                        relatedBlocks += JSONObject()
                             .put("id", "task_add_step_${category}_$index")
                             .put("type", "actions")
                             .put("title", "个人执行步骤")
@@ -611,6 +620,7 @@ internal fun buildTaskCenterPage(
                     }
                 }
                 blocks.put(taskListBlock("task_group_$category", categoryNames[category] ?: category, items))
+                relatedBlocks.forEach { blocks.put(it) }
             }
         }
     }
